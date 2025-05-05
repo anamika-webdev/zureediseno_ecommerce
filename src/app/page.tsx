@@ -1,9 +1,15 @@
-import Image from "next/image";
+// page.tsx
+import { playfairFont } from "./fonts";
+import {Button} from "@/components/ui/button";
+import ThemeToggle from "@/components/shared/theme-toggle";
 
-export default function Home() {
+export default function Page() {
   return (
-    <div>
-      <h1 className="fon-bold text-blue-500">Welcome</h1>
+    <div className="p-5">
+      <div className="w-100 flex justify-end"><ThemeToggle /></div>
+      <h1 className={playfairFont.className}>Welcome to ZureeDiseno</h1>
+      <p>This is the homepage of our ecommerce platform.</p>
+    <Button>Click Here</Button>
     </div>
   );
 }
