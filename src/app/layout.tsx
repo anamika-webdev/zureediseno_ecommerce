@@ -1,38 +1,36 @@
-import type { Metadata } from "next";
-import { interFont, playfairFont } from "./fonts";
-import dynamic from "next/dynamic";
-import "./globals.css";
-import { ThemeProvider } from "next-themes";
-
-// Dynamically import ClerkProvider with SSR disabled
-const ClerkProviderDynamic = dynamic(() => import("@clerk/nextjs").then((mod) => mod.ClerkProvider), {
-  ssr: false,
-});
-
+// app/layout.tsx
+import { ClerkProvider } from '@clerk/nextjs';
+import type { Metadata } from 'next';
+import './globals.css';
+import { ThemeProvider } from '@/providers/theme-provider';
+//Toast
+import { Toaster } from '@/components/ui/toaster';
+import { Toaster  as SonnerToaster } from  "@/components/ui/sonner";
+import ModalProvider from "@/providers/modal-providers";
+import { CartProvider } from '@/context/CartContext';
 export const metadata: Metadata = {
-  title: "ZureeDiseno",
-  description: "Welcome to zuree Diseno ecommerce",
+  title: 'Zuree Global',
+  description: 'Zuree Global eCommerce',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" className="light" style={{ colorScheme: "light" }}>
-      <body className={`${interFont.className} ${playfairFont.variable}`}>
-        <ClerkProviderDynamic>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
+    <ClerkProvider>
+      <CartProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body suppressHydrationWarning>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem  disableTransitionOnChange>
+           <ModalProvider>{children}</ModalProvider>
+            <Toaster />
+            <SonnerToaster position="bottom-left" />
           </ThemeProvider>
-        </ClerkProviderDynamic>
-      </body>
-    </html>
+        </body>
+      </html>
+      </CartProvider>
+    </ClerkProvider>
   );
 }
