@@ -9,8 +9,7 @@ export default async function HomePage() {
            <div className="container mx-auto px-4 py-12 text-center">
           <h2 className="heading-md mb-4">Curated solutions with our exclusive range of products</h2>
           <p className="text-gray-600 max-w-3xl mx-auto">
-            Your one-stop solution provider in the world of fashion. With our exclusive range of furniture, custom fabrics, timeless wallpapers, and coordinating art both volume-based and personal dwellings.
-          </p>
+           Your one-stop solution provider in the world of fashion. With our exclusive range of fabrics, timeless design, and coordinating freshness with technology for both volume-based and personal dwellings.</p>
         </div>
         
            <CustomDesign />
