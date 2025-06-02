@@ -1,5 +1,5 @@
 "use client";
-
+import React from 'react';
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -186,7 +186,7 @@ export default function AdminProductsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Manage Products</h1>
-
+      
       {/* Add Product Button */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogTrigger asChild>
@@ -293,7 +293,7 @@ export default function AdminProductsPage() {
                     e.currentTarget.src = "/assets/images/placeholder.jpg";
                   }}
                 />
-                <p className="text-sm text-gray-600">Price: ${${typeof product.price === 'number' ? product.price.toFixed(2) : parseFloat(product.price || 0).toFixed(2)}}</p>
+                <p className="text-sm text-gray-600">Price: ${typeof product.price === 'number' ? product.price.toFixed(2) : parseFloat(product.price || '0').toFixed(2)}</p>
                 <p className="text-sm text-gray-600">Stock: {product.stock}</p>
                 <p className="text-sm text-gray-600">Category: {product.category.name}</p>
                 {product.subCategory && (

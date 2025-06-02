@@ -18,12 +18,13 @@ const pool = mysql.createPool(dbConfig);
 // GET single order
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   let connection;
   
   try {
-    const { userId } = auth();
+    const { id } = await params; // Await the params Promise
+    const { userId } = await auth(); // Await the auth() call
     
     if (!userId) {
       return NextResponse.json(
@@ -32,7 +33,7 @@ export async function GET(
       );
     }
 
-    const orderId = params.id;
+    const orderId = id;
     
     connection = await pool.getConnection();
 
@@ -84,12 +85,13 @@ export async function GET(
 // PATCH update order
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   let connection;
   
   try {
-    const { userId } = auth();
+    const { id } = await params; // Await the params Promise
+    const { userId } = await auth(); // Await the auth() call
     
     if (!userId) {
       return NextResponse.json(
@@ -98,7 +100,7 @@ export async function PATCH(
       );
     }
 
-    const orderId = params.id;
+    const orderId = id;
     const updateData = await req.json();
     
     connection = await pool.getConnection();
@@ -181,12 +183,13 @@ export async function PATCH(
 // DELETE order (soft delete - mark as cancelled)
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   let connection;
   
   try {
-    const { userId } = auth();
+    const { id } = await params; // Await the params Promise
+    const { userId } = await auth(); // Await the auth() call
     
     if (!userId) {
       return NextResponse.json(
@@ -195,7 +198,7 @@ export async function DELETE(
       );
     }
 
-    const orderId = params.id;
+    const orderId = id;
     
     connection = await pool.getConnection();
 

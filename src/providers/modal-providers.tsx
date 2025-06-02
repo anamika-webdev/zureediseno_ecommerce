@@ -13,6 +13,7 @@ interface ModalProviderProps {
 export type ModalData = {
   user?: User;
 };
+
 type ModalContextType = {
   data: ModalData;
   isOpen: boolean;
@@ -43,7 +44,13 @@ const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
   ) => {
     if (modal) {
       if (fetchData) {
-        setData({ ...data, ...(await fetchData()) } || {});
+        try {
+          const fetchedData = await fetchData();
+          setData({ ...data, ...(fetchedData || {}) });
+        } catch (error) {
+          console.error('Error fetching modal data:', error);
+          setData({ ...data });
+        }
       }
       setShowingModal(modal);
       setIsOpen(true);

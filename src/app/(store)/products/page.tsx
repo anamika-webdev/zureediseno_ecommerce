@@ -1,4 +1,4 @@
-// src/app/(store)/products/[category]/page.tsx
+// src/app/(store)/products/page.tsx
 "use client";
 
 import { useState, useEffect, use } from 'react';
@@ -36,14 +36,14 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Unwrap the promises
+  // Unwrap the promises using React.use()
   const resolvedParams = use(params);
   const resolvedSearchParams = use(searchParams);
 
   // Safely access searchParams
   const subcategory = typeof resolvedSearchParams.subcategory === 'string' ? resolvedSearchParams.subcategory : undefined;
 
-  // Mock data fallback
+  // Mock data with working images
   const mockProducts: Product[] = [
     {
       id: '1',
@@ -54,7 +54,7 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
       images: [
         {
           id: '1',
-          url: '/images/products/classic-white-shirt-1.jpg',
+          url: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&h=400&fit=crop',
           alt: 'Classic White Shirt',
           isPrimary: true
         }
@@ -76,7 +76,7 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
       images: [
         {
           id: '2',
-          url: '/images/products/premium-tshirt-1.jpg',
+          url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop',
           alt: 'Premium Cotton T-Shirt',
           isPrimary: true
         }
@@ -98,7 +98,7 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
       images: [
         {
           id: '3',
-          url: '/images/products/formal-black-shirt-1.jpg',
+          url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400&h=400&fit=crop',
           alt: 'Formal Black Shirt',
           isPrimary: true
         }
@@ -119,7 +119,7 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
       images: [
         {
           id: '4',
-          url: '/images/products/casual-denim-shirt-1.jpg',
+          url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400&h=400&fit=crop',
           alt: 'Casual Denim Shirt',
           isPrimary: true
         }
@@ -131,6 +131,52 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
       ],
       inStock: true,
       featured: false
+    },
+    {
+      id: '5',
+      name: 'Navy Blue Polo',
+      slug: 'navy-blue-polo',
+      price: 2299,
+      originalPrice: 2799,
+      images: [
+        {
+          id: '5',
+          url: 'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=400&h=400&fit=crop',
+          alt: 'Navy Blue Polo',
+          isPrimary: true
+        }
+      ],
+      variants: [
+        { id: '13', size: 'S', color: 'Navy', stock: 6 },
+        { id: '14', size: 'M', color: 'Navy', stock: 10 },
+        { id: '15', size: 'L', color: 'Navy', stock: 8 },
+        { id: '16', size: 'XL', color: 'Navy', stock: 4 }
+      ],
+      inStock: true,
+      featured: false
+    },
+    {
+      id: '6',
+      name: 'Casual Gray Hoodie',
+      slug: 'casual-gray-hoodie',
+      price: 3499,
+      originalPrice: 4299,
+      images: [
+        {
+          id: '6',
+          url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop',
+          alt: 'Casual Gray Hoodie',
+          isPrimary: true
+        }
+      ],
+      variants: [
+        { id: '17', size: 'S', color: 'Gray', stock: 5 },
+        { id: '18', size: 'M', color: 'Gray', stock: 8 },
+        { id: '19', size: 'L', color: 'Gray', stock: 6 },
+        { id: '20', size: 'XL', color: 'Gray', stock: 3 }
+      ],
+      inStock: true,
+      featured: true
     }
   ];
 
@@ -142,15 +188,38 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
           url += `&subcategory=${subcategory}`;
         }
         
-        console.log('🔍 Fetching from:', url);
+        console.log('🔍 Fetching products from:', url);
         const response = await fetch(url);
         
         if (response.ok) {
           const data = await response.json();
           console.log('📦 API Response:', data);
           
-          // Use API data if available, otherwise use mock data
-          setProducts(data.length > 0 ? data : mockProducts);
+          // Transform API data to match expected format
+          const transformedData = data.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            slug: item.slug,
+            price: item.price,
+            originalPrice: item.originalPrice || item.comparePrice,
+            images: item.images ? item.images.map((img: any) => ({
+              id: img.id,
+              url: img.url,
+              alt: img.alt || item.name,
+              isPrimary: img.isPrimary
+            })) : [],
+            variants: item.variants ? item.variants.map((variant: any) => ({
+              id: variant.id,
+              size: variant.size,
+              color: variant.color,
+              stock: variant.stock,
+              sleeveType: variant.sleeveType
+            })) : [],
+            inStock: item.inStock,
+            featured: item.featured
+          }));
+          
+          setProducts(transformedData.length > 0 ? transformedData : mockProducts);
         } else {
           console.log('⚠️ API failed, using mock data');
           setProducts(mockProducts);
@@ -165,7 +234,7 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
     };
 
     fetchProducts();
-  }, [resolvedParams.category, subcategory]);
+  }, [resolvedParams.category, subcategory, mockProducts]);
 
   if (loading) {
     return (
@@ -203,10 +272,18 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
       {/* Filter Tabs */}
       <div className="flex justify-center mb-8">
         <div className="flex bg-gray-100 rounded-lg p-1">
-          <button className="px-4 py-2 bg-black text-white rounded-md">All</button>
-          <button className="px-4 py-2 text-gray-600 hover:text-black">Shirts</button>
-          <button className="px-4 py-2 text-gray-600 hover:text-black">Pants</button>
-          <button className="px-4 py-2 text-gray-600 hover:text-black">T-Shirts</button>
+          <button className="px-4 py-2 bg-black text-white rounded-md transition-colors">
+            All
+          </button>
+          <button className="px-4 py-2 text-gray-600 hover:text-black transition-colors">
+            Shirts
+          </button>
+          <button className="px-4 py-2 text-gray-600 hover:text-black transition-colors">
+            T-Shirts
+          </button>
+          <button className="px-4 py-2 text-gray-600 hover:text-black transition-colors">
+            Hoodies
+          </button>
         </div>
       </div>
 
@@ -220,6 +297,10 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
       ) : (
         <div className="text-center py-12">
           <p className="text-gray-500">No products found in this category.</p>
+          <p className="text-sm text-gray-400 mt-2">
+            Category: {resolvedParams.category}
+            {subcategory && ` | Subcategory: ${subcategory}`}
+          </p>
         </div>
       )}
     </div>

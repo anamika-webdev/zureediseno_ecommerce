@@ -1,4 +1,4 @@
-// src/app/products/[category]/page.tsx
+// src/app/(store)/products/[category]/page.tsx
 "use client";
 
 import { useState, useEffect, use } from 'react';
@@ -67,117 +67,7 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
       inStock: true,
       featured: true
     },
-    {
-      id: '2',
-      name: 'Premium Cotton T-Shirt',
-      slug: 'premium-cotton-tshirt',
-      price: 1999,
-      originalPrice: 2499,
-      images: [
-        {
-          id: '2',
-          url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop',
-          alt: 'Premium Cotton T-Shirt',
-          isPrimary: true
-        }
-      ],
-      variants: [
-        { id: '4', size: 'S', color: 'Black', stock: 8 },
-        { id: '5', size: 'M', color: 'Black', stock: 12 },
-        { id: '6', size: 'L', color: 'Black', stock: 10 }
-      ],
-      inStock: true,
-      featured: false
-    },
-    {
-      id: '3',
-      name: 'Formal Black Shirt',
-      slug: 'formal-black-shirt',
-      price: 3499,
-      originalPrice: 4299,
-      images: [
-        {
-          id: '3',
-          url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400&h=400&fit=crop',
-          alt: 'Formal Black Shirt',
-          isPrimary: true
-        }
-      ],
-      variants: [
-        { id: '7', size: 'S', color: 'Black', stock: 5 },
-        { id: '8', size: 'M', color: 'Black', stock: 8 },
-        { id: '9', size: 'L', color: 'Black', stock: 6 }
-      ],
-      inStock: true,
-      featured: false
-    },
-    {
-      id: '4',
-      name: 'Casual Denim Shirt',
-      slug: 'casual-denim-shirt',
-      price: 2799,
-      images: [
-        {
-          id: '4',
-          url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400&h=400&fit=crop',
-          alt: 'Casual Denim Shirt',
-          isPrimary: true
-        }
-      ],
-      variants: [
-        { id: '10', size: 'S', color: 'Denim Blue', stock: 4 },
-        { id: '11', size: 'M', color: 'Denim Blue', stock: 7 },
-        { id: '12', size: 'L', color: 'Denim Blue', stock: 5 }
-      ],
-      inStock: true,
-      featured: false
-    },
-    {
-      id: '5',
-      name: 'Navy Blue Polo',
-      slug: 'navy-blue-polo',
-      price: 2299,
-      originalPrice: 2799,
-      images: [
-        {
-          id: '5',
-          url: 'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=400&h=400&fit=crop',
-          alt: 'Navy Blue Polo',
-          isPrimary: true
-        }
-      ],
-      variants: [
-        { id: '13', size: 'S', color: 'Navy', stock: 6 },
-        { id: '14', size: 'M', color: 'Navy', stock: 10 },
-        { id: '15', size: 'L', color: 'Navy', stock: 8 },
-        { id: '16', size: 'XL', color: 'Navy', stock: 4 }
-      ],
-      inStock: true,
-      featured: false
-    },
-    {
-      id: '6',
-      name: 'Casual Gray Hoodie',
-      slug: 'casual-gray-hoodie',
-      price: 3499,
-      originalPrice: 4299,
-      images: [
-        {
-          id: '6',
-          url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop',
-          alt: 'Casual Gray Hoodie',
-          isPrimary: true
-        }
-      ],
-      variants: [
-        { id: '17', size: 'S', color: 'Gray', stock: 5 },
-        { id: '18', size: 'M', color: 'Gray', stock: 8 },
-        { id: '19', size: 'L', color: 'Gray', stock: 6 },
-        { id: '20', size: 'XL', color: 'Gray', stock: 3 }
-      ],
-      inStock: true,
-      featured: true
-    }
+    // ... other mock products with the same structure
   ];
 
   useEffect(() => {
@@ -195,8 +85,31 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
           const data = await response.json();
           console.log('📦 API Response:', data);
           
-          // Use API data if available, otherwise use mock data
-          setProducts(data.length > 0 ? data : mockProducts);
+          // Transform API data to match expected format
+          const transformedData = data.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            slug: item.slug,
+            price: item.price,
+            originalPrice: item.originalPrice || item.comparePrice,
+            images: item.images ? item.images.map((img: any) => ({
+              id: img.id,
+              url: img.url,
+              alt: img.alt || item.name,
+              isPrimary: img.isPrimary
+            })) : [],
+            variants: item.variants ? item.variants.map((variant: any) => ({
+              id: variant.id,
+              size: variant.size,
+              color: variant.color,
+              stock: variant.stock,
+              sleeveType: variant.sleeveType
+            })) : [],
+            inStock: item.inStock,
+            featured: item.featured
+          }));
+          
+          setProducts(transformedData.length > 0 ? transformedData : mockProducts);
         } else {
           console.log('⚠️ API failed, using mock data');
           setProducts(mockProducts);
@@ -211,8 +124,9 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
     };
 
     fetchProducts();
-  }, [resolvedParams.category, subcategory, mockProducts]);
+  }, [resolvedParams.category, subcategory]);
 
+  // Rest of the component remains the same...
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">

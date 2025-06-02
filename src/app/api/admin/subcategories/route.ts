@@ -2,6 +2,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+interface PrismaError extends Error {
+  code?: string;
+  meta?: any;
+}
+
 export async function GET() {
   try {
     const subcategories = await prisma.subcategory.findMany({
@@ -24,7 +29,7 @@ export async function GET() {
     return NextResponse.json(
       { 
         error: 'Failed to fetch subcategories',
-        message: error.message
+        message: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )
@@ -34,7 +39,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, categoryId, description } = body
+    const { name, categoryId, description, slug } = body
 
     if (!name || !categoryId) {
       return NextResponse.json(
@@ -43,9 +48,27 @@ export async function POST(request: Request) {
       )
     }
 
+    // Generate slug if not provided
+    const subcategorySlug = slug || name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-')
+
+    // Check if slug already exists
+    const existingSubcategory = await prisma.subcategory.findFirst({
+      where: {
+        slug: subcategorySlug
+      }
+    })
+
+    if (existingSubcategory) {
+      return NextResponse.json(
+        { error: 'A subcategory with this URL slug already exists' },
+        { status: 400 }
+      )
+    }
+
     const subcategory = await prisma.subcategory.create({
       data: {
         name: name.trim(),
+        slug: subcategorySlug,
         categoryId,
         description: description?.trim() || null
       },
@@ -62,10 +85,20 @@ export async function POST(request: Request) {
     return NextResponse.json(subcategory)
   } catch (error) {
     console.error('Error creating subcategory:', error)
+    
+    // Handle Prisma-specific errors with proper type checking
+    const prismaError = error as PrismaError
+    if (prismaError.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'A subcategory with this name or slug already exists' },
+        { status: 400 }
+      )
+    }
+    
     return NextResponse.json(
       { 
         error: 'Failed to create subcategory',
-        message: error.message
+        message: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )

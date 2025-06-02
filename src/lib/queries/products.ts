@@ -1,5 +1,3 @@
-
-
 import { prisma } from '@/lib/prisma';
 
 export async function getProducts(category?: string, subcategory?: string) {
@@ -104,6 +102,42 @@ export async function getProductsByCategory(categorySlug: string, limit?: number
     return products;
   } catch (error) {
     console.error('Error fetching products by category:', error);
+    return [];
+  }
+}
+
+// In lib/queries/products.ts
+export async function getProductsBySubcategory(subcategorySlug: string, limit?: number) {
+  try {
+    const productsFromDb = await prisma.product.findMany({
+      where: {
+        subcategory: {
+          slug: subcategorySlug
+        },
+        inStock: true
+      },
+      include: {
+        category: true,
+        subcategory: true,
+        images: true,
+        variants: true
+      },
+      ...(limit && { take: limit }),
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Transform the data to match your component's expected type
+    const products = productsFromDb.map(product => ({
+      ...product,
+      image: product.images.find(img => img.isPrimary)?.url || product.images[0]?.url || '/assets/images/placeholder.jpg',
+      subcategory: product.subcategory
+    }));
+
+    return products;
+  } catch (error) {
+    console.error('Error fetching products by subcategory:', error);
     return [];
   }
 }

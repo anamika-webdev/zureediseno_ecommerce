@@ -23,7 +23,7 @@ export default function CategoriesPage() {
   const fetchCategories = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/categories')
+      const response = await fetch('/api/admin/categories')
       if (!response.ok) throw new Error('Failed to fetch categories')
       
       const data = await response.json()
@@ -31,9 +31,9 @@ export default function CategoriesPage() {
       const serializedData: SerializableCategory[] = data.map((cat: any) => ({
         id: cat.id,
         name: cat.name,
-        slug: cat.slug,
-        image: cat.image,
-        featured: cat.featured,
+        slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
+        image: cat.image || '',
+        featured: cat.featured || false,
         createdAt: new Date(cat.createdAt).toISOString(),
         updatedAt: new Date(cat.updatedAt).toISOString()
       }))
@@ -74,7 +74,7 @@ export default function CategoriesPage() {
     if (!confirm('Are you sure you want to delete this category?')) return
 
     try {
-      const response = await fetch(`/api/categories?id=${categoryId}`, {
+      const response = await fetch(`/api/admin/categories/${categoryId}`, {
         method: 'DELETE'
       })
 

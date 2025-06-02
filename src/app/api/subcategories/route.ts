@@ -19,10 +19,9 @@ export async function GET() {
           }
         }
       },
-      orderBy: [
-        { sortOrder: 'asc' },
-        { createdAt: 'desc' }
-      ]
+      orderBy: {
+        createdAt: 'desc'
+      }
     })
     
     console.log(`✅ Subcategories API: Found ${subcategories.length} subcategories`)
@@ -54,7 +53,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('📝 Subcategories API POST: Body received:', body)
     
-    const { name, url, categoryId, featured = false, sortOrder = 0 } = body
+    const { name, url, categoryId, description } = body
 
     if (!name || !url || !categoryId) {
       return NextResponse.json({ error: 'Name, URL, and Category are required' }, { status: 400 })
@@ -63,10 +62,9 @@ export async function POST(request: NextRequest) {
     const subcategory = await prisma.subcategory.create({
       data: {
         name: name.trim(),
-        url: url.trim().toLowerCase(),
+        slug: url.trim().toLowerCase(), // Use slug instead of url
         categoryId,
-        featured: Boolean(featured),
-        sortOrder: Number(sortOrder) || 0
+        description: description?.trim() || null
       },
       include: {
         category: {
@@ -93,7 +91,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, name, url, categoryId, featured, sortOrder } = body
+    const { id, name, url, categoryId, description } = body
 
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
@@ -101,10 +99,9 @@ export async function PUT(request: NextRequest) {
 
     const updateData: any = {}
     if (name !== undefined) updateData.name = name.trim()
-    if (url !== undefined) updateData.url = url.trim().toLowerCase()
+    if (url !== undefined) updateData.slug = url.trim().toLowerCase() // Use slug instead of url
     if (categoryId !== undefined) updateData.categoryId = categoryId
-    if (featured !== undefined) updateData.featured = Boolean(featured)
-    if (sortOrder !== undefined) updateData.sortOrder = Number(sortOrder) || 0
+    if (description !== undefined) updateData.description = description?.trim() || null
 
     const subcategory = await prisma.subcategory.update({
       where: { id },

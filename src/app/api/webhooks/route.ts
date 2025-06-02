@@ -174,37 +174,25 @@ export async function POST(req: Request) {
         return new Response("Missing required user data", { status: 400 });
       }
 
-      const firstName = data.first_name || '';
-      const lastName = data.last_name || '';
       const email = data.email_addresses[0].email_address;
       const imageUrl = data.image_url || '';
 
-      const user: Pick<User, 'id' | 'name' | 'email' | 'picture'> = {
-        id: data.id,
-        name: `${firstName} ${lastName}`.trim(),
-        email: email,
-        picture: imageUrl,
-      };
+      console.log("User data extracted:", { id: data.id, email, picture: imageUrl });
 
-      console.log("User data extracted:", user);
-
-      if (!user.email) {
-        console.error("No email found for user:", user);
+      if (!email) {
+        console.error("No email found for user:", { id: data.id });
         return new Response("No email found", { status: 400 });
       }
 
+      // Only use fields that exist in your User model
       const dbUser = await db.user.upsert({
-        where: { email: user.email },
+        where: { email: email },
         update: {
-          id: user.id,
-          name: user.name,
-          picture: user.picture,
+          clerkId: data.id,
         },
         create: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          picture: user.picture,
+          clerkId: data.id,
+          email: email,
           role: 'USER',
         },
       });

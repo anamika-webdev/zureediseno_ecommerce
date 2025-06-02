@@ -1,63 +1,61 @@
+"use client";
+
 import { SearchResult } from "@/lib/types";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FC } from "react";
 
-interface Props {
+interface SuggestionsProps {
   suggestions: SearchResult[];
-  query: string;
+  onSuggestionClick?: () => void;
 }
 
-const SearchSuggestions: FC<Props> = ({ suggestions, query }) => {
+export default function Suggestions({ suggestions, onSuggestionClick }: SuggestionsProps) {
   const router = useRouter();
-  const highlightText = (text: string, query: string) => {
-    if (!query) return text; // Return original text if query is empty
 
-    const regex = new RegExp(`(${query})`, "gi"); // Create a regex to match the query (case insensitive)
-    const parts = text.split(regex); // Split the text by the query
-
-    return parts.map((part, index) =>
-      part.toLowerCase() === query.toLowerCase() ? (
-        <strong key={index} className="text-orange-background">
-          {part}
-        </strong>
-      ) : (
-        part
-      )
-    );
+  const handlePush = (slug?: string) => {
+    if (slug) {
+      router.push(`/product/${slug}`);
+    }
+    onSuggestionClick?.();
   };
 
-  const handlePush = (link: string) => {
-    router.push(link);
-  };
+  if (!suggestions || suggestions.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="absolute top-11 w-full rounded-3xl bg-white text-main-primary shadow-2xl !z-[99] overflow-hidden">
-      <div className="py-2">
-        <ul>
-          {suggestions.map((sugg) => (
-            <li
-              key={sugg.name}
-              className="w-full h-20 px-6 cursor-pointer hover:bg-[#f5f5f5] flex items-center gap-x-2"
-              onClick={() => handlePush(sugg.link)}
-            >
-              <Image
-                src={sugg.image}
-                alt=""
-                width={100}
-                height={100}
-                className="w-16 h-16 rounded-md object-cover"
-              />
-              <div>
-                <span className="text-sm leading-6 my-1.5">
-                  {highlightText(sugg.name, query)}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+      {suggestions.map((sugg) => (
+        <div
+          key={sugg.id}
+          className="w-full h-20 px-6 cursor-pointer hover:bg-[#f5f5f5] flex items-center gap-x-2"
+          onClick={() => handlePush(sugg.slug)}
+        >
+          {sugg.image && (
+            <Image
+              src={sugg.image}
+              alt={sugg.name}
+              width={48}
+              height={48}
+              className="w-12 h-12 object-cover rounded-md bg-gray-200"
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            <h4 className="font-medium text-gray-900 truncate">{sugg.name}</h4>
+            {sugg.description && (
+              <p className="text-sm text-gray-600 truncate">{sugg.description}</p>
+            )}
+            {sugg.price && (
+              <p className="text-sm font-semibold text-blue-600">₹{sugg.price}</p>
+            )}
+          </div>
+          {sugg.category && (
+            <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+              {sugg.category}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
-};
-
-export default SearchSuggestions;
+}

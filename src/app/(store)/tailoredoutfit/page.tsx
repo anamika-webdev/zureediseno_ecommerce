@@ -20,13 +20,13 @@ const tailorFormSchema = z.object({
   designDescription: z.string().min(10, "Please provide a detailed description"),
   colorDescription: z.string().min(3, "Please specify your color preferences"),
   measurements: z.object({
+    providedByCustomer: z.boolean(),
     chest: z.string().optional(),
     waist: z.string().optional(),
     hips: z.string().optional(),
     shoulders: z.string().optional(),
     inseam: z.string().optional(),
     sleeves: z.string().optional(),
-    providedByCustomer: z.boolean().default(false),
   }),
   fabricPreference: z.string().min(1, "Please select a fabric preference"),
   image: z.instanceof(FileList).optional(),
@@ -76,13 +76,13 @@ export default function TailorOutfit() {
       designDescription: "",
       colorDescription: "",
       measurements: {
+        providedByCustomer: false,
         chest: "",
         waist: "",
         hips: "",
         shoulders: "",
         inseam: "",
         sleeves: "",
-        providedByCustomer: false,
       },
       fabricPreference: "",
     },
@@ -164,8 +164,6 @@ export default function TailorOutfit() {
 
   return (
     <div className="min-h-screen">
-    
-      
       <main className="container mx-auto px-4 py-12">
         <div className="text-center mb-12">
           <h1 className="heading-lg mb-4">Custom Design</h1>
@@ -329,98 +327,129 @@ export default function TailorOutfit() {
 
                   {/* Measurements Section */}
                   <div className="space-y-4 p-4 bg-gray-50 rounded-md">
-                    <div className="flex items-start space-x-2">
-                      <Checkbox 
-                        id="providedByCustomer"
-                        checked={form.watch("measurements.providedByCustomer")}
-                        onCheckedChange={handleMeasurementCheck}
-                      />
-                      <div className="space-y-1 leading-none">
-                        <Label
-                          htmlFor="providedByCustomer"
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          I will provide measurements later
-                        </Label>
-                        <p className="text-sm text-gray-500">
-                          Check this if you prefer to provide measurements during a call or visit to our store
-                        </p>
-                      </div>
-                    </div>
+                    <FormField
+                      control={form.control}
+                      name="measurements.providedByCustomer"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={(checked) => {
+                                field.onChange(checked);
+                                handleMeasurementCheck(checked as boolean);
+                              }}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>
+                              I will provide measurements later
+                            </FormLabel>
+                            <p className="text-sm text-gray-500">
+                              Check this if you prefer to provide measurements during a call or visit to our store
+                            </p>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
 
                     {!form.watch("measurements.providedByCustomer") && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="chest" className="flex items-center gap-2">
-                            <Ruler className="h-4 w-4" />
-                            Chest (inches)
-                          </Label>
-                          <Input
-                            id="chest"
-                            placeholder="e.g., 40"
-                            {...form.register("measurements.chest")}
-                          />
-                        </div>
+                        <FormField
+                          control={form.control}
+                          name="measurements.chest"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-2">
+                                <Ruler className="h-4 w-4" />
+                                Chest (inches)
+                              </FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 40" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
 
-                        <div className="space-y-2">
-                          <Label htmlFor="waist" className="flex items-center gap-2">
-                            <Ruler className="h-4 w-4" />
-                            Waist (inches)
-                          </Label>
-                          <Input
-                            id="waist"
-                            placeholder="e.g., 34"
-                            {...form.register("measurements.waist")}
-                          />
-                        </div>
+                        <FormField
+                          control={form.control}
+                          name="measurements.waist"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-2">
+                                <Ruler className="h-4 w-4" />
+                                Waist (inches)
+                              </FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 34" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
 
-                        <div className="space-y-2">
-                          <Label htmlFor="hips" className="flex items-center gap-2">
-                            <Ruler className="h-4 w-4" />
-                            Hips (inches)
-                          </Label>
-                          <Input
-                            id="hips"
-                            placeholder="e.g., 42"
-                            {...form.register("measurements.hips")}
-                          />
-                        </div>
+                        <FormField
+                          control={form.control}
+                          name="measurements.hips"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-2">
+                                <Ruler className="h-4 w-4" />
+                                Hips (inches)
+                              </FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 42" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
 
-                        <div className="space-y-2">
-                          <Label htmlFor="shoulders" className="flex items-center gap-2">
-                            <Ruler className="h-4 w-4" />
-                            Shoulders (inches)
-                          </Label>
-                          <Input
-                            id="shoulders"
-                            placeholder="e.g., 18"
-                            {...form.register("measurements.shoulders")}
-                          />
-                        </div>
+                        <FormField
+                          control={form.control}
+                          name="measurements.shoulders"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-2">
+                                <Ruler className="h-4 w-4" />
+                                Shoulders (inches)
+                              </FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 18" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
 
-                        <div className="space-y-2">
-                          <Label htmlFor="inseam" className="flex items-center gap-2">
-                            <Ruler className="h-4 w-4" />
-                            Inseam (inches)
-                          </Label>
-                          <Input
-                            id="inseam"
-                            placeholder="e.g., 32"
-                            {...form.register("measurements.inseam")}
-                          />
-                        </div>
+                        <FormField
+                          control={form.control}
+                          name="measurements.inseam"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-2">
+                                <Ruler className="h-4 w-4" />
+                                Inseam (inches)
+                              </FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 32" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
 
-                        <div className="space-y-2">
-                          <Label htmlFor="sleeves" className="flex items-center gap-2">
-                            <Ruler className="h-4 w-4" />
-                            Sleeve Length (inches)
-                          </Label>
-                          <Input
-                            id="sleeves"
-                            placeholder="e.g., 25"
-                            {...form.register("measurements.sleeves")}
-                          />
-                        </div>
+                        <FormField
+                          control={form.control}
+                          name="measurements.sleeves"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-2">
+                                <Ruler className="h-4 w-4" />
+                                Sleeve Length (inches)
+                              </FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 25" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                       </div>
                     )}
                   </div>
@@ -485,7 +514,6 @@ export default function TailorOutfit() {
           </div>
         </div>
       </main>
-      
     </div>
   );
 }

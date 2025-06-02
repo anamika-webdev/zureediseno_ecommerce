@@ -2,6 +2,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+interface PrismaError extends Error {
+  code?: string;
+  meta?: any;
+}
+
 export async function GET() {
   try {
     console.log('📍 API: Fetching categories...')
@@ -10,6 +15,7 @@ export async function GET() {
       select: {
         id: true,
         name: true,
+        slug: true,
         description: true,
         createdAt: true,
         updatedAt: true
@@ -26,7 +32,7 @@ export async function GET() {
     return NextResponse.json(
       { 
         error: 'Failed to fetch categories',
-        details: error.message
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )
@@ -40,7 +46,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log('📝 Request body:', body)
     
-    const { name, description } = body
+    const { name, slug, description } = body
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -51,20 +57,40 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if category with same name already exists
-    const existingCategory = await prisma.category.findFirst({
-      where: { 
-        name: {
-          equals: name.trim(),
-          mode: 'insensitive'  // Case-insensitive check
-        }
+    // Generate slug if not provided
+    const categorySlug = slug || name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-')
+
+    // Check if category with same name already exists (case-insensitive comparison)
+    const existingCategories = await prisma.category.findMany({
+      where: {
+        OR: [
+          { name: name.trim() },
+          { slug: categorySlug }
+        ]
       }
     })
 
-    if (existingCategory) {
+    // Manual case-insensitive check
+    const nameExists = existingCategories.some(cat => 
+      cat.name.toLowerCase() === name.trim().toLowerCase()
+    )
+
+    const slugExists = existingCategories.some(cat => 
+      cat.slug?.toLowerCase() === categorySlug.toLowerCase()
+    )
+
+    if (nameExists) {
       console.log('❌ Category already exists:', name)
       return NextResponse.json(
         { error: 'A category with this name already exists' },
+        { status: 400 }
+      )
+    }
+
+    if (slugExists) {
+      console.log('❌ Category slug already exists:', categorySlug)
+      return NextResponse.json(
+        { error: 'A category with this URL slug already exists' },
         { status: 400 }
       )
     }
@@ -73,6 +99,7 @@ export async function POST(request: Request) {
     const category = await prisma.category.create({
       data: {
         name: name.trim(),
+        slug: categorySlug,
         description: description?.trim() || null
       }
     })
@@ -83,10 +110,11 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('❌ API Error creating category:', error)
     
-    // Handle Prisma-specific errors
-    if (error.code === 'P2002') {
+    // Handle Prisma-specific errors with proper type checking
+    const prismaError = error as PrismaError
+    if (prismaError.code === 'P2002') {
       return NextResponse.json(
-        { error: 'A category with this name already exists' },
+        { error: 'A category with this name or slug already exists' },
         { status: 400 }
       )
     }
@@ -94,7 +122,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { 
         error: 'Failed to create category',
-        details: error.message
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )

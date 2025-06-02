@@ -1,12 +1,14 @@
+// src/app/api/admin/orders/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const user = await currentUser();
     
     if (!user) {
@@ -14,9 +16,29 @@ export async function GET(
     }
 
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
-        items: true
+        orderItems: {
+          include: {
+            product: {
+              select: {
+                name: true,
+                slug: true,
+                images: {
+                  where: { isPrimary: true },
+                  select: { url: true, alt: true }
+                }
+              }
+            }
+          }
+        },
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
       }
     });
 
@@ -36,9 +58,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const user = await currentUser();
     
     if (!user) {
@@ -46,13 +69,37 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status } = body;
+    const { status, paymentStatus } = body;
+
+    const updateData: any = {};
+    if (status) updateData.status = status;
+    if (paymentStatus) updateData.paymentStatus = paymentStatus;
 
     const order = await prisma.order.update({
-      where: { id: params.id },
-      data: { status },
+      where: { id },
+      data: updateData,
       include: {
-        items: true
+        orderItems: {
+          include: {
+            product: {
+              select: {
+                name: true,
+                slug: true,
+                images: {
+                  where: { isPrimary: true },
+                  select: { url: true, alt: true }
+                }
+              }
+            }
+          }
+        },
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
       }
     });
 

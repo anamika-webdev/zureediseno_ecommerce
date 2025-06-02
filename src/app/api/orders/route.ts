@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   
   try {
     // Check if user is authenticated
-    const { userId } = auth();
+    const { userId } = await auth(); // Await the auth() call
     
     if (!userId) {
       return NextResponse.json(
@@ -168,7 +168,7 @@ export async function GET(req: NextRequest) {
   let connection;
   
   try {
-    const { userId } = auth();
+    const { userId } = await auth(); // Await the auth() call
     
     if (!userId) {
       return NextResponse.json(
@@ -236,7 +236,10 @@ export async function GET(req: NextRequest) {
     console.error('Error fetching orders:', error);
     
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   } finally {

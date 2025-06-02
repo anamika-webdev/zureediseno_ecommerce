@@ -1,14 +1,14 @@
 // src/components/admin/SubcategoryFormModal.tsx
-"use client";
+'use client'
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 
 interface Category {
   id: string;
@@ -18,8 +18,14 @@ interface Category {
 interface Subcategory {
   id: string;
   name: string;
+  slug: string;
   description?: string;
   categoryId: string;
+  category?: {
+    id: string;
+    name: string;
+  };
+  createdAt: string;
 }
 
 interface SubcategoryFormModalProps {
@@ -35,48 +41,63 @@ export default function SubcategoryFormModal({
   onSuccess, 
   subcategory 
 }: SubcategoryFormModalProps) {
+  const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
-    categoryId: ''
+    slug: '',
+    categoryId: '',
+    description: ''
   });
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch categories
+  // Load categories
   useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/admin/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(data);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+
     if (isOpen) {
       fetchCategories();
     }
   }, [isOpen]);
 
-  // Update form when subcategory changes
+  // Set form data when subcategory changes
   useEffect(() => {
     if (subcategory) {
       setFormData({
-        name: subcategory.name || '',
-        description: subcategory.description || '',
-        categoryId: subcategory.categoryId || ''
+        name: subcategory.name,
+        slug: subcategory.slug,
+        categoryId: subcategory.categoryId,
+        description: subcategory.description || ''
       });
     } else {
       setFormData({
         name: '',
-        description: '',
-        categoryId: ''
+        slug: '',
+        categoryId: '',
+        description: ''
       });
     }
   }, [subcategory]);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/admin/categories');
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
+  // Generate slug from name
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    const generatedSlug = name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
+    
+    setFormData(prev => ({
+      ...prev,
+      name,
+      slug: generatedSlug
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,77 +108,88 @@ export default function SubcategoryFormModal({
       return;
     }
 
-    setLoading(true);
+    if (!formData.slug.trim()) {
+      toast.error('URL slug is required');
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
-      const url = subcategory ? `/api/admin/subcategories/${subcategory.id}` : '/api/admin/subcategories';
+      const url = subcategory 
+        ? `/api/admin/subcategories/${subcategory.id}` 
+        : '/api/admin/subcategories';
+      
       const method = subcategory ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           name: formData.name.trim(),
-          description: formData.description.trim() || null,
-          categoryId: formData.categoryId
-        })
+          slug: formData.slug.trim(),
+          categoryId: formData.categoryId,
+          description: formData.description.trim() || undefined
+        }),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success(subcategory ? 'Subcategory updated successfully' : 'Subcategory created successfully');
-        onSuccess();
-        onClose();
-      } else {
-        toast.error(data.error || 'Failed to save subcategory');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save subcategory');
       }
+
+      toast.success(subcategory ? 'Subcategory updated successfully' : 'Subcategory created successfully');
+      onSuccess();
     } catch (error) {
       console.error('Error saving subcategory:', error);
-      toast.error('Failed to save subcategory');
+      toast.error(error instanceof Error ? error.message : 'Failed to save subcategory');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-md mx-4">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-lg font-semibold">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
             {subcategory ? 'Edit Subcategory' : 'Add New Subcategory'}
-          </h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="p-2"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <Label htmlFor="name">Subcategory Name *</Label>
+          </DialogTitle>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Name *</Label>
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={handleNameChange}
               placeholder="Enter subcategory name"
               required
             />
           </div>
 
-          <div>
-            <Label htmlFor="category">Category *</Label>
-            <Select
-              value={formData.categoryId}
-              onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
+          <div className="space-y-2">
+            <Label htmlFor="slug">URL Slug *</Label>
+            <Input
+              id="slug"
+              value={formData.slug}
+              onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+              placeholder="subcategory-url-slug"
+              required
+            />
+            <p className="text-xs text-gray-500">
+              This will be used in the URL: /products/category/{formData.slug}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="categoryId">Category *</Label>
+            <Select 
+              value={formData.categoryId} 
+              onValueChange={(value) => setFormData(prev => ({ ...prev, categoryId: value }))}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select a category" />
@@ -171,38 +203,36 @@ export default function SubcategoryFormModal({
               </SelectContent>
             </Select>
           </div>
-          
-          <div>
+
+          <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               placeholder="Enter subcategory description (optional)"
               rows={3}
             />
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button 
+              type="button" 
+              variant="outline" 
               onClick={onClose}
-              className="flex-1"
+              disabled={isLoading}
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="flex-1"
+            <Button 
+              type="submit" 
+              disabled={isLoading}
             >
-              {loading ? 'Saving...' : (subcategory ? 'Update' : 'Create')}
+              {isLoading ? 'Saving...' : subcategory ? 'Update Subcategory' : 'Create Subcategory'}
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

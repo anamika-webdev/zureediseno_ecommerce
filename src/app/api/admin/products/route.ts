@@ -2,6 +2,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+interface PrismaError extends Error {
+  code?: string;
+  meta?: any;
+}
+
 export async function GET() {
   try {
     const products = await prisma.product.findMany({
@@ -17,6 +22,23 @@ export async function GET() {
             id: true,
             name: true
           }
+        },
+        images: {
+          select: {
+            id: true,
+            url: true,
+            alt: true,
+            isPrimary: true
+          }
+        },
+        variants: {
+          select: {
+            id: true,
+            size: true,
+            color: true,
+            stock: true,
+            sleeveType: true
+          }
         }
       },
       orderBy: {
@@ -30,7 +52,7 @@ export async function GET() {
     return NextResponse.json(
       { 
         error: 'Failed to fetch products',
-        message: error.message
+        message: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )
@@ -44,7 +66,8 @@ export async function POST(request: Request) {
       name, 
       description, 
       price, 
-      comparePrice,
+      originalPrice, // Changed from comparePrice to originalPrice
+      comparePrice,   // Keep comparePrice for backward compatibility
       categoryId,
       subcategoryId,
       images,
@@ -62,16 +85,18 @@ export async function POST(request: Request) {
     // Generate slug from name
     const slug = name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-')
 
+    // Use originalPrice if provided, otherwise use comparePrice for backward compatibility
+    const priceValue = originalPrice || comparePrice;
+
     const product = await prisma.product.create({
       data: {
         name: name.trim(),
         slug,
         description: description?.trim() || null,
         price: parseFloat(price),
-        comparePrice: comparePrice ? parseFloat(comparePrice) : null,
+        originalPrice: priceValue ? parseFloat(priceValue) : null,
         categoryId,
         subcategoryId: subcategoryId || null,
-        images: images || [],
         featured: featured || false,
         inStock: inStock !== false // default to true unless explicitly false
       },
@@ -87,6 +112,23 @@ export async function POST(request: Request) {
             id: true,
             name: true
           }
+        },
+        images: {
+          select: {
+            id: true,
+            url: true,
+            alt: true,
+            isPrimary: true
+          }
+        },
+        variants: {
+          select: {
+            id: true,
+            size: true,
+            color: true,
+            stock: true,
+            sleeveType: true
+          }
         }
       }
     })
@@ -94,10 +136,20 @@ export async function POST(request: Request) {
     return NextResponse.json(product)
   } catch (error) {
     console.error('Error creating product:', error)
+    
+    // Handle Prisma-specific errors with proper type checking
+    const prismaError = error as PrismaError
+    if (prismaError.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'A product with this name or slug already exists' },
+        { status: 400 }
+      )
+    }
+    
     return NextResponse.json(
       { 
         error: 'Failed to create product',
-        message: error.message
+        message: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )

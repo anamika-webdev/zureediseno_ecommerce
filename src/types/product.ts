@@ -1,55 +1,82 @@
 // src/types/product.ts
-export interface ProductProps {
-  id: string
-  name: string
-  slug: string
-  description?: string
-  price: number
-  comparePrice?: number
-  images: string[]
-  featured: boolean
-  inStock: boolean
-  category?: {
-    id: string
-    name: string
-  }
-  subcategory?: {
-    id: string
-    name: string
-  }
-  sizes?: string[]
-  colors?: string[]
+export interface ProductImage {
+  id: string;
+  url: string;
+  alt: string | null;
+  isPrimary: boolean;
+  productId: string;
+  createdAt: Date;
 }
 
-export interface CartItem extends ProductProps {
-  quantity: number
-  selectedSize?: string
-  selectedColor?: string
+export interface ProductVariant {
+  id: string;
+  size: string;
+  color: string;
+  stock: number;
+  sleeveType?: string;
+  productId: string;
 }
 
 export interface Category {
-  id: string
-  name: string
-  slug: string
-  description?: string
-  image?: string
-  sortOrder?: number
-  createdAt: string
-  updatedAt?: string
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Subcategory {
-  id: string
-  name: string
-  slug: string
-  categoryId: string
-  description?: string
-  image?: string
-  sortOrder?: number
-  createdAt: string
-  updatedAt?: string
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  categoryId: string;
 }
 
-export interface CategoryWithSubcategories extends Category {
-  subcategories: Subcategory[]
+export interface Product {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  price: number;
+  originalPrice?: number | null;
+  comparePrice?: number | null;
+  sku: string | null;
+  inStock: boolean;
+  featured: boolean;
+  images: ProductImage[];
+  variants?: ProductVariant[];
+  category: Category;
+  subcategory?: Subcategory | null;
+  categoryId: string;
+  subcategoryId?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// For simplified product display (backwards compatibility)
+export interface SimpleProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  originalPrice?: number;
+  images: Array<{
+    id: string;
+    url: string;
+    alt: string;
+    isPrimary: boolean;
+  }>;
+  variants: Array<{
+    id: string;
+    size: string;
+    color: string;
+    stock: number;
+    sleeveType?: string;
+  }>;
+  inStock: boolean;
+  featured: boolean;
 }

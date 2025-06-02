@@ -1,85 +1,128 @@
-import { prisma } from '@/lib/prisma'
+// src/lib/queries/categories.ts
+import { prisma } from '@/lib/prisma';
 
-export async function getCategories() {
+export const getAllCategories = async () => {
   try {
     const categories = await prisma.category.findMany({
       include: {
         subcategories: {
           orderBy: [
-            { sortOrder: 'asc' },
             { name: 'asc' }
           ]
         },
         _count: {
           select: {
-            products: true
+            products: true,
+            subcategories: true
           }
         }
       },
-      orderBy: [
-        { sortOrder: 'asc' },
-        { name: 'asc' }
-      ]
-    })
-    
-    return categories
-  } catch (error) {
-    console.error('Error fetching categories:', error)
-    return []
-  }
-}
+      orderBy: {
+        name: 'asc'
+      }
+    });
 
-export async function getCategoryByUrl(url: string) {
+    return categories;
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    throw new Error('Failed to fetch categories');
+  }
+};
+
+export const getCategoryBySlug = async (slug: string) => {
   try {
     const category = await prisma.category.findUnique({
-      where: { url },
+      where: { slug },
       include: {
         subcategories: {
-          orderBy: [
-            { sortOrder: 'asc' },
-            { name: 'asc' }
-          ]
+          orderBy: {
+            name: 'asc'
+          }
         },
         products: {
+          take: 10,
           include: {
-            category: true,
-            subcategory: true
-          },
-          orderBy: [
-            { featured: 'desc' },
-            { createdAt: 'desc' }
-          ]
+            images: {
+              orderBy: {
+                isPrimary: 'desc'
+              }
+            }
+          }
+        },
+        _count: {
+          select: {
+            products: true,
+            subcategories: true
+          }
         }
       }
-    })
-    
-    return category
-  } catch (error) {
-    console.error('Error fetching category by URL:', error)
-    return null
-  }
-}
+    });
 
-export async function getFeaturedCategories() {
+    return category;
+  } catch (error) {
+    console.error('Error fetching category by slug:', error);
+    throw new Error('Failed to fetch category');
+  }
+};
+
+export const getFeaturedCategories = async () => {
   try {
+    // Since 'featured' field doesn't exist, return all categories
+    // You can modify this logic based on your actual schema
     const categories = await prisma.category.findMany({
-      where: { featured: true },
       include: {
+        subcategories: {
+          orderBy: {
+            name: 'asc'
+          }
+        },
         _count: {
           select: {
             products: true
           }
         }
       },
-      orderBy: [
-        { sortOrder: 'asc' },
-        { name: 'asc' }
-      ]
-    })
-    
-    return categories
+      orderBy: {
+        name: 'asc'
+      },
+      take: 6 // Limit to 6 categories as "featured"
+    });
+
+    return categories;
   } catch (error) {
-    console.error('Error fetching featured categories:', error)
-    return []
+    console.error('Error fetching featured categories:', error);
+    throw new Error('Failed to fetch featured categories');
   }
-}
+};
+
+export const getCategoriesWithProducts = async () => {
+  try {
+    const categories = await prisma.category.findMany({
+      where: {
+        products: {
+          some: {}
+        }
+      },
+      include: {
+        subcategories: {
+          orderBy: {
+            name: 'asc'
+          }
+        },
+        _count: {
+          select: {
+            products: true
+          }
+        }
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    });
+
+    return categories;
+  } catch (error) {
+    console.error('Error fetching categories with products:', error);
+    throw new Error('Failed to fetch categories with products');
+  }
+};

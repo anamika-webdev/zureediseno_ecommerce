@@ -1,4 +1,4 @@
-// src/app/api/orders/route.ts
+// src/app/api/admin/orders/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 
@@ -243,7 +243,10 @@ export async function GET(req: NextRequest) {
     console.error('Error fetching orders:', error);
     
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   } finally {

@@ -2,13 +2,20 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+interface PrismaError extends Error {
+  code?: string;
+  meta?: any;
+}
+
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
+    
     const subcategory = await prisma.subcategory.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         category: {
           select: {
@@ -50,11 +57,12 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
-    const { name, categoryId, description } = body
+    const { name, categoryId, description, slug } = body
 
     if (!name || !categoryId) {
       return NextResponse.json(
@@ -63,10 +71,31 @@ export async function PUT(
       )
     }
 
+    // Generate slug if not provided
+    const subcategorySlug = slug || name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-')
+
+    // Check if slug already exists for other subcategories
+    const existingSubcategory = await prisma.subcategory.findFirst({
+      where: {
+        slug: subcategorySlug,
+        NOT: {
+          id
+        }
+      }
+    })
+
+    if (existingSubcategory) {
+      return NextResponse.json(
+        { error: 'A subcategory with this URL slug already exists' },
+        { status: 400 }
+      )
+    }
+
     const subcategory = await prisma.subcategory.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: name.trim(),
+        slug: subcategorySlug,
         categoryId,
         description: description?.trim() || null
       },
@@ -84,7 +113,9 @@ export async function PUT(
   } catch (error) {
     console.error('Error updating subcategory:', error)
     
-    if (error.code === 'P2025') {
+    // Handle specific Prisma errors with proper type checking
+    const prismaError = error as PrismaError
+    if (prismaError.code === 'P2025') {
       return NextResponse.json(
         { error: 'Subcategory not found' },
         { status: 404 }
@@ -100,12 +131,14 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
+    
     // Check if subcategory has products
     const subcategory = await prisma.subcategory.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: {
@@ -130,14 +163,16 @@ export async function DELETE(
     }
 
     await prisma.subcategory.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({ message: 'Subcategory deleted successfully' })
   } catch (error) {
     console.error('Error deleting subcategory:', error)
     
-    if (error.code === 'P2025') {
+    // Handle specific Prisma errors with proper type checking
+    const prismaError = error as PrismaError
+    if (prismaError.code === 'P2025') {
       return NextResponse.json(
         { error: 'Subcategory not found' },
         { status: 404 }
