@@ -152,7 +152,7 @@ export default function ShopPage() {
                     viewMode === 'grid' ? 'aspect-square' : 'aspect-[3/1] sm:aspect-[4/1]'
                   } relative overflow-hidden rounded-t-lg bg-gray-100`}>
                     <Image
-                      src={category.image || '/assets/img/cloth.jpg'}
+                      src={category.image || '/uploads/WHITE SHIRT WITH POCKET-photoshoot/White_Shirt (4).jpg'}
                       alt={category.name}
                       fill
                       className="object-cover transition-transform duration-300 group-hover:scale-105"

@@ -41,9 +41,9 @@ export interface Product {
   name: string;
   slug: string;
   description: string | null;
-  price: number;
-  originalPrice?: number | null;
-  comparePrice?: number | null;
+  price: number;           // Changed from Decimal to number
+  originalPrice?: number | null;  // Changed from Decimal to number
+  comparePrice?: number | null;   // Changed from Decimal to number
   sku: string | null;
   inStock: boolean;
   featured: boolean;
@@ -55,6 +55,7 @@ export interface Product {
   subcategoryId?: string | null;
   createdAt: Date;
   updatedAt: Date;
+  image?: string; // For compatibility
 }
 
 // For simplified product display (backwards compatibility)

@@ -34,13 +34,13 @@ async function main() {
     },
   });
 
-  const womenCategory = await prisma.category.create({
+ /* const womenCategory = await prisma.category.create({
     data: {
       name: 'Women',
       slug: 'women',
       description: 'Women\'s fashion collection',
     },
-  });
+  });*/
 
   console.log('✅ Categories created');
 
@@ -88,14 +88,14 @@ async function main() {
 
   console.log('✅ Subcategories created');
 
-  // Create sample products
+  // Create sample products - ONLY Classic White Shirt
   const product1 = await prisma.product.create({
     data: {
       name: 'Classic White Shirt',
       slug: 'classic-white-shirt',
       description: 'A timeless white shirt perfect for any occasion. Made from premium cotton with a comfortable fit.',
-      price: 2999,
-      originalPrice: 3999,
+      price: 1499,
+      originalPrice: 1699,
       sku: 'CWS001',
       featured: true,
       categoryId: menCategory.id,
@@ -103,6 +103,8 @@ async function main() {
     },
   });
 
+  // ========== COMMENTED OUT - OTHER PRODUCTS ==========
+  /*
   const product2 = await prisma.product.create({
     data: {
       name: 'Premium Cotton T-Shirt',
@@ -157,65 +159,82 @@ async function main() {
       subcategoryId: dressesSubcategory.id,
     },
   });
+  */
 
   console.log('✅ Products created');
 
-  // Add product images
+  // Add product images - ONLY for Classic White Shirt
   await prisma.productImage.createMany({
     data: [
-      // Product 1 images
+      // Product 1 images - Classic White Shirt
       {
-        url: '/public/uploads/WHITE SHIRT WITH POCKET-photoshoot/White_Shirt (3).jpg',
+        url: '/uploads/WHITE SHIRT WITH POCKET-photoshoot/White_Shirt (3).jpg',
         alt: 'Classic White Shirt - Front View',
         isPrimary: true,
         productId: product1.id,
       },
       {
-        url: '/public/uploads/WHITE SHIRT WITH POCKET-photoshoot/White_Shirt (5).jpg',
+        url: '/uploads/WHITE SHIRT WITH POCKET-photoshoot/White_Shirt (5).jpg',
         alt: 'Classic White Shirt - Side View',
         isPrimary: false,
         productId: product1.id,
       },
+      {
+        url: '/uploads/WHITE SHIRT WITH POCKET-photoshoot/White_Shirt (1).jpg',
+        alt: 'Classic White Shirt - Back View',
+        isPrimary: false,
+        productId: product1.id,
+      },
+      {
+        url: '/uploads/WHITE SHIRT WITH POCKET-photoshoot/White_Shirt (2).jpg',
+        alt: 'Classic White Shirt - Detail View',
+        isPrimary: false,
+        productId: product1.id,
+      },
+      
+      // ========== COMMENTED OUT - OTHER PRODUCT IMAGES ==========
+      /*
       // Product 2 images
       {
-        url: '/public/uploads/lavender--photoshoot/Lavender_Shirt (4).jpg',
+        url: '/uploads/lavender--photoshoot/Lavender_Shirt (4).jpg',
         alt: 'Premium Cotton T-Shirt - Front View',
         isPrimary: true,
         productId: product2.id,
       },
       {
-        url: '/public/uploads/lavender--photoshoot/Lavender_Shirt (2).jpg',
+        url: '/uploads/lavender--photoshoot/Lavender_Shirt (2).jpg',
         alt: 'Premium Cotton T-Shirt - Back View',
         isPrimary: false,
         productId: product2.id,
       },
       // Product 3 images
       {
-        url: '/public/uploads/black--photoshoot/Black_Shirt (5).jpg',
+        url: '/uploads/black--photoshoot/Black_Shirt (5).jpg',
         alt: 'Formal Black Shirt - Front View',
         isPrimary: true,
         productId: product3.id,
       },
       // Product 4 images
       {
-        url: '/public/uploads/black--photoshoot/Black_Shirt (5).jpg',
+        url: '/uploads/black--photoshoot/Black_Shirt (5).jpg',
         alt: 'Casual Denim Shirt - Front View',
         isPrimary: true,
         productId: product4.id,
       },
       // Product 5 images
       {
-        url: '/public/uploads/fabric.jpg',
+        url: '/uploads/fabric.jpg',
         alt: 'Women\'s Floral Dress - Front View',
         isPrimary: true,
         productId: product5.id,
       },
+      */
     ],
   });
 
   console.log('✅ Product images created');
 
-  // Add product variants with sleeve types
+  // Add product variants - ONLY for Classic White Shirt
   await prisma.productVariant.createMany({
     data: [
       // Product 1 - Classic White Shirt variants (with sleeve types)
@@ -310,6 +329,8 @@ async function main() {
         sku: 'CWS001-L-BLUE-FULL',
       },
 
+      // ========== COMMENTED OUT - OTHER PRODUCT VARIANTS ==========
+      /*
       // Product 2 - Premium T-Shirt variants (no sleeve type for t-shirts)
       {
         productId: product2.id,
@@ -485,6 +506,7 @@ async function main() {
         stock: 7,
         sku: 'WFD001-L-BLUE',
       },
+      */
     ],
   });
 
@@ -494,9 +516,9 @@ async function main() {
   console.log('📊 Summary:');
   console.log('- Categories: Men, Women');
   console.log('- Subcategories: Shirts, T-Shirts, Pants, Dresses');
-  console.log('- Products: 5 products with various options');
-  console.log('- Variants: Multiple size, color, and sleeve options');
-  console.log('- Images: Product images for gallery');
+  console.log('- Products: 1 product (Classic White Shirt)');
+  console.log('- Variants: Multiple size, color, and sleeve options for white shirt');
+  console.log('- Images: 4 product images for white shirt');
 }
 
 main()

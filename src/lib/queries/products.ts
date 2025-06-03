@@ -1,4 +1,26 @@
+// src/lib/queries/products.ts
 import { prisma } from '@/lib/prisma';
+import { Decimal } from '@prisma/client/runtime/library';
+
+// Helper function to convert Decimal to number
+function convertPriceToNumber(price: Decimal | number | null): number | undefined {
+  if (price === null || price === undefined) return undefined
+  if (typeof price === 'number') return price
+  return parseFloat(price.toString())
+}
+
+// Helper function to transform product data
+function transformProduct(product: any) {
+  return {
+    ...product,
+    price: convertPriceToNumber(product.price) || 0,
+    originalPrice: convertPriceToNumber(product.originalPrice),
+    comparePrice: convertPriceToNumber(product.comparePrice),
+    image: product.images?.find((img: any) => img.isPrimary)?.url || 
+           product.images?.[0]?.url || 
+           '/assets/images/placeholder.jpg',
+  }
+}
 
 export async function getProducts(category?: string, subcategory?: string) {
   try {
@@ -18,7 +40,7 @@ export async function getProducts(category?: string, subcategory?: string) {
       include: {
         category: true,
         subcategory: true,
-        images: true, // This should now work with ProductImage relation
+        images: true,
         variants: true
       },
       orderBy: {
@@ -26,7 +48,7 @@ export async function getProducts(category?: string, subcategory?: string) {
       }
     });
 
-    return products;
+    return products.map(transformProduct);
   } catch (error) {
     console.error('Error fetching products:', error);
     return [];
@@ -45,7 +67,8 @@ export async function getProductBySlug(slug: string) {
       }
     });
 
-    return product;
+    if (!product) return null;
+    return transformProduct(product);
   } catch (error) {
     console.error('Error fetching product:', error);
     return null;
@@ -71,7 +94,7 @@ export async function getFeaturedProducts(limit: number = 8) {
       }
     });
 
-    return products;
+    return products.map(transformProduct);
   } catch (error) {
     console.error('Error fetching featured products:', error);
     return [];
@@ -99,14 +122,13 @@ export async function getProductsByCategory(categorySlug: string, limit?: number
       }
     });
 
-    return products;
+    return products.map(transformProduct);
   } catch (error) {
     console.error('Error fetching products by category:', error);
     return [];
   }
 }
 
-// In lib/queries/products.ts
 export async function getProductsBySubcategory(subcategorySlug: string, limit?: number) {
   try {
     const productsFromDb = await prisma.product.findMany({
@@ -128,14 +150,7 @@ export async function getProductsBySubcategory(subcategorySlug: string, limit?: 
       }
     });
 
-    // Transform the data to match your component's expected type
-    const products = productsFromDb.map(product => ({
-      ...product,
-      image: product.images.find(img => img.isPrimary)?.url || product.images[0]?.url || '/assets/images/placeholder.jpg',
-      subcategory: product.subcategory
-    }));
-
-    return products;
+    return productsFromDb.map(transformProduct);
   } catch (error) {
     console.error('Error fetching products by subcategory:', error);
     return [];
@@ -164,7 +179,7 @@ export async function getRelatedProducts(productId: string, categoryId: string, 
       }
     });
 
-    return products;
+    return products.map(transformProduct);
   } catch (error) {
     console.error('Error fetching related products:', error);
     return [];

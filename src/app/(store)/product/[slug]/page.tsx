@@ -146,15 +146,15 @@ export default function ProductDetailsPage({ params }: PageProps) {
         name: 'Classic Premium Shirt',
         slug: 'classic-premium-shirt',
         description: 'A timeless premium shirt perfect for any occasion. Made from high-quality cotton with exceptional comfort and durability. Perfect for both formal and casual wear.',
-        price: 2999,
-        originalPrice: 3999,
+        price: 1499,
+        originalPrice: 1499,
         sku: 'CPS001',
         inStock: true,
         featured: true,
         images: [
           {
             id: '1',
-            url: '/images/products/classic-shirt.jpg',
+            url: '/uploads/WHITE SHIRT WITH POCKET-photoshoot/White_Shirt (3).jpg',
             alt: 'Classic Premium Shirt',
             isPrimary: true
           }
@@ -468,7 +468,7 @@ export default function ProductDetailsPage({ params }: PageProps) {
                   </div>
                 </div>
 
-                {/* Stock Info */}
+                {/* Stock Info 
                 {isInStock && currentVariant && (
                   <div className="flex items-center space-x-2 text-green-700 bg-green-50 px-4 py-2 rounded-lg">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -476,7 +476,7 @@ export default function ProductDetailsPage({ params }: PageProps) {
                       {maxQuantity} items available
                     </span>
                   </div>
-                )}
+                )}*/}
 
                 {!currentVariant && selectedColor && selectedSize && (
                   <div className="flex items-center space-x-2 text-red-700 bg-red-50 px-4 py-2 rounded-lg">

@@ -5,16 +5,16 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql" // or "mysql" or "sqlite" depending on your database
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
 model Category {
   id          String    @id @default(cuid())
-  name        String
-  slug        String    @unique
-  description String?
-  image       String?
+  name        String    @db.VarChar(255)
+  slug        String    @unique @db.VarChar(255)
+  description String?   @db.Text
+  image       String?   @db.VarChar(500)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   
@@ -22,14 +22,16 @@ model Category {
   products     Product[]
   subcategories Subcategory[]
   
+  @@index([slug])
+  @@index([createdAt])
   @@map("categories")
 }
 
 model Subcategory {
   id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String?
+  name        String   @db.VarChar(255)
+  slug        String   @unique @db.VarChar(255)
+  description String?  @db.Text
   categoryId  String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -38,17 +40,20 @@ model Subcategory {
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   products Product[]
   
+  @@index([categoryId])
+  @@index([slug])
   @@map("subcategories")
 }
 
 model Product {
   id            String   @id @default(cuid())
-  name          String
-  slug          String   @unique
-  description   String?
-  price         Float
-  originalPrice Float?
-  sku           String?  @unique
+  name          String   @db.VarChar(255)
+  slug          String   @unique @db.VarChar(255)
+  description   String?  @db.Text
+  price         Float    // Changed from Decimal to Float
+  originalPrice Float?   // Changed from Decimal to Float
+  comparePrice  Float?   // Added comparePrice as Float
+  sku           String?  @unique @db.VarChar(100)
   inStock       Boolean  @default(true)
   featured      Boolean  @default(false)
   categoryId    String
@@ -63,13 +68,19 @@ model Product {
   variants    ProductVariant[]
   orderItems  OrderItem[]
   
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([featured])
+  @@index([inStock])
+  @@index([slug])
+  @@index([createdAt])
   @@map("products")
 }
 
 model ProductImage {
   id        String  @id @default(cuid())
-  url       String
-  alt       String?
+  url       String  @db.VarChar(500)
+  alt       String? @db.VarChar(255)
   isPrimary Boolean @default(false)
   productId String
   createdAt DateTime @default(now())
@@ -77,17 +88,19 @@ model ProductImage {
   // Relations
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   
+  @@index([productId])
+  @@index([isPrimary])
   @@map("product_images")
 }
 
 model ProductVariant {
-  id         String @id @default(cuid())
+  id         String   @id @default(cuid())
   productId  String
-  size       String
-  color      String
-  sleeveType String? // Added sleeve type option
-  stock      Int    @default(0)
-  sku        String? @unique
+  size       String   @db.VarChar(50)
+  color      String   @db.VarChar(50)
+  sleeveType String?  @db.VarChar(50)
+  stock      Int      @default(0)
+  sku        String?  @unique @db.VarChar(100)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   
@@ -95,16 +108,18 @@ model ProductVariant {
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   
   @@unique([productId, size, color, sleeveType])
+  @@index([productId])
+  @@index([stock])
   @@map("product_variants")
 }
 
 model User {
   id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String   @unique
-  firstName String?
-  lastName  String?
-  imageUrl  String?
+  clerkId   String   @unique @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  firstName String?  @db.VarChar(100)
+  lastName  String?  @db.VarChar(100)
+  imageUrl  String?  @db.VarChar(500)
   role      UserRole @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -112,54 +127,63 @@ model User {
   // Relations
   orders Order[]
   
+  @@index([clerkId])
+  @@index([email])
   @@map("users")
 }
 
 model Order {
-  id              String      @id @default(cuid())
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique @db.VarChar(100)
   userId          String
-  email           String
-  firstName       String
-  lastName        String
-  phone           String
-  address         String
-  city            String
-  state           String
-  zipCode         String
-  country         String
-  subtotal        Float
-  tax             Float
-  shipping        Float
-  total           Float
-  status          OrderStatus @default(PENDING)
+  email           String        @db.VarChar(255)
+  firstName       String        @db.VarChar(100)
+  lastName        String        @db.VarChar(100)
+  phone           String        @db.VarChar(20)
+  address         String        @db.Text
+  city            String        @db.VarChar(100)
+  state           String        @db.VarChar(100)
+  zipCode         String        @db.VarChar(20)
+  country         String        @db.VarChar(100)
+  subtotal        Float         // Changed from Decimal to Float
+  tax             Float         // Changed from Decimal to Float
+  shipping        Float         // Changed from Decimal to Float
+  total           Float         // Changed from Decimal to Float
+  status          OrderStatus   @default(PENDING)
   paymentStatus   PaymentStatus @default(PENDING)
-  paymentMethod   String
-  razorpayOrderId String?
-  razorpayPaymentId String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  paymentMethod   String        @db.VarChar(50)
+  razorpayOrderId String?       @db.VarChar(100)
+  razorpayPaymentId String?     @db.VarChar(100)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
   
   // Relations
   user       User        @relation(fields: [userId], references: [id])
   orderItems OrderItem[]
   
+  @@index([userId])
+  @@index([status])
+  @@index([orderNumber])
+  @@index([createdAt])
   @@map("orders")
 }
 
 model OrderItem {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   orderId   String
   productId String
   quantity  Int
-  price     Float
-  size      String
-  color     String
+  price     Float   // Changed from Decimal to Float
+  size      String  @db.VarChar(50)
+  color     String  @db.VarChar(50)
   createdAt DateTime @default(now())
   
   // Relations
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
   
+  @@index([orderId])
+  @@index([productId])
   @@map("order_items")
 }
 
@@ -183,5 +207,3 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
-
-
