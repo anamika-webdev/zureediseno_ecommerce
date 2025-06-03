@@ -44,7 +44,4 @@ next-env.d.ts
 /.clerk/
 
 
-# Ignore uploaded files-imageUploads
-public/uploads/
-
 .vercel

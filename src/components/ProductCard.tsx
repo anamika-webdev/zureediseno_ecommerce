@@ -97,12 +97,12 @@ export default function ProductCard({ product }: ProductCardProps) {
             {product.featured && (
               <Badge className="bg-blue-600 text-white">Featured</Badge>
             )}
-            {hasDiscount && (
+            {/*{hasDiscount && (
               <Badge variant="destructive">{discountPercentage}% OFF</Badge>
             )}
             {!product.inStock && (
               <Badge variant="secondary">Out of Stock</Badge>
-            )}
+            )}*/}
           </div>
 
           {/* Wishlist Button */}
