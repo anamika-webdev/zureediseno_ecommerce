@@ -34,13 +34,13 @@ async function main() {
     },
   });
 
- /* const womenCategory = await prisma.category.create({
+  const womenCategory = await prisma.category.create({
     data: {
       name: 'Women',
       slug: 'women',
       description: 'Women\'s fashion collection',
     },
-  });*/
+  });
 
   console.log('✅ Categories created');
 
