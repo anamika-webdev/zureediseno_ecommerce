@@ -6,10 +6,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { X } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { 
+  Upload, 
+  X, 
+  Plus, 
+  Minus, 
+  Image as ImageIcon, 
+  Star,
+  GripVertical,
+  Trash2,
+  Edit3
+} from 'lucide-react';
 
 interface Category {
   id: string;
@@ -22,303 +35,751 @@ interface Subcategory {
   categoryId: string;
 }
 
-interface Product {
-  id: string;
+interface ProductImage {
+  id?: string;
+  url: string;
+  alt: string;
+  isPrimary: boolean;
+  order: number;
+}
+
+interface ProductVariant {
+  id?: string;
+  size: string;
+  color: string;
+  stock: number;
+  sku?: string;
+  sleeveType?: string;
+}
+
+interface ProductFormData {
+  id?: string;
   name: string;
+  slug?: string;
   description?: string;
   price: number;
-  comparePrice?: number;
+  originalPrice?: number;
+  sku?: string;
   categoryId: string;
   subcategoryId?: string;
   featured: boolean;
   inStock: boolean;
+  sortOrder: number;
+  images: ProductImage[];
+  variants: ProductVariant[];
 }
 
 interface ProductFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  product?: Product | null;
+  product?: ProductFormData | null;
 }
 
-export default function ProductFormModal({ 
-  isOpen, 
-  onClose, 
-  onSuccess, 
-  product 
+export default function ProductFormModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  product
 }: ProductFormModalProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProductFormData>({
     name: '',
     description: '',
-    price: '',
-    comparePrice: '',
+    price: 0,
+    originalPrice: 0,
+    sku: '',
     categoryId: '',
-    subcategoryId: '',
+    subcategoryId: 'none', // Changed from '' to 'none'
     featured: false,
-    inStock: true
+    inStock: true,
+    sortOrder: 0,
+    images: [],
+    variants: [{ size: 'size-placeholder', color: 'color-placeholder', stock: 0, sleeveType: 'sleeve-none' }], // Fixed placeholders
   });
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [filteredSubcategories, setFilteredSubcategories] = useState<Subcategory[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
-  // Fetch categories and subcategories
+  // Available options
+  const sizeOptions = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+  const colorOptions = ['White', 'Black', 'Navy', 'Blue', 'Red', 'Green', 'Yellow', 'Purple', 'Pink', 'Orange', 'Brown', 'Gray', 'Beige'];
+  const sleeveOptions = ['Short Sleeve', 'Full Sleeve', '3/4 Sleeve'];
+
+  // Load categories and subcategories
   useEffect(() => {
     if (isOpen) {
-      fetchCategories();
-      fetchSubcategories();
+      loadCategoriesAndSubcategories();
     }
   }, [isOpen]);
 
-  // Update form when product changes
+  // Update form data when product changes
   useEffect(() => {
     if (product) {
       setFormData({
-        name: product.name || '',
-        description: product.description || '',
-        price: product.price.toString(),
-        comparePrice: product.comparePrice?.toString() || '',
-        categoryId: product.categoryId || '',
-        subcategoryId: product.subcategoryId || '',
-        featured: product.featured || false,
-        inStock: product.inStock !== false
+        ...product,
+        subcategoryId: product.subcategoryId || 'none', // Handle empty subcategory
+        images: product.images || [],
+        variants: product.variants && product.variants.length > 0 ? product.variants : [{ size: 'size-placeholder', color: 'color-placeholder', stock: 0, sleeveType: 'sleeve-none' }],
       });
     } else {
       setFormData({
         name: '',
         description: '',
-        price: '',
-        comparePrice: '',
+        price: 0,
+        originalPrice: 0,
+        sku: '',
         categoryId: '',
-        subcategoryId: '',
+        subcategoryId: 'none',
         featured: false,
-        inStock: true
+        inStock: true,
+        sortOrder: 0,
+        images: [],
+        variants: [{ size: 'size-placeholder', color: 'color-placeholder', stock: 0, sleeveType: 'sleeve-none' }],
       });
     }
   }, [product]);
 
-  const fetchCategories = async () => {
+  // Filter subcategories when category changes
+  useEffect(() => {
+    if (formData.categoryId && Array.isArray(subcategories) && subcategories.length > 0) {
+      const filtered = subcategories.filter(sub => sub.categoryId === formData.categoryId);
+      setFilteredSubcategories(filtered);
+      
+      // Reset subcategory if it doesn't belong to the selected category
+      if (formData.subcategoryId && formData.subcategoryId !== 'none' && !filtered.find(sub => sub.id === formData.subcategoryId)) {
+        setFormData(prev => ({ ...prev, subcategoryId: 'none' }));
+      }
+    } else {
+      setFilteredSubcategories([]);
+      setFormData(prev => ({ ...prev, subcategoryId: 'none' }));
+    }
+  }, [formData.categoryId, subcategories]);
+
+  const loadCategoriesAndSubcategories = async () => {
     try {
-      const response = await fetch('/api/admin/categories');
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
+      setLoadingData(true);
+      
+      const [categoriesResponse, subcategoriesResponse] = await Promise.all([
+        fetch('/api/admin/categories'),
+        fetch('/api/admin/subcategories')
+      ]);
+
+      if (categoriesResponse.ok) {
+        const categoriesData = await categoriesResponse.json();
+        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      } else {
+        setCategories([]);
+      }
+
+      if (subcategoriesResponse.ok) {
+        const subcategoriesData = await subcategoriesResponse.json();
+        setSubcategories(Array.isArray(subcategoriesData) ? subcategoriesData : []);
+      } else {
+        setSubcategories([]);
       }
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error('Error loading data:', error);
+      toast.error('Failed to load categories and subcategories');
+      setCategories([]);
+      setSubcategories([]);
+    } finally {
+      setLoadingData(false);
     }
   };
 
-  const fetchSubcategories = async () => {
+  const handleInputChange = (field: keyof ProductFormData, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleImageUpload = async (files: FileList) => {
+    if (!files.length) return;
+
+    setUploadingImages(true);
     try {
-      const response = await fetch('/api/admin/subcategories');
-      if (response.ok) {
-        const data = await response.json();
-        setSubcategories(data);
-      }
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const formDataUpload = new FormData();
+        formDataUpload.append('image', file);
+
+        const response = await fetch('/api/images', {
+          method: 'POST',
+          body: formDataUpload,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            url: data.imageUrl,
+            alt: file.name,
+            isPrimary: false,
+            order: 0,
+          };
+        }
+        throw new Error('Failed to upload image');
+      });
+
+      const uploadedImages = await Promise.all(uploadPromises);
+      
+      setFormData(prev => {
+        const currentImages = Array.isArray(prev.images) ? prev.images : [];
+        const newImages = [...currentImages, ...uploadedImages];
+        return {
+          ...prev,
+          images: newImages.map((img, index) => ({
+            ...img,
+            order: index,
+            isPrimary: index === 0 && currentImages.length === 0
+          }))
+        };
+      });
+
+      toast.success(`${uploadedImages.length} image(s) uploaded successfully`);
     } catch (error) {
-      console.error('Error fetching subcategories:', error);
+      console.error('Error uploading images:', error);
+      toast.error('Failed to upload images');
+    } finally {
+      setUploadingImages(false);
     }
   };
 
-  const filteredSubcategories = subcategories.filter(
-    sub => sub.categoryId === formData.categoryId
-  );
+  const handleImageRemove = (index: number) => {
+    setFormData(prev => {
+      const currentImages = Array.isArray(prev.images) ? prev.images : [];
+      const newImages = currentImages.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        images: newImages.map((img, i) => ({
+          ...img,
+          order: i,
+          isPrimary: i === 0 && newImages.length > 0
+        }))
+      };
+    });
+  };
+
+  const handleSetPrimaryImage = (index: number) => {
+    setFormData(prev => {
+      const currentImages = Array.isArray(prev.images) ? prev.images : [];
+      return {
+        ...prev,
+        images: currentImages.map((img, i) => ({
+          ...img,
+          isPrimary: i === index
+        }))
+      };
+    });
+  };
+
+  const handleVariantChange = (index: number, field: keyof ProductVariant, value: any) => {
+    setFormData(prev => {
+      const currentVariants = Array.isArray(prev.variants) ? prev.variants : [];
+      return {
+        ...prev,
+        variants: currentVariants.map((variant, i) => 
+          i === index ? { ...variant, [field]: value } : variant
+        )
+      };
+    });
+  };
+
+  const addVariant = () => {
+    setFormData(prev => {
+      const currentVariants = Array.isArray(prev.variants) ? prev.variants : [];
+      return {
+        ...prev,
+        variants: [...currentVariants, { size: 'size-placeholder', color: 'color-placeholder', stock: 0, sleeveType: 'sleeve-none' }]
+      };
+    });
+  };
+
+  const removeVariant = (index: number) => {
+    setFormData(prev => {
+      const currentVariants = Array.isArray(prev.variants) ? prev.variants : [];
+      if (currentVariants.length > 1) {
+        return {
+          ...prev,
+          variants: currentVariants.filter((_, i) => i !== index)
+        };
+      }
+      return prev;
+    });
+  };
+
+  const generateSlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name.trim() || !formData.price || !formData.categoryId) {
-      toast.error('Name, price, and category are required');
+    if (!formData.name || !formData.categoryId || formData.price <= 0) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    const currentImages = Array.isArray(formData.images) ? formData.images : [];
+    if (currentImages.length === 0) {
+      toast.error('Please upload at least one product image');
+      return;
+    }
+
+    // Validate and filter variants
+    const currentVariants = Array.isArray(formData.variants) ? formData.variants : [];
+    const validVariants = currentVariants.filter(v => 
+      v.size && 
+      v.size !== 'size-placeholder' && 
+      v.color && 
+      v.color !== 'color-placeholder' && 
+      v.stock >= 0
+    ).map(v => ({
+      ...v,
+      sleeveType: v.sleeveType === 'sleeve-none' ? undefined : v.sleeveType
+    }));
+
+    if (validVariants.length === 0) {
+      toast.error('Please add at least one valid variant with size and color');
       return;
     }
 
     setLoading(true);
 
     try {
-      const url = product ? `/api/admin/products/${product.id}` : '/api/admin/products';
-      const method = product ? 'PUT' : 'POST';
+      const slug = formData.slug || generateSlug(formData.name);
+      
+      const submitData = {
+        ...formData,
+        slug,
+        variants: validVariants,
+        subcategoryId: formData.subcategoryId === 'none' ? null : formData.subcategoryId
+      };
+
+      const url = product?.id 
+        ? `/api/admin/products/${product.id}`
+        : '/api/admin/products';
+      
+      const method = product?.id ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          description: formData.description.trim() || null,
-          price: parseFloat(formData.price),
-          comparePrice: formData.comparePrice ? parseFloat(formData.comparePrice) : null,
-          categoryId: formData.categoryId,
-          subcategoryId: formData.subcategoryId || null,
-          featured: formData.featured,
-          inStock: formData.inStock
-        })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submitData),
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        toast.success(product ? 'Product updated successfully' : 'Product created successfully');
+        toast.success(product?.id ? 'Product updated successfully' : 'Product created successfully');
         onSuccess();
         onClose();
       } else {
-        toast.error(data.error || 'Failed to save product');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save product');
       }
     } catch (error) {
       console.error('Error saving product:', error);
-      toast.error('Failed to save product');
+      toast.error(error instanceof Error ? error.message : 'Failed to save product');
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white">
-          <h2 className="text-lg font-semibold">
-            {product ? 'Edit Product' : 'Add New Product'}
-          </h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="p-2"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {product?.id ? 'Edit Product' : 'Add New Product'}
+          </DialogTitle>
+        </DialogHeader>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">Product Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter product name"
-                required
-              />
-            </div>
+        {loadingData ? (
+          <div className="text-center py-8">
+            <div className="text-lg">Loading...</div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Basic Information */}
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Product Name *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      placeholder="Enter product name"
+                      required
+                    />
+                  </div>
 
-            <div>
-              <Label htmlFor="price">Price *</Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                placeholder="0.00"
-                required
-              />
-            </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sku">SKU</Label>
+                    <Input
+                      id="sku"
+                      value={formData.sku || ''}
+                      onChange={(e) => handleInputChange('sku', e.target.value)}
+                      placeholder="Product SKU"
+                    />
+                  </div>
+                </div>
 
-            <div>
-              <Label htmlFor="category">Category *</Label>
-              <Select
-                value={formData.categoryId}
-                onValueChange={(value) => setFormData({ ...formData, categoryId: value, subcategoryId: '' })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
+                <div className="space-y-2 mt-4">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description || ''}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                    placeholder="Enter product description"
+                    rows={4}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pricing */}
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Pricing</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Price (₹) *</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.price}
+                      onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="originalPrice">Original Price (₹)</Label>
+                    <Input
+                      id="originalPrice"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.originalPrice || ''}
+                      onChange={(e) => handleInputChange('originalPrice', parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="sortOrder">Display Order</Label>
+                    <Input
+                      id="sortOrder"
+                      type="number"
+                      min="0"
+                      value={formData.sortOrder}
+                      onChange={(e) => handleInputChange('sortOrder', parseInt(e.target.value) || 0)}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Category & Classification */}
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Category & Classification</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Category *</Label>
+                    <Select
+                      value={formData.categoryId}
+                      onValueChange={(value) => handleInputChange('categoryId', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.isArray(categories) && categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="subcategory">Subcategory</Label>
+                    <Select
+                      value={formData.subcategoryId || 'none'}
+                      onValueChange={(value) => handleInputChange('subcategoryId', value)}
+                      disabled={!formData.categoryId || !Array.isArray(filteredSubcategories) || filteredSubcategories.length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a subcategory (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No subcategory</SelectItem>
+                        {Array.isArray(filteredSubcategories) && filteredSubcategories.map((subcategory) => (
+                          <SelectItem key={subcategory.id} value={subcategory.id}>
+                            {subcategory.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="featured">Featured Product</Label>
+                    <Switch
+                      id="featured"
+                      checked={formData.featured}
+                      onCheckedChange={(checked) => handleInputChange('featured', checked)}
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="inStock">In Stock</Label>
+                    <Switch
+                      id="inStock"
+                      checked={formData.inStock}
+                      onCheckedChange={(checked) => handleInputChange('inStock', checked)}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Product Images */}
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Product Images</h3>
+                
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                    <div className="text-center">
+                      <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+                      <div className="mt-4">
+                        <label htmlFor="image-upload" className="cursor-pointer">
+                          <span className="mt-2 block text-sm font-medium text-gray-900">
+                            Upload product images
+                          </span>
+                          <span className="mt-1 block text-sm text-gray-500">
+                            PNG, JPG, GIF up to 10MB each
+                          </span>
+                        </label>
+                        <input
+                          id="image-upload"
+                          type="file"
+                          className="hidden"
+                          multiple
+                          accept="image/*"
+                          onChange={(e) => e.target.files && handleImageUpload(e.target.files)}
+                          disabled={uploadingImages}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="mt-3"
+                        onClick={() => document.getElementById('image-upload')?.click()}
+                        disabled={uploadingImages}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {uploadingImages ? 'Uploading...' : 'Choose Images'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {Array.isArray(formData.images) && formData.images.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {formData.images.map((image, index) => (
+                        <div key={index} className="relative group">
+                          <div className="aspect-square relative border rounded-lg overflow-hidden">
+                            <img
+                              src={image.url}
+                              alt={image.alt}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleSetPrimaryImage(index)}
+                                >
+                                  <Star className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleImageRemove(index)}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          {image.isPrimary && (
+                            <Badge className="absolute -top-2 -right-2">Primary</Badge>
+                          )}
+                          <div className="absolute -top-2 -left-2 bg-gray-800 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
+                            {index + 1}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Product Variants */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Product Variants</h3>
+                  <Button type="button" onClick={addVariant} size="sm">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Variant
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  {Array.isArray(formData.variants) && formData.variants.map((variant, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium">Variant {index + 1}</h4>
+                        {formData.variants.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeVariant(index)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                        <div className="space-y-2">
+                          <Label>Size *</Label>
+                          <Select
+                            value={variant.size}
+                            onValueChange={(value) => handleVariantChange(index, 'size', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Size" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="size-placeholder">Select size</SelectItem>
+                              {sizeOptions.map((size) => (
+                                <SelectItem key={size} value={size}>
+                                  {size}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Color *</Label>
+                          <Select
+                            value={variant.color}
+                            onValueChange={(value) => handleVariantChange(index, 'color', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Color" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="color-placeholder">Select color</SelectItem>
+                              {colorOptions.map((color) => (
+                                <SelectItem key={color} value={color}>
+                                  {color}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Sleeve Type</Label>
+                          <Select
+                            value={variant.sleeveType || 'sleeve-none'}
+                            onValueChange={(value) => handleVariantChange(index, 'sleeveType', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sleeve" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="sleeve-none">No sleeve type</SelectItem>
+                              {sleeveOptions.map((sleeve) => (
+                                <SelectItem key={sleeve} value={sleeve}>
+                                  {sleeve}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Stock *</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={variant.stock}
+                            onChange={(e) => handleVariantChange(index, 'stock', parseInt(e.target.value) || 0)}
+                            placeholder="0"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Variant SKU</Label>
+                          <Input
+                            value={variant.sku || ''}
+                            onChange={(e) => handleVariantChange(index, 'sku', e.target.value)}
+                            placeholder="SKU"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            <div>
-              <Label htmlFor="subcategory">Subcategory</Label>
-              <Select
-                value={formData.subcategoryId}
-                onValueChange={(value) => setFormData({ ...formData, subcategoryId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a subcategory" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredSubcategories.map((subcategory) => (
-                    <SelectItem key={subcategory.id} value={subcategory.id}>
-                      {subcategory.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="comparePrice">Compare Price</Label>
-              <Input
-                id="comparePrice"
-                type="number"
-                step="0.01"
-                value={formData.comparePrice}
-                onChange={(e) => setFormData({ ...formData, comparePrice: e.target.value })}
-                placeholder="0.00"
-              />
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-6 border-t">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button onClick={handleSubmit} disabled={loading || uploadingImages}>
+                {loading ? 'Saving...' : (product?.id ? 'Update Product' : 'Create Product')}
+              </Button>
             </div>
           </div>
-
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Enter product description"
-              rows={4}
-            />
-          </div>
-
-          <div className="flex gap-6">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="featured"
-                checked={formData.featured}
-                onCheckedChange={(checked) => setFormData({ ...formData, featured: !!checked })}
-              />
-              <Label htmlFor="featured">Featured Product</Label>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="inStock"
-                checked={formData.inStock}
-                onCheckedChange={(checked) => setFormData({ ...formData, inStock: !!checked })}
-              />
-              <Label htmlFor="inStock">In Stock</Label>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="flex-1"
-            >
-              {loading ? 'Saving...' : (product ? 'Update' : 'Create')}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

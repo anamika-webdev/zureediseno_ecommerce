@@ -21,8 +21,13 @@ export async function GET(
           select: {
             id: true,
             name: true,
-            slug: true
-          }
+            slug: true,
+            sortOrder: true
+          },
+          orderBy: [
+            { sortOrder: 'asc' },
+            { name: 'asc' }
+          ]
         },
         products: {
           take: 5,
@@ -65,7 +70,7 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await request.json()
-    const { name, slug, description } = body
+    const { name, slug, description, sortOrder } = body
 
     if (!name) {
       return NextResponse.json(
@@ -94,13 +99,21 @@ export async function PUT(
       )
     }
 
+    // Prepare update data
+    const updateData: any = {
+      name: name.trim(),
+      slug: categorySlug,
+      description: description?.trim() || null
+    }
+
+    // Only update sortOrder if provided
+    if (typeof sortOrder === 'number') {
+      updateData.sortOrder = sortOrder
+    }
+
     const category = await prisma.category.update({
       where: { id },
-      data: {
-        name: name.trim(),
-        slug: categorySlug,
-        description: description?.trim() || null
-      }
+      data: updateData
     })
 
     return NextResponse.json(category)

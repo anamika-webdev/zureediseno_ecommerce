@@ -181,3 +181,196 @@
   overflow-y: auto;
 }
 }
+/* Add this to your src/app/globals.css file for black notifications ONLY in admin portal */
+
+/* Admin Portal Black Notifications - Scoped to admin routes */
+.admin-portal [data-sonner-toast],
+[data-route*="/dashboard/admin"] [data-sonner-toast],
+[data-route*="/admin"] [data-sonner-toast] {
+  background: #000000 !important;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+}
+
+.admin-portal [data-sonner-toast] [data-content],
+[data-route*="/dashboard/admin"] [data-sonner-toast] [data-content],
+[data-route*="/admin"] [data-sonner-toast] [data-content] {
+  color: #ffffff !important;
+}
+
+.admin-portal [data-sonner-toast] [data-title],
+[data-route*="/dashboard/admin"] [data-sonner-toast] [data-title],
+[data-route*="/admin"] [data-sonner-toast] [data-title] {
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.admin-portal [data-sonner-toast] [data-description],
+[data-route*="/dashboard/admin"] [data-sonner-toast] [data-description],
+[data-route*="/admin"] [data-sonner-toast] [data-description] {
+  color: #e5e5e5 !important;
+}
+
+/* Success Toast - Admin Portal */
+.admin-portal [data-sonner-toast][data-type="success"],
+[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="success"],
+[data-route*="/admin"] [data-sonner-toast][data-type="success"] {
+  background: #000000 !important;
+  border-left: 4px solid #22c55e !important;
+}
+
+.admin-portal [data-sonner-toast][data-type="success"] [data-icon],
+[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="success"] [data-icon],
+[data-route*="/admin"] [data-sonner-toast][data-type="success"] [data-icon] {
+  color: #22c55e !important;
+}
+
+/* Error Toast - Admin Portal */
+.admin-portal [data-sonner-toast][data-type="error"],
+[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="error"],
+[data-route*="/admin"] [data-sonner-toast][data-type="error"] {
+  background: #000000 !important;
+  border-left: 4px solid #ef4444 !important;
+}
+
+.admin-portal [data-sonner-toast][data-type="error"] [data-icon],
+[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="error"] [data-icon],
+[data-route*="/admin"] [data-sonner-toast][data-type="error"] [data-icon] {
+  color: #ef4444 !important;
+}
+
+/* Warning Toast - Admin Portal */
+.admin-portal [data-sonner-toast][data-type="warning"],
+[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="warning"],
+[data-route*="/admin"] [data-sonner-toast][data-type="warning"] {
+  background: #000000 !important;
+  border-left: 4px solid #f59e0b !important;
+}
+
+.admin-portal [data-sonner-toast][data-type="warning"] [data-icon],
+[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="warning"] [data-icon],
+[data-route*="/admin"] [data-sonner-toast][data-type="warning"] [data-icon] {
+  color: #f59e0b !important;
+}
+
+/* Info Toast - Admin Portal */
+.admin-portal [data-sonner-toast][data-type="info"],
+[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="info"],
+[data-route*="/admin"] [data-sonner-toast][data-type="info"] {
+  background: #000000 !important;
+  border-left: 4px solid #3b82f6 !important;
+}
+
+.admin-portal [data-sonner-toast][data-type="info"] [data-icon],
+[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="info"] [data-icon],
+[data-route*="/admin"] [data-sonner-toast][data-type="info"] [data-icon] {
+  color: #3b82f6 !important;
+}
+
+/* Loading Toast - Admin Portal */
+.admin-portal [data-sonner-toast][data-type="loading"],
+[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="loading"],
+[data-route*="/admin"] [data-sonner-toast][data-type="loading"] {
+  background: #000000 !important;
+  border-left: 4px solid #6b7280 !important;
+}
+
+/* Close Button Styling - Admin Portal */
+.admin-portal [data-sonner-toast] [data-close-button],
+[data-route*="/dashboard/admin"] [data-sonner-toast] [data-close-button],
+[data-route*="/admin"] [data-sonner-toast] [data-close-button] {
+  background: transparent !important;
+  color: #ffffff !important;
+  border: 1px solid #333333 !important;
+}
+
+.admin-portal [data-sonner-toast] [data-close-button]:hover,
+[data-route*="/dashboard/admin"] [data-sonner-toast] [data-close-button]:hover,
+[data-route*="/admin"] [data-sonner-toast] [data-close-button]:hover {
+  background: #1f1f1f !important;
+  color: #ffffff !important;
+}
+
+/* Action Button Styling - Admin Portal */
+.admin-portal [data-sonner-toast] [data-button],
+[data-route*="/dashboard/admin"] [data-sonner-toast] [data-button],
+[data-route*="/admin"] [data-sonner-toast] [data-button] {
+  background: #333333 !important;
+  color: #ffffff !important;
+  border: 1px solid #555555 !important;
+}
+
+.admin-portal [data-sonner-toast] [data-button]:hover,
+[data-route*="/dashboard/admin"] [data-sonner-toast] [data-button]:hover,
+[data-route*="/admin"] [data-sonner-toast] [data-button]:hover {
+  background: #444444 !important;
+}
+
+/* Shadcn Toaster Styling - Admin Portal Only */
+.admin-portal .toast,
+[data-route*="/dashboard/admin"] .toast,
+[data-route*="/admin"] .toast {
+  background: #000000 !important;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+}
+
+.admin-portal .toast .toast-title,
+[data-route*="/dashboard/admin"] .toast .toast-title,
+[data-route*="/admin"] .toast .toast-title {
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.admin-portal .toast .toast-description,
+[data-route*="/dashboard/admin"] .toast .toast-description,
+[data-route*="/admin"] .toast .toast-description {
+  color: #e5e5e5 !important;
+}
+
+/* Toast variants for Shadcn - Admin Portal */
+.admin-portal .toast[data-type="destructive"],
+[data-route*="/dashboard/admin"] .toast[data-type="destructive"],
+[data-route*="/admin"] .toast[data-type="destructive"] {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-left: 4px solid #ef4444 !important;
+}
+
+.admin-portal .toast[data-type="destructive"] .toast-title,
+.admin-portal .toast[data-type="destructive"] .toast-description,
+[data-route*="/dashboard/admin"] .toast[data-type="destructive"] .toast-title,
+[data-route*="/dashboard/admin"] .toast[data-type="destructive"] .toast-description,
+[data-route*="/admin"] .toast[data-type="destructive"] .toast-title,
+[data-route*="/admin"] .toast[data-type="destructive"] .toast-description {
+  color: #ffffff !important;
+}
+
+/* Toast close button - Admin Portal */
+.admin-portal .toast button[data-dismiss],
+[data-route*="/dashboard/admin"] .toast button[data-dismiss],
+[data-route*="/admin"] .toast button[data-dismiss] {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+.admin-portal .toast button[data-dismiss]:hover,
+[data-route*="/dashboard/admin"] .toast button[data-dismiss]:hover,
+[data-route*="/admin"] .toast button[data-dismiss]:hover {
+  background: #1f1f1f !important;
+}
+
+/* Toast action button - Admin Portal */
+.admin-portal .toast .toast-action,
+[data-route*="/dashboard/admin"] .toast .toast-action,
+[data-route*="/admin"] .toast .toast-action {
+  background: #333333 !important;
+  color: #ffffff !important;
+  border: 1px solid #555555 !important;
+}
+
+.admin-portal .toast .toast-action:hover,
+[data-route*="/dashboard/admin"] .toast .toast-action:hover,
+[data-route*="/admin"] .toast .toast-action:hover {
+  background: #444444 !important;
+}

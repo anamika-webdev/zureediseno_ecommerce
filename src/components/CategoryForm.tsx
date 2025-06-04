@@ -14,6 +14,7 @@ export interface SerializableCategory {
   slug: string;
   image?: string;
   featured: boolean;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,7 +31,8 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
     slug: category?.slug || '',
     description: '',
     image: category?.image || '',
-    featured: category?.featured || false
+    featured: category?.featured || false,
+    sortOrder: category?.sortOrder || 0
   });
   
   const [isLoading, setIsLoading] = useState(false);
@@ -79,7 +81,8 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
           slug: formData.slug.trim(),
           description: formData.description.trim() || undefined,
           image: formData.image.trim() || undefined,
-          featured: formData.featured
+          featured: formData.featured,
+          sortOrder: formData.sortOrder
         }),
       });
 
@@ -122,6 +125,21 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
         />
         <p className="text-xs text-gray-500">
           This will be used in the URL: /products/{formData.slug}
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="sortOrder">Display Order</Label>
+        <Input
+          id="sortOrder"
+          type="number"
+          min="0"
+          value={formData.sortOrder}
+          onChange={(e) => setFormData(prev => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))}
+          placeholder="0"
+        />
+        <p className="text-xs text-gray-500">
+          Lower numbers appear first. Leave as 0 for automatic ordering.
         </p>
       </div>
 

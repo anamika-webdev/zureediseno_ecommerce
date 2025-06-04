@@ -1,5 +1,4 @@
 // src/app/api/categories-with-subcategories/route.ts
-
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -8,9 +7,10 @@ export async function GET() {
     const categories = await prisma.category.findMany({
       include: {
         subcategories: {
-          orderBy: {
-            name: 'asc'
-          }
+          orderBy: [
+            { sortOrder: 'asc' },
+            { name: 'asc' }
+          ]
         },
         _count: {
           select: {
@@ -18,9 +18,10 @@ export async function GET() {
           }
         }
       },
-      orderBy: {
-        name: 'asc'
-      }
+      orderBy: [
+        { sortOrder: 'asc' },
+        { name: 'asc' }
+      ]
     });
 
     return NextResponse.json(categories);

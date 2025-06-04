@@ -21,6 +21,7 @@ interface Subcategory {
   slug: string;
   description?: string;
   categoryId: string;
+  sortOrder: number;
   category?: {
     id: string;
     name: string;
@@ -46,7 +47,8 @@ export default function SubcategoryFormModal({
     name: '',
     slug: '',
     categoryId: '',
-    description: ''
+    description: '',
+    sortOrder: 0
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -76,14 +78,16 @@ export default function SubcategoryFormModal({
         name: subcategory.name,
         slug: subcategory.slug,
         categoryId: subcategory.categoryId,
-        description: subcategory.description || ''
+        description: subcategory.description || '',
+        sortOrder: subcategory.sortOrder || 0
       });
     } else {
       setFormData({
         name: '',
         slug: '',
         categoryId: '',
-        description: ''
+        description: '',
+        sortOrder: 0
       });
     }
   }, [subcategory]);
@@ -131,7 +135,8 @@ export default function SubcategoryFormModal({
           name: formData.name.trim(),
           slug: formData.slug.trim(),
           categoryId: formData.categoryId,
-          description: formData.description.trim() || undefined
+          description: formData.description.trim() || undefined,
+          sortOrder: formData.sortOrder
         }),
       });
 
@@ -202,6 +207,21 @@ export default function SubcategoryFormModal({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sortOrder">Display Order</Label>
+            <Input
+              id="sortOrder"
+              type="number"
+              min="0"
+              value={formData.sortOrder}
+              onChange={(e) => setFormData(prev => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))}
+              placeholder="0"
+            />
+            <p className="text-xs text-gray-500">
+              Lower numbers appear first within the category. Leave as 0 for automatic ordering.
+            </p>
           </div>
 
           <div className="space-y-2">

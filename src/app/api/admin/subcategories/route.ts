@@ -18,9 +18,15 @@ export async function GET() {
           }
         }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: [
+        { 
+          category: {
+            sortOrder: 'asc'
+          }
+        },
+        { sortOrder: 'asc' },
+        { name: 'asc' }
+      ]
     })
 
     return NextResponse.json(subcategories)
@@ -39,7 +45,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, categoryId, description, slug } = body
+    const { name, categoryId, description, slug, sortOrder } = body
 
     if (!name || !categoryId) {
       return NextResponse.json(
@@ -50,6 +56,20 @@ export async function POST(request: Request) {
 
     // Generate slug if not provided
     const subcategorySlug = slug || name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-')
+
+    // If no sortOrder provided, get the next available sort order for this category
+    let finalSortOrder = sortOrder ?? 0;
+    if (finalSortOrder === 0) {
+      const maxSortOrder = await prisma.subcategory.aggregate({
+        where: {
+          categoryId: categoryId
+        },
+        _max: {
+          sortOrder: true
+        }
+      });
+      finalSortOrder = (maxSortOrder._max.sortOrder || 0) + 1;
+    }
 
     // Check if slug already exists
     const existingSubcategory = await prisma.subcategory.findFirst({
@@ -70,7 +90,8 @@ export async function POST(request: Request) {
         name: name.trim(),
         slug: subcategorySlug,
         categoryId,
-        description: description?.trim() || null
+        description: description?.trim() || null,
+        sortOrder: finalSortOrder
       },
       include: {
         category: {

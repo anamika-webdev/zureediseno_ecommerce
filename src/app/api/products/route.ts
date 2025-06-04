@@ -52,9 +52,20 @@ export async function GET(request: NextRequest) {
         category: true,
         subcategory: true
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: [
+        { featured: 'desc' },  // Featured products first
+        { 
+          category: {
+            sortOrder: 'asc'
+          }
+        },
+        {
+          subcategory: {
+            sortOrder: 'asc'
+          }
+        },
+        { createdAt: 'desc' }
+      ]
     });
 
     console.log('📦 Found products:', products.length);

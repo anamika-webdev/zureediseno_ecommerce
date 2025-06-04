@@ -14,13 +14,15 @@ export async function GET() {
         category: {
           select: {
             id: true,
-            name: true
+            name: true,
+            sortOrder: true
           }
         },
         subcategory: {
           select: {
             id: true,
-            name: true
+            name: true,
+            sortOrder: true
           }
         },
         images: {
@@ -41,9 +43,20 @@ export async function GET() {
           }
         }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: [
+        { featured: 'desc' },  // Featured products first
+        { 
+          category: {
+            sortOrder: 'asc'
+          }
+        },
+        {
+          subcategory: {
+            sortOrder: 'asc'
+          }
+        },
+        { createdAt: 'desc' }
+      ]
     })
 
     return NextResponse.json(products)
@@ -66,8 +79,8 @@ export async function POST(request: Request) {
       name, 
       description, 
       price, 
-      originalPrice, // Changed from comparePrice to originalPrice
-      comparePrice,   // Keep comparePrice for backward compatibility
+      originalPrice,
+      comparePrice,
       categoryId,
       subcategoryId,
       images,

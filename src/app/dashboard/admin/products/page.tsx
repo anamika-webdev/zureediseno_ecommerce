@@ -1,4 +1,4 @@
-// src/app/dashboard/admin/products/page.tsx
+// src/app/dashboard/admin/products/page.tsx - Fixed Decimal handling
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -13,8 +13,8 @@ interface Product {
   id: string;
   name: string;
   description?: string;
-  price: number;
-  comparePrice?: number;
+  price: number | string; // Handle both types
+  originalPrice?: number | string;
   categoryId: string;
   subcategoryId?: string;
   featured: boolean;
@@ -29,6 +29,22 @@ interface Product {
     name: string;
   };
 }
+
+// Helper function to convert Decimal to number
+const toNumber = (value: any): number => {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return parseFloat(value);
+  if (value && typeof value === 'object' && 'toNumber' in value) {
+    return value.toNumber();
+  }
+  return 0;
+};
+
+// Helper function to format price
+const formatPrice = (price: any): string => {
+  const numPrice = toNumber(price);
+  return numPrice.toFixed(2);
+};
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -270,11 +286,11 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        ${product.price.toFixed(2)}
+                        ₹{formatPrice(product.price)}
                       </div>
-                      {product.comparePrice && (
+                      {product.originalPrice && (
                         <div className="text-xs text-gray-500 line-through">
-                          ${product.comparePrice.toFixed(2)}
+                          ₹{formatPrice(product.originalPrice)}
                         </div>
                       )}
                     </td>

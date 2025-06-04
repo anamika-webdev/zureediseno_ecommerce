@@ -1,277 +1,307 @@
-// src/app/dashboard/admin/categories/page.tsx
-"use client";
+// src/app/admin/categories/page.tsx
+'use client'
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
-import CategoryFormModal from '@/components/admin/CategoryFormModal';
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from '@/components/ui/dialog'
+import { CategoryForm, SerializableCategory } from '@/components/CategoryForm'
+import { Trash2, Edit, Plus, Star, GripVertical, ArrowUp, ArrowDown } from 'lucide-react'
+import { toast } from 'sonner'
 
-interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: string;
-}
+export default function CategoriesPage() {
+  const [categories, setCategories] = useState<SerializableCategory[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<SerializableCategory | null>(null)
+  const [error, setError] = useState<string>('')
 
-export default function AdminCategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
+  // Fetch categories
   const fetchCategories = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch('/api/admin/categories');
+      setLoading(true)
+      const response = await fetch('/api/admin/categories')
+      if (!response.ok) throw new Error('Failed to fetch categories')
       
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(Array.isArray(data) ? data : []);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to fetch categories');
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load categories');
-      setCategories([]);
+      const data = await response.json()
+      // Convert Date objects to strings for serialization
+      const serializedData: SerializableCategory[] = data.map((cat: any) => ({
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
+        image: cat.image || '',
+        featured: cat.featured || false,
+        sortOrder: cat.sortOrder || 0,
+        createdAt: new Date(cat.createdAt).toISOString(),
+        updatedAt: new Date(cat.updatedAt).toISOString()
+      }))
+      setCategories(serializedData)
+      setError('')
+    } catch (err: any) {
+      setError(err.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const handleDeleteCategory = async (categoryId: string) => {
-    if (!confirm('Are you sure you want to delete this category?')) {
-      return;
-    }
+  useEffect(() => {
+    fetchCategories()
+  }, [])
+
+  // Handle form success
+  const handleFormSuccess = () => {
+    setIsDialogOpen(false)
+    setSelectedCategory(null)
+    fetchCategories()
+  }
+
+  // Handle form cancel
+  const handleFormCancel = () => {
+    setIsDialogOpen(false)
+    setSelectedCategory(null)
+  }
+
+  // Handle edit
+  const handleEdit = (category: SerializableCategory) => {
+    setSelectedCategory(category)
+    setIsDialogOpen(true)
+  }
+
+  // Handle delete
+  const handleDelete = async (categoryId: string) => {
+    if (!confirm('Are you sure you want to delete this category?')) return
 
     try {
       const response = await fetch(`/api/admin/categories/${categoryId}`, {
-        method: 'DELETE',
-      });
+        method: 'DELETE'
+      })
 
-      if (response.ok) {
-        toast.success('Category deleted successfully');
-        fetchCategories();
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to delete category');
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete category')
       }
-    } catch (error) {
-      console.error('Error deleting category:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to delete category');
+
+      toast.success('Category deleted successfully')
+      fetchCategories()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete category')
     }
-  };
+  }
 
-  const handleAddCategory = () => {
-    setEditingCategory(null);
-    setShowModal(true);
-  };
+  // Handle move up/down
+  const moveCategoryUp = async (category: SerializableCategory, index: number) => {
+    if (index === 0) return
 
-  const handleEditCategory = (category: Category) => {
-    setEditingCategory(category);
-    setShowModal(true);
-  };
+    const newCategories = [...categories]
+    const currentCategory = newCategories[index]
+    const previousCategory = newCategories[index - 1]
 
-  const handleModalClose = () => {
-    setShowModal(false);
-    setEditingCategory(null);
-  };
+    // Swap sort orders
+    const tempSortOrder = currentCategory.sortOrder
+    currentCategory.sortOrder = previousCategory.sortOrder
+    previousCategory.sortOrder = tempSortOrder
 
-  const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    // Update in database
+    try {
+      await Promise.all([
+        updateCategorySortOrder(currentCategory.id, currentCategory.sortOrder),
+        updateCategorySortOrder(previousCategory.id, previousCategory.sortOrder)
+      ])
+
+      // Swap in array
+      newCategories[index] = previousCategory
+      newCategories[index - 1] = currentCategory
+      
+      setCategories(newCategories)
+      toast.success('Category order updated')
+    } catch (error) {
+      toast.error('Failed to update category order')
+    }
+  }
+
+  const moveCategoryDown = async (category: SerializableCategory, index: number) => {
+    if (index === categories.length - 1) return
+
+    const newCategories = [...categories]
+    const currentCategory = newCategories[index]
+    const nextCategory = newCategories[index + 1]
+
+    // Swap sort orders
+    const tempSortOrder = currentCategory.sortOrder
+    currentCategory.sortOrder = nextCategory.sortOrder
+    nextCategory.sortOrder = tempSortOrder
+
+    // Update in database
+    try {
+      await Promise.all([
+        updateCategorySortOrder(currentCategory.id, currentCategory.sortOrder),
+        updateCategorySortOrder(nextCategory.id, nextCategory.sortOrder)
+      ])
+
+      // Swap in array
+      newCategories[index] = nextCategory
+      newCategories[index + 1] = currentCategory
+      
+      setCategories(newCategories)
+      toast.success('Category order updated')
+    } catch (error) {
+      toast.error('Failed to update category order')
+    }
+  }
+
+  const updateCategorySortOrder = async (categoryId: string, sortOrder: number) => {
+    const response = await fetch(`/api/admin/categories/${categoryId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ sortOrder }),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to update sort order')
+    }
+  }
 
   if (loading) {
     return (
-      <div className="text-center py-8">
-        <div className="text-lg">Loading categories...</div>
+      <div className="container mx-auto py-10">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Loading categories...</div>
+        </div>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="container mx-auto py-10">
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Categories</h1>
-          <p className="text-gray-600">Manage your product categories</p>
+          <h1 className="text-3xl font-bold">Category Management</h1>
+          <p className="text-gray-600 mt-2">Manage your product categories and their display order</p>
         </div>
-        <Button onClick={handleAddCategory} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Add Category
-        </Button>
+        
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={() => setSelectedCategory(null)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Category
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedCategory ? 'Edit Category' : 'Add New Category'}
+              </DialogTitle>
+            </DialogHeader>
+            <CategoryForm
+              category={selectedCategory}
+              onSuccess={handleFormSuccess}
+              onCancel={handleFormCancel}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-        <Input
-          placeholder="Search categories..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          <p className="font-medium">Error:</p>
-          <p>{error}</p>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={fetchCategories}
-            className="mt-2"
-          >
-            Try Again
-          </Button>
+        <div className="p-4 bg-red-50 border border-red-200 rounded-md mb-6">
+          <p className="text-red-700">{error}</p>
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Categories</p>
-              <p className="text-3xl font-bold text-gray-900">{categories.length}</p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-full">
-              <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
-              </svg>
-            </div>
-          </div>
+      {categories.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-500 text-lg">No categories found</p>
+          <p className="text-gray-400">Create your first category to get started</p>
         </div>
-
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active</p>
-              <p className="text-3xl font-bold text-green-600">{categories.length}</p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-full">
-              <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
-              </svg>
-            </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow border overflow-hidden">
+          <div className="p-4 border-b bg-gray-50">
+            <h3 className="font-semibold text-lg">Categories (Ordered by Display Order)</h3>
+            <p className="text-sm text-gray-600">Categories are displayed in this order on your website</p>
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Recently Added</p>
-              <p className="text-3xl font-bold text-purple-600">
-                {categories.filter(c => {
-                  const daysSinceCreated = (Date.now() - new Date(c.createdAt).getTime()) / (1000 * 60 * 60 * 24);
-                  return daysSinceCreated <= 7;
-                }).length}
-              </p>
-            </div>
-            <div className="p-3 bg-purple-100 rounded-full">
-              <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Categories Table */}
-      <div className="bg-white rounded-lg shadow border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Description
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredCategories.length > 0 ? (
-                filteredCategories.map((category) => (
-                  <tr key={category.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{category.name}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-500 max-w-xs truncate">
-                        {category.description || 'No description'}
+          
+          <div className="divide-y">
+            {categories.map((category, index) => (
+              <div key={category.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex flex-col space-y-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveCategoryUp(category, index)}
+                        disabled={index === 0}
+                        className="p-1 h-6 w-6"
+                      >
+                        <ArrowUp className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveCategoryDown(category, index)}
+                        disabled={index === categories.length - 1}
+                        className="p-1 h-6 w-6"
+                      >
+                        <ArrowDown className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    
+                    <GripVertical className="w-5 h-5 text-gray-400" />
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-semibold text-lg">{category.name}</h3>
+                        {category.featured && (
+                          <Star className="w-4 h-4 text-yellow-500" fill="currentColor" />
+                        )}
+                        <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          Order: {category.sortOrder}
+                        </span>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge variant="default">Active</Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(category.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleEditCategory(category)}
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-red-600"
-                          onClick={() => handleDeleteCategory(category.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                      <p className="text-sm text-gray-600">/{category.slug}</p>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Created: {new Date(category.createdAt).toLocaleDateString()}
                       </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                    {searchTerm ? 'No categories found matching your search.' : 'No categories found. Add your first category!'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {category.image && (
+                      <img
+                        src={category.image}
+                        alt={category.name}
+                        className="w-12 h-12 object-cover rounded-md"
+                      />
+                    )}
+                    
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleEdit(category)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete(category.id)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-
-      {/* Category Form Modal */}
-      <CategoryFormModal
-        isOpen={showModal}
-        onClose={handleModalClose}
-        onSuccess={fetchCategories}
-        category={editingCategory}
-      />
+      )}
     </div>
-  );
+  )
 }

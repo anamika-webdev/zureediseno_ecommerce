@@ -9,7 +9,7 @@ interface PrismaError extends Error {
 
 export async function GET() {
   try {
-    console.log('📍 API: Fetching categories...')
+    console.log('📍 API: Fetching categories with sort order...')
     
     const categories = await prisma.category.findMany({
       select: {
@@ -17,12 +17,20 @@ export async function GET() {
         name: true,
         slug: true,
         description: true,
+        sortOrder: true,  // Include sortOrder
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        _count: {
+          select: {
+            products: true,
+            subcategories: true
+          }
+        }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: [
+        { sortOrder: 'asc' },  // Primary sort by sortOrder
+        { name: 'asc' }        // Secondary sort by name
+      ]
     })
 
     console.log(`✅ API: Found ${categories.length} categories`)
@@ -46,7 +54,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log('📝 Request body:', body)
     
-    const { name, slug, description } = body
+    const { name, slug, description, sortOrder } = body
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -59,6 +67,17 @@ export async function POST(request: Request) {
 
     // Generate slug if not provided
     const categorySlug = slug || name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-')
+
+    // If no sortOrder provided, get the next available sort order
+    let finalSortOrder = sortOrder ?? 0;
+    if (finalSortOrder === 0) {
+      const maxSortOrder = await prisma.category.aggregate({
+        _max: {
+          sortOrder: true
+        }
+      });
+      finalSortOrder = (maxSortOrder._max.sortOrder || 0) + 1;
+    }
 
     // Check if category with same name already exists (case-insensitive comparison)
     const existingCategories = await prisma.category.findMany({
@@ -100,7 +119,8 @@ export async function POST(request: Request) {
       data: {
         name: name.trim(),
         slug: categorySlug,
-        description: description?.trim() || null
+        description: description?.trim() || null,
+        sortOrder: finalSortOrder
       }
     })
 

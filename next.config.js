@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  images: {
+    domains: ['localhost', 'your-domain.com'], // Add your domains
+    unoptimized: true, // If using static export
+  },
   eslint: {
     ignoreDuringBuilds: true, // Skip ESLint during builds
   },
@@ -21,5 +25,3 @@ const nextConfig = {
     return config;
   },
 };
-
-module.exports = nextConfig;

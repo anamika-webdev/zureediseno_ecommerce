@@ -2,20 +2,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-interface PrismaError extends Error {
-  code?: string;
-  meta?: any;
-}
-
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params
-    
     const product = await prisma.product.findUnique({
-      where: { id },
+      where: { id: params.id },
       include: {
         category: {
           select: {
@@ -29,7 +22,11 @@ export async function GET(
             name: true
           }
         },
-        images: true,
+        images: {
+          orderBy: {
+            isPrimary: 'desc'
+          }
+        },
         variants: true
       }
     })
@@ -42,7 +39,7 @@ export async function GET(
     }
 
     return NextResponse.json(product)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching product:', error)
     return NextResponse.json(
       { error: 'Failed to fetch product' },
@@ -53,20 +50,17 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params
     const body = await request.json()
     const { 
       name, 
       description, 
       price, 
-      originalPrice, // Changed from comparePrice to originalPrice
-      comparePrice,   // Keep comparePrice for backward compatibility
+      originalPrice,
       categoryId,
       subcategoryId,
-      images,
       featured,
       inStock
     } = body
@@ -78,20 +72,52 @@ export async function PUT(
       )
     }
 
-    // Use originalPrice if provided, otherwise use comparePrice for backward compatibility
-    const priceValue = originalPrice || comparePrice;
+    // Check if product exists
+    const existingProduct = await prisma.product.findUnique({
+      where: { id: params.id }
+    })
+
+    if (!existingProduct) {
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404 }
+      )
+    }
+
+    // Generate new slug if name changed
+    let slug = existingProduct.slug
+    if (name.trim() !== existingProduct.name) {
+      slug = name.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim('-')
+
+      // Check if new slug already exists
+      const slugExists = await prisma.product.findFirst({
+        where: {
+          slug,
+          id: { not: params.id }
+        }
+      })
+
+      if (slugExists) {
+        slug = `${slug}-${Date.now()}`
+      }
+    }
 
     const product = await prisma.product.update({
-      where: { id },
+      where: { id: params.id },
       data: {
         name: name.trim(),
+        slug,
         description: description?.trim() || null,
-        price: parseFloat(price),
-        originalPrice: priceValue ? parseFloat(priceValue) : null,
+        price: parseFloat(price.toString()),
+        originalPrice: originalPrice ? parseFloat(originalPrice.toString()) : null,
         categoryId,
         subcategoryId: subcategoryId || null,
-        featured: featured || false,
-        inStock: inStock !== false
+        featured: Boolean(featured),
+        inStock: Boolean(inStock)
       },
       include: {
         category: {
@@ -112,12 +138,10 @@ export async function PUT(
     })
 
     return NextResponse.json(product)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating product:', error)
     
-    // Handle specific Prisma errors with proper type checking
-    const prismaError = error as PrismaError
-    if (prismaError.code === 'P2025') {
+    if (error?.code === 'P2025') {
       return NextResponse.json(
         { error: 'Product not found' },
         { status: 404 }
@@ -133,22 +157,57 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params
-    
-    await prisma.product.delete({
-      where: { id }
+    // Check if product exists
+    const existingProduct = await prisma.product.findUnique({
+      where: { id: params.id },
+      include: {
+        _count: {
+          select: {
+            orderItems: true
+          }
+        }
+      }
     })
 
-    return NextResponse.json({ message: 'Product deleted successfully' })
-  } catch (error) {
+    if (!existingProduct) {
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check if product has associated orders
+    if (existingProduct._count.orderItems > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete product with existing orders. Consider marking it as out of stock instead.' },
+        { status: 400 }
+      )
+    }
+
+    // Delete related data first (due to foreign key constraints)
+    await prisma.productVariant.deleteMany({
+      where: { productId: params.id }
+    })
+
+    await prisma.productImage.deleteMany({
+      where: { productId: params.id }
+    })
+
+    // Delete the product
+    await prisma.product.delete({
+      where: { id: params.id }
+    })
+
+    return NextResponse.json({ 
+      message: 'Product deleted successfully' 
+    })
+  } catch (error: any) {
     console.error('Error deleting product:', error)
     
-    // Handle specific Prisma errors with proper type checking
-    const prismaError = error as PrismaError
-    if (prismaError.code === 'P2025') {
+    if (error?.code === 'P2025') {
       return NextResponse.json(
         { error: 'Product not found' },
         { status: 404 }

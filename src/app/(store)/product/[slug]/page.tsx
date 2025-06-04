@@ -1,14 +1,15 @@
-// src/app/product/[slug]/page.tsx
+// src/app/(store)/product/[slug]/page.tsx - Enhanced with admin-controlled options
 "use client";
 
 import { useState, useEffect, use } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Heart, Minus, Plus } from 'lucide-react';
+import { Heart, Minus, Plus, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
 import { toast } from 'sonner';
+import { formatPrice } from '@/lib/utils';
 
 interface ProductImage {
   id: string;
@@ -46,11 +47,54 @@ interface Product {
     name: string;
     slug: string;
   };
+  sortOrder?: number;
 }
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
+
+// Enhanced color mapping
+const colorMap: Record<string, string> = {
+  'white': '#ffffff',
+  'black': '#000000',
+  'red': '#ef4444',
+  'blue': '#3b82f6',
+  'green': '#10b981',
+  'yellow': '#f59e0b',
+  'purple': '#8b5cf6',
+  'pink': '#ec4899',
+  'gray': '#6b7280',
+  'grey': '#6b7280',
+  'orange': '#f97316',
+  'indigo': '#6366f1',
+  'teal': '#14b8a6',
+  'cyan': '#06b6d4',
+  'lime': '#84cc16',
+  'amber': '#f59e0b',
+  'emerald': '#10b981',
+  'rose': '#f43f5e',
+  'navy': '#1e3a8a',
+  'maroon': '#7f1d1d',
+  'brown': '#92400e',
+  'beige': '#d2b48c',
+  'cream': '#fffdd0',
+  'ivory': '#fffff0',
+  'khaki': '#f0e68c',
+  'olive': '#808000',
+  'silver': '#c0c0c0',
+  'gold': '#ffd700',
+  'bronze': '#cd7f32',
+  'lavender': '#e6e6fa',
+  'mint': '#98fb98',
+  'coral': '#ff7f50',
+  'turquoise': '#40e0d0',
+};
+
+const getColorCode = (colorName: string): string => {
+  const normalizedColor = colorName.toLowerCase().trim();
+  return colorMap[normalizedColor] || '#6b7280';
+};
 
 export default function ProductDetailsPage({ params }: PageProps) {
   const { addToCart } = useCart();
@@ -60,8 +104,8 @@ export default function ProductDetailsPage({ params }: PageProps) {
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedSleeveType, setSelectedSleeveType] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Unwrap the params promise
   const resolvedParams = use(params);
 
   // Get unique options from variants
@@ -69,7 +113,7 @@ export default function ProductDetailsPage({ params }: PageProps) {
   const availableSizes = product ? [...new Set(product.variants.map(v => v.size))] : [];
   const availableSleeveTypes = product ? [...new Set(product.variants.map(v => v.sleeveType).filter(Boolean))] : [];
 
-  // Get available sizes based on selected color and sleeve type
+  // Get available options based on current selections
   const getAvailableSizesForSelection = () => {
     if (!product) return [];
     
@@ -83,23 +127,37 @@ export default function ProductDetailsPage({ params }: PageProps) {
       .filter((size, index, self) => self.indexOf(size) === index);
   };
 
-  // Get available sleeve types based on selected color
   const getAvailableSleeveTypesForSelection = () => {
     if (!product) return [];
     
     return product.variants
       .filter(v => {
         const colorMatch = !selectedColor || v.color === selectedColor;
-        return colorMatch && v.stock > 0;
+        const sizeMatch = !selectedSize || v.size === selectedSize;
+        return colorMatch && sizeMatch && v.stock > 0;
       })
       .map(v => v.sleeveType)
       .filter((sleeve, index, self) => sleeve && self.indexOf(sleeve) === index);
   };
 
+  const getAvailableColorsForSelection = () => {
+    if (!product) return [];
+    
+    return product.variants
+      .filter(v => {
+        const sizeMatch = !selectedSize || v.size === selectedSize;
+        const sleeveMatch = !selectedSleeveType || v.sleeveType === selectedSleeveType;
+        return sizeMatch && sleeveMatch && v.stock > 0;
+      })
+      .map(v => v.color)
+      .filter((color, index, self) => self.indexOf(color) === index);
+  };
+
   const currentAvailableSizes = getAvailableSizesForSelection();
   const currentAvailableSleeveTypes = getAvailableSleeveTypesForSelection();
+  const currentAvailableColors = getAvailableColorsForSelection();
 
-  // Get current variant stock
+  // Get current variant
   const currentVariant = product?.variants.find(v => 
     v.size === selectedSize && 
     v.color === selectedColor && 
@@ -109,58 +167,61 @@ export default function ProductDetailsPage({ params }: PageProps) {
   const maxQuantity = currentVariant?.stock || 0;
   const isInStock = maxQuantity > 0;
 
-  // Update selections when color changes
+  // Update selections when they become unavailable
   useEffect(() => {
-    if (product && selectedColor) {
-      const availableSizesForColor = getAvailableSizesForSelection();
-      const availableSleeveTypesForColor = getAvailableSleeveTypesForSelection();
-      
-      // Reset size if current size is not available for selected color
-      if (selectedSize && !availableSizesForColor.includes(selectedSize)) {
-        setSelectedSize(availableSizesForColor[0] || '');
-      }
-      
-      // Reset sleeve type if current sleeve type is not available for selected color
-      if (selectedSleeveType && !availableSleeveTypesForColor.includes(selectedSleeveType)) {
-        setSelectedSleeveType(availableSleeveTypesForColor[0] || '');
-      }
+    if (product && selectedColor && !currentAvailableColors.includes(selectedColor)) {
+      setSelectedColor(currentAvailableColors[0] || '');
     }
-  }, [selectedColor]);
+  }, [selectedSize, selectedSleeveType]);
 
-  // Update size when sleeve type changes
   useEffect(() => {
-    if (product && selectedSleeveType) {
-      const availableSizesForSelection = getAvailableSizesForSelection();
-      if (selectedSize && !availableSizesForSelection.includes(selectedSize)) {
-        setSelectedSize(availableSizesForSelection[0] || '');
-      }
+    if (product && selectedSize && !currentAvailableSizes.includes(selectedSize)) {
+      setSelectedSize(currentAvailableSizes[0] || '');
     }
-  }, [selectedSleeveType]);
+  }, [selectedColor, selectedSleeveType]);
+
+  useEffect(() => {
+    if (product && selectedSleeveType && !currentAvailableSleeveTypes.includes(selectedSleeveType)) {
+      setSelectedSleeveType(currentAvailableSleeveTypes[0] || '');
+    }
+  }, [selectedColor, selectedSize]);
 
   // Load product data
   useEffect(() => {
     const loadProduct = () => {
-      // Mock product data with multiple color, size, and sleeve combinations
+      // Mock product data - replace with actual API call
       const mockProduct: Product = {
         id: '1',
-        name: 'Classic Premium Shirt',
-        slug: 'classic-premium-shirt',
-        description: 'A timeless premium shirt perfect for any occasion. Made from high-quality cotton with exceptional comfort and durability. Perfect for both formal and casual wear.',
-        price: 1499,
-        originalPrice: 1499,
-        sku: 'CPS001',
+        name: 'Premium Cotton Shirt',
+        slug: 'premium-cotton-shirt',
+        description: 'Experience luxury with our premium cotton shirt, crafted from the finest 100% cotton fabric. This versatile piece features a modern fit that\'s perfect for both professional and casual settings. The breathable fabric ensures all-day comfort while maintaining a polished appearance.',
+        price: 2999,
+        originalPrice: 3999,
+        sku: 'PCS001',
         inStock: true,
         featured: true,
         images: [
           {
             id: '1',
-            url: '/uploads/WHITE SHIRT WITH POCKET-photoshoot/White_Shirt (3).jpg',
-            alt: 'Classic Premium Shirt',
+            url: '/images/products/shirt-1.jpg',
+            alt: 'Premium Cotton Shirt - Front View',
             isPrimary: true
+          },
+          {
+            id: '2',
+            url: '/images/products/shirt-2.jpg',
+            alt: 'Premium Cotton Shirt - Side View',
+            isPrimary: false
+          },
+          {
+            id: '3',
+            url: '/images/products/shirt-3.jpg',
+            alt: 'Premium Cotton Shirt - Back View',
+            isPrimary: false
           }
         ],
         variants: [
-          // White color variants
+          // White variants
           { id: '1', size: 'S', color: 'White', sleeveType: 'Short Sleeve', stock: 10 },
           { id: '2', size: 'M', color: 'White', sleeveType: 'Short Sleeve', stock: 15 },
           { id: '3', size: 'L', color: 'White', sleeveType: 'Short Sleeve', stock: 12 },
@@ -170,7 +231,7 @@ export default function ProductDetailsPage({ params }: PageProps) {
           { id: '7', size: 'L', color: 'White', sleeveType: 'Full Sleeve', stock: 10 },
           { id: '8', size: 'XL', color: 'White', sleeveType: 'Full Sleeve', stock: 6 },
           
-          // Blue color variants
+          // Blue variants
           { id: '9', size: 'S', color: 'Blue', sleeveType: 'Short Sleeve', stock: 6 },
           { id: '10', size: 'M', color: 'Blue', sleeveType: 'Short Sleeve', stock: 9 },
           { id: '11', size: 'L', color: 'Blue', sleeveType: 'Short Sleeve', stock: 7 },
@@ -179,18 +240,24 @@ export default function ProductDetailsPage({ params }: PageProps) {
           { id: '14', size: 'M', color: 'Blue', sleeveType: 'Full Sleeve', stock: 10 },
           { id: '15', size: 'L', color: 'Blue', sleeveType: 'Full Sleeve', stock: 8 },
           
-          // Black color variants (only full sleeve available)
+          // Black variants (only full sleeve)
           { id: '16', size: 'S', color: 'Black', sleeveType: 'Full Sleeve', stock: 8 },
           { id: '17', size: 'M', color: 'Black', sleeveType: 'Full Sleeve', stock: 12 },
           { id: '18', size: 'L', color: 'Black', sleeveType: 'Full Sleeve', stock: 10 },
           { id: '19', size: 'XL', color: 'Black', sleeveType: 'Full Sleeve', stock: 6 },
           
-          // Navy color variants (mixed availability)
+          // Navy variants
           { id: '20', size: 'M', color: 'Navy', sleeveType: 'Short Sleeve', stock: 5 },
           { id: '21', size: 'L', color: 'Navy', sleeveType: 'Short Sleeve', stock: 7 },
           { id: '22', size: 'M', color: 'Navy', sleeveType: 'Full Sleeve', stock: 6 },
           { id: '23', size: 'L', color: 'Navy', sleeveType: 'Full Sleeve', stock: 8 },
           { id: '24', size: 'XL', color: 'Navy', sleeveType: 'Full Sleeve', stock: 4 },
+
+          // New colors
+          { id: '25', size: 'S', color: 'Red', sleeveType: 'Short Sleeve', stock: 5 },
+          { id: '26', size: 'M', color: 'Red', sleeveType: 'Short Sleeve', stock: 8 },
+          { id: '27', size: 'L', color: 'Green', sleeveType: 'Full Sleeve', stock: 6 },
+          { id: '28', size: 'M', color: 'Purple', sleeveType: 'Short Sleeve', stock: 4 },
         ],
         category: {
           id: '1',
@@ -200,7 +267,8 @@ export default function ProductDetailsPage({ params }: PageProps) {
         subcategory: {
           name: 'Shirts',
           slug: 'shirts'
-        }
+        },
+        sortOrder: 1
       };
 
       setProduct(mockProduct);
@@ -255,6 +323,18 @@ export default function ProductDetailsPage({ params }: PageProps) {
     }
   };
 
+  const nextImage = () => {
+    if (product && product.images.length > 0) {
+      setCurrentImageIndex((prev) => (prev + 1) % product.images.length);
+    }
+  };
+
+  const prevImage = () => {
+    if (product && product.images.length > 0) {
+      setCurrentImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -299,18 +379,60 @@ export default function ProductDetailsPage({ params }: PageProps) {
 
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2">
-            {/* Product Image */}
+            
+            {/* Product Images */}
             <div className="p-8 lg:p-12">
               <div className="relative bg-gray-100 rounded-xl overflow-hidden">
                 <div className="aspect-square relative">
                   <Image
-                    src={product.images[0]?.url || '/placeholder.jpg'}
-                    alt={product.images[0]?.alt || product.name}
+                    src={product.images[currentImageIndex]?.url || '/placeholder.jpg'}
+                    alt={product.images[currentImageIndex]?.alt || product.name}
                     fill
                     className="object-cover"
                     priority
                   />
+                  
+                  {/* Image Navigation */}
+                  {product.images.length > 1 && (
+                    <>
+                      <button
+                        onClick={prevImage}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 transition-colors"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={nextImage}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 transition-colors"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
+                
+                {/* Image Thumbnails */}
+                {product.images.length > 1 && (
+                  <div className="flex gap-2 mt-4 justify-center">
+                    {product.images.map((image, index) => (
+                      <button
+                        key={image.id}
+                        onClick={() => setCurrentImageIndex(index)}
+                        className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                          currentImageIndex === index ? 'border-gray-900' : 'border-gray-300'
+                        }`}
+                      >
+                        <Image
+                          src={image.url}
+                          alt={image.alt || ''}
+                          width={64}
+                          height={64}
+                          className="object-cover w-full h-full"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -322,6 +444,12 @@ export default function ProductDetailsPage({ params }: PageProps) {
                   <span className="px-3 py-1 bg-gray-900 text-white text-xs font-semibold uppercase tracking-wider rounded-full">
                     {product.subcategory?.name || product.category.name}
                   </span>
+                  {product.featured && (
+                    <span className="ml-2 px-3 py-1 bg-yellow-500 text-white text-xs font-semibold uppercase tracking-wider rounded-full">
+                      <Star className="inline h-3 w-3 mr-1" />
+                      Featured
+                    </span>
+                  )}
                 </div>
 
                 {/* Product Title */}
@@ -337,15 +465,7 @@ export default function ProductDetailsPage({ params }: PageProps) {
                 {/* Price */}
                 <div className="border-t border-b border-gray-200 py-6">
                   <div className="flex items-center space-x-4">
-                    <span className="text-3xl font-bold text-gray-900">₹{product.price}</span>
-                    {product.originalPrice && (
-                      <>
-                        <span className="text-xl text-gray-500 line-through">₹{product.originalPrice}</span>
-                        <span className="px-2 py-1 bg-red-100 text-red-800 text-sm font-semibold rounded">
-                          Save ₹{product.originalPrice - product.price}
-                        </span>
-                      </>
-                    )}
+                    <span className="text-3xl font-bold text-gray-900">₹{formatPrice(product.price)}</span>
                   </div>
                 </div>
 
@@ -359,36 +479,39 @@ export default function ProductDetailsPage({ params }: PageProps) {
                       {selectedColor}
                     </span>
                   </div>
-                  <div className="flex gap-4">
-                    {availableColors.map((color) => (
-                      <button
-                        key={color}
-                        onClick={() => setSelectedColor(color)}
-                        className={`relative w-14 h-14 rounded-full border-3 transition-all hover:scale-105 ${
-                          selectedColor === color
-                            ? 'border-gray-900 shadow-lg'
-                            : 'border-gray-300 hover:border-gray-400'
-                        }`}
-                        style={{ 
-                          backgroundColor: 
-                            color.toLowerCase() === 'white' ? '#ffffff' : 
-                            color.toLowerCase() === 'black' ? '#000000' :
-                            color.toLowerCase() === 'blue' ? '#3b82f6' :
-                            color.toLowerCase() === 'navy' ? '#1e3a8a' :
-                            color.toLowerCase() === 'red' ? '#ef4444' :
-                            '#6b7280'
-                        }}
-                        title={color}
-                      >
-                        {selectedColor === color && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className={`w-4 h-4 rounded-full ${
-                              color.toLowerCase() === 'white' ? 'bg-gray-900' : 'bg-white'
-                            }`} />
-                          </div>
-                        )}
-                      </button>
-                    ))}
+                  <div className="flex gap-3">
+                    {availableColors.map((color) => {
+                      const isAvailable = currentAvailableColors.includes(color);
+                      return (
+                        <button
+                          key={color}
+                          onClick={() => isAvailable && setSelectedColor(color)}
+                          disabled={!isAvailable}
+                          className={`relative w-12 h-12 rounded-full border-3 transition-all hover:scale-105 ${
+                            selectedColor === color
+                              ? 'border-gray-900 shadow-lg scale-105'
+                              : isAvailable
+                              ? 'border-gray-300 hover:border-gray-400'
+                              : 'border-gray-200 opacity-50 cursor-not-allowed'
+                          }`}
+                          style={{ backgroundColor: getColorCode(color) }}
+                          title={color}
+                        >
+                          {selectedColor === color && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className={`w-4 h-4 rounded-full ${
+                                color.toLowerCase() === 'white' ? 'bg-gray-900' : 'bg-white'
+                              }`} />
+                            </div>
+                          )}
+                          {!isAvailable && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-6 h-0.5 bg-red-500 rotate-45"></div>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -406,18 +529,22 @@ export default function ProductDetailsPage({ params }: PageProps) {
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      {currentAvailableSleeveTypes.map((sleeveType) => {
+                      {availableSleeveTypes.map((sleeveType) => {
                         const displayName = sleeveType === 'Short Sleeve' ? 'Half Sleeves' : 'Full Sleeves';
                         const isSelected = selectedSleeveType === sleeveType;
+                        const isAvailable = currentAvailableSleeveTypes.includes(sleeveType);
                         
                         return (
                           <button
                             key={sleeveType}
-                            onClick={() => setSelectedSleeveType(sleeveType!)}
+                            onClick={() => isAvailable && setSelectedSleeveType(sleeveType)}
+                            disabled={!isAvailable}
                             className={`py-4 px-6 border-2 font-semibold rounded-lg transition-all ${
                               isSelected
                                 ? 'border-gray-900 bg-gray-900 text-white shadow-md'
-                                : 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
+                                : isAvailable
+                                ? 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
+                                : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
                             }`}
                           >
                             {displayName}
@@ -468,7 +595,7 @@ export default function ProductDetailsPage({ params }: PageProps) {
                   </div>
                 </div>
 
-                {/* Stock Info 
+                {/* Stock Info */}
                 {isInStock && currentVariant && (
                   <div className="flex items-center space-x-2 text-green-700 bg-green-50 px-4 py-2 rounded-lg">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -476,7 +603,7 @@ export default function ProductDetailsPage({ params }: PageProps) {
                       {maxQuantity} items available
                     </span>
                   </div>
-                )}*/}
+                )}
 
                 {!currentVariant && selectedColor && selectedSize && (
                   <div className="flex items-center space-x-2 text-red-700 bg-red-50 px-4 py-2 rounded-lg">
@@ -530,7 +657,7 @@ export default function ProductDetailsPage({ params }: PageProps) {
                       {!selectedColor || !selectedSize ? 'Select Options' :
                        (availableSleeveTypes.length > 0 && !selectedSleeveType) ? 'Select Sleeve Type' :
                        !isInStock ? 'Out of Stock' : 
-                       `Add to Cart • ₹${(product.price * quantity).toLocaleString()}`}
+                       `Add to Cart • ₹${formatPrice(product.price * quantity)}`}
                     </Button>
                     
                     <Button
