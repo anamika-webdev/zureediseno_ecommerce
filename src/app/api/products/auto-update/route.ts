@@ -1,4 +1,4 @@
-// src/app/api/products/auto-update/route.ts - FIXED VERSION
+// src/app/api/products/auto-update/route.ts - FIXED TypeScript errors
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -144,10 +144,11 @@ export async function POST(request: NextRequest) {
           updates.featured = totalStock > 50 && isRecent;
         }
 
-        // Update prices based on business rules
+        // Update prices based on business rules - FIXED TYPE ISSUE
         if (updateFields?.includes('pricing')) {
-          // Example: Auto-apply discounts based on stock levels
           const totalStock = (product.variants || []).reduce((sum, variant) => sum + (variant.stock || 0), 0);
+          const currentPrice = Number(product.price); // Ensure it's a number
+          
           if (totalStock > 100) {
             // High stock - no discount needed
             updates.originalPrice = null;
@@ -271,21 +272,23 @@ export async function PUT(request: NextRequest) {
 
     const updates: any = {};
 
-    // Apply auto-update rules
+    // Apply auto-update rules - FIXED TYPE ISSUE
     if (autoUpdateRules.stockBasedPricing || forceUpdate) {
       const totalStock = (product.variants || []).reduce((sum, variant) => sum + (variant.stock || 0), 0);
+      const currentPrice = Number(product.price); // Ensure it's a number
       
       if (totalStock < 5) {
         // Low stock - increase price or remove discount
         if (product.originalPrice) {
-          updates.price = product.originalPrice;
+          const originalPrice = Number(product.originalPrice); // Ensure it's a number
+          updates.price = originalPrice;
           updates.originalPrice = null;
         }
       } else if (totalStock > 50) {
         // High stock - apply discount
         if (!product.originalPrice) {
-          updates.originalPrice = product.price;
-          updates.price = Number((product.price * 0.9).toFixed(2)); // 10% discount
+          updates.originalPrice = currentPrice;
+          updates.price = Number((currentPrice * 0.9).toFixed(2)); // 10% discount - FIXED
         }
       }
     }
@@ -362,8 +365,8 @@ function transformProduct(product: any) {
     name: product.name,
     slug: product.slug,
     description: product.description,
-    price: product.price,
-    originalPrice: product.originalPrice,
+    price: Number(product.price), // Ensure number type
+    originalPrice: product.originalPrice ? Number(product.originalPrice) : undefined,
     sku: product.sku,
     inStock: product.inStock,
     featured: product.featured,
@@ -378,7 +381,7 @@ function transformProduct(product: any) {
     availableSizes: [...new Set(variants.map((v: any) => v.size).filter(Boolean))],
     availableSleeveTypes: [...new Set(variants.map((v: any) => v.sleeveType).filter(Boolean))],
     stockLevel: getStockLevel(variants),
-    discountPercentage: getDiscountPercentage(product.price, product.originalPrice),
+    discountPercentage: getDiscountPercentage(Number(product.price), product.originalPrice ? Number(product.originalPrice) : undefined),
     autoUpdateStatus: {
       lastUpdated: product.updatedAt,
       needsUpdate: checkIfNeedsUpdate(product),
@@ -400,8 +403,8 @@ function calculateRating(product: any): number {
   const variantCount = product.variants?.length || 0;
   if (variantCount > 5) rating = rating + 0.2;
   
-  const originalPrice = Number(product.originalPrice) || 0;
-  const currentPrice = Number(product.price) || 0;
+  const originalPrice = product.originalPrice ? Number(product.originalPrice) : 0;
+  const currentPrice = Number(product.price);
   if (originalPrice > 0 && currentPrice > 0 && originalPrice > currentPrice) {
     rating = rating + 0.1;
   }
@@ -441,8 +444,8 @@ function getStockLevel(variants: any[]): 'high' | 'medium' | 'low' | 'out' {
 }
 
 // Helper function to get discount percentage - FIXED VERSION
-function getDiscountPercentage(currentPrice: number, originalPrice?: number | null): number {
-  // Convert to numbers and validate
+function getDiscountPercentage(currentPrice: number, originalPrice?: number): number {
+  // Ensure both values are numbers
   const current = Number(currentPrice);
   const original = originalPrice ? Number(originalPrice) : null;
   
