@@ -1,4 +1,4 @@
-// src/app/dashboard/admin/products/page.tsx - Fixed Decimal handling
+// src/app/dashboard/admin/products/page.tsx - Fixed TypeScript issues
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -9,11 +9,12 @@ import { Plus, Search, Edit, Trash2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import ProductFormModal from '@/components/admin/ProductFormModal';
 
+// Fixed Product interface to match API response
 interface Product {
   id: string;
   name: string;
   description?: string;
-  price: number | string; // Handle both types
+  price: number | string;
   originalPrice?: number | string;
   categoryId: string;
   subcategoryId?: string;
@@ -28,7 +29,46 @@ interface Product {
     id: string;
     name: string;
   };
+  // Add these to match the ProductFormData interface
+  images?: Array<{
+    id?: string;
+    url: string;
+    alt: string;
+    isPrimary: boolean;
+    order: number;
+  }>;
+  variants?: Array<{
+    id?: string;
+    size: string;
+    color: string;
+    stock: number;
+    sku?: string;
+    sleeveType?: string;
+  }>;
+  slug?: string;
+  sku?: string;
+  sortOrder?: number;
 }
+
+// Transform Product to ProductFormData when needed
+const transformToFormData = (product: Product) => ({
+  id: product.id,
+  name: product.name,
+  slug: product.slug,
+  description: product.description,
+  price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
+  originalPrice: product.originalPrice ? 
+    (typeof product.originalPrice === 'string' ? parseFloat(product.originalPrice) : product.originalPrice) : 
+    undefined,
+  sku: product.sku,
+  categoryId: product.categoryId,
+  subcategoryId: product.subcategoryId,
+  featured: product.featured,
+  inStock: product.inStock,
+  sortOrder: product.sortOrder || 0,
+  images: product.images || [],
+  variants: product.variants || [],
+});
 
 // Helper function to convert Decimal to number
 const toNumber = (value: any): number => {
@@ -340,7 +380,7 @@ export default function AdminProductsPage() {
         isOpen={showModal}
         onClose={handleModalClose}
         onSuccess={fetchProducts}
-        product={editingProduct}
+        product={editingProduct ? transformToFormData(editingProduct) : null}
       />
     </div>
   );

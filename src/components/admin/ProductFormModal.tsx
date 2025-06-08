@@ -1,4 +1,4 @@
-// src/components/admin/ProductFormModal.tsx
+// src/components/admin/ProductFormModal.tsx - Fixed TypeScript issues
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -35,14 +35,16 @@ interface Subcategory {
   categoryId: string;
 }
 
+// Fixed ProductImage interface with required order property
 interface ProductImage {
   id?: string;
   url: string;
   alt: string;
   isPrimary: boolean;
-  order: number;
+  order: number; // This was missing and causing the error
 }
 
+// Fixed ProductVariant interface
 interface ProductVariant {
   id?: string;
   size: string;
@@ -52,6 +54,7 @@ interface ProductVariant {
   sleeveType?: string;
 }
 
+// Fixed ProductFormData interface to match expected structure
 interface ProductFormData {
   id?: string;
   name: string;
@@ -89,12 +92,12 @@ export default function ProductFormModal({
     originalPrice: 0,
     sku: '',
     categoryId: '',
-    subcategoryId: 'none', // Changed from '' to 'none'
+    subcategoryId: '',
     featured: false,
     inStock: true,
     sortOrder: 0,
     images: [],
-    variants: [{ size: 'size-placeholder', color: 'color-placeholder', stock: 0, sleeveType: 'sleeve-none' }], // Fixed placeholders
+    variants: [{ size: '', color: '', stock: 0, sleeveType: '' }],
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -121,9 +124,11 @@ export default function ProductFormModal({
     if (product) {
       setFormData({
         ...product,
-        subcategoryId: product.subcategoryId || 'none', // Handle empty subcategory
-        images: product.images || [],
-        variants: product.variants && product.variants.length > 0 ? product.variants : [{ size: 'size-placeholder', color: 'color-placeholder', stock: 0, sleeveType: 'sleeve-none' }],
+        subcategoryId: product.subcategoryId || '',
+        images: Array.isArray(product.images) ? product.images : [],
+        variants: Array.isArray(product.variants) && product.variants.length > 0 
+          ? product.variants 
+          : [{ size: '', color: '', stock: 0, sleeveType: '' }],
       });
     } else {
       setFormData({
@@ -133,12 +138,12 @@ export default function ProductFormModal({
         originalPrice: 0,
         sku: '',
         categoryId: '',
-        subcategoryId: 'none',
+        subcategoryId: '',
         featured: false,
         inStock: true,
         sortOrder: 0,
         images: [],
-        variants: [{ size: 'size-placeholder', color: 'color-placeholder', stock: 0, sleeveType: 'sleeve-none' }],
+        variants: [{ size: '', color: '', stock: 0, sleeveType: '' }],
       });
     }
   }, [product]);
@@ -150,12 +155,12 @@ export default function ProductFormModal({
       setFilteredSubcategories(filtered);
       
       // Reset subcategory if it doesn't belong to the selected category
-      if (formData.subcategoryId && formData.subcategoryId !== 'none' && !filtered.find(sub => sub.id === formData.subcategoryId)) {
-        setFormData(prev => ({ ...prev, subcategoryId: 'none' }));
+      if (formData.subcategoryId && !filtered.find(sub => sub.id === formData.subcategoryId)) {
+        setFormData(prev => ({ ...prev, subcategoryId: '' }));
       }
     } else {
       setFilteredSubcategories([]);
-      setFormData(prev => ({ ...prev, subcategoryId: 'none' }));
+      setFormData(prev => ({ ...prev, subcategoryId: '' }));
     }
   }, [formData.categoryId, subcategories]);
 
@@ -293,7 +298,7 @@ export default function ProductFormModal({
       const currentVariants = Array.isArray(prev.variants) ? prev.variants : [];
       return {
         ...prev,
-        variants: [...currentVariants, { size: 'size-placeholder', color: 'color-placeholder', stock: 0, sleeveType: 'sleeve-none' }]
+        variants: [...currentVariants, { size: '', color: '', stock: 0, sleeveType: '' }]
       };
     });
   };
@@ -338,14 +343,9 @@ export default function ProductFormModal({
     const currentVariants = Array.isArray(formData.variants) ? formData.variants : [];
     const validVariants = currentVariants.filter(v => 
       v.size && 
-      v.size !== 'size-placeholder' && 
       v.color && 
-      v.color !== 'color-placeholder' && 
       v.stock >= 0
-    ).map(v => ({
-      ...v,
-      sleeveType: v.sleeveType === 'sleeve-none' ? undefined : v.sleeveType
-    }));
+    );
 
     if (validVariants.length === 0) {
       toast.error('Please add at least one valid variant with size and color');
@@ -361,7 +361,7 @@ export default function ProductFormModal({
         ...formData,
         slug,
         variants: validVariants,
-        subcategoryId: formData.subcategoryId === 'none' ? null : formData.subcategoryId
+        subcategoryId: formData.subcategoryId || null
       };
 
       const url = product?.id 
@@ -526,7 +526,7 @@ export default function ProductFormModal({
                   <div className="space-y-2">
                     <Label htmlFor="subcategory">Subcategory</Label>
                     <Select
-                      value={formData.subcategoryId || 'none'}
+                      value={formData.subcategoryId || ''}
                       onValueChange={(value) => handleInputChange('subcategoryId', value)}
                       disabled={!formData.categoryId || !Array.isArray(filteredSubcategories) || filteredSubcategories.length === 0}
                     >
@@ -534,7 +534,7 @@ export default function ProductFormModal({
                         <SelectValue placeholder="Select a subcategory (optional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">No subcategory</SelectItem>
+                        <SelectItem value="">No subcategory</SelectItem>
                         {Array.isArray(filteredSubcategories) && filteredSubcategories.map((subcategory) => (
                           <SelectItem key={subcategory.id} value={subcategory.id}>
                             {subcategory.name}
@@ -692,7 +692,7 @@ export default function ProductFormModal({
                               <SelectValue placeholder="Size" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="size-placeholder">Select size</SelectItem>
+                              <SelectItem value="">Select size</SelectItem>
                               {sizeOptions.map((size) => (
                                 <SelectItem key={size} value={size}>
                                   {size}
@@ -712,7 +712,7 @@ export default function ProductFormModal({
                               <SelectValue placeholder="Color" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="color-placeholder">Select color</SelectItem>
+                              <SelectItem value="">Select color</SelectItem>
                               {colorOptions.map((color) => (
                                 <SelectItem key={color} value={color}>
                                   {color}
@@ -725,14 +725,14 @@ export default function ProductFormModal({
                         <div className="space-y-2">
                           <Label>Sleeve Type</Label>
                           <Select
-                            value={variant.sleeveType || 'sleeve-none'}
+                            value={variant.sleeveType || ''}
                             onValueChange={(value) => handleVariantChange(index, 'sleeveType', value)}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Sleeve" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="sleeve-none">No sleeve type</SelectItem>
+                              <SelectItem value="">No sleeve type</SelectItem>
                               {sleeveOptions.map((sleeve) => (
                                 <SelectItem key={sleeve} value={sleeve}>
                                   {sleeve}
