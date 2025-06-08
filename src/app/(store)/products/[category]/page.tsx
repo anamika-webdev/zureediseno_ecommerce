@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Grid, List, Filter, SortAsc } from 'lucide-react';
 
+
+
+
 interface Product {
   id: string;
   name: string;

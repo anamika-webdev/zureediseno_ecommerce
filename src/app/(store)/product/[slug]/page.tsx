@@ -1,4 +1,4 @@
-// src/app/(store)/product/[slug]/page.tsx - Enhanced with admin-controlled options
+// src/app/(store)/product/[slug]/page.tsx - Fixed TypeScript errors
 "use client";
 
 import { useState, useEffect, use } from 'react';
@@ -9,7 +9,6 @@ import { Heart, Minus, Plus, Star, ChevronLeft, ChevronRight } from 'lucide-reac
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
 import { toast } from 'sonner';
-import { formatPrice } from '@/lib/utils';
 
 interface ProductImage {
   id: string;
@@ -53,6 +52,11 @@ interface Product {
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
+
+// Utility function to format price
+const formatPrice = (price: number): string => {
+  return new Intl.NumberFormat('en-IN').format(price);
+};
 
 // Enhanced color mapping
 const colorMap: Record<string, string> = {
@@ -111,7 +115,7 @@ export default function ProductDetailsPage({ params }: PageProps) {
   // Get unique options from variants
   const availableColors = product ? [...new Set(product.variants.map(v => v.color))] : [];
   const availableSizes = product ? [...new Set(product.variants.map(v => v.size))] : [];
-  const availableSleeveTypes = product ? [...new Set(product.variants.map(v => v.sleeveType).filter(Boolean))] : [];
+  const availableSleeveTypes = product ? [...new Set(product.variants.map(v => v.sleeveType).filter((sleeve): sleeve is string => Boolean(sleeve)))] : [];
 
   // Get available options based on current selections
   const getAvailableSizesForSelection = () => {
@@ -137,7 +141,8 @@ export default function ProductDetailsPage({ params }: PageProps) {
         return colorMatch && sizeMatch && v.stock > 0;
       })
       .map(v => v.sleeveType)
-      .filter((sleeve, index, self) => sleeve && self.indexOf(sleeve) === index);
+      .filter((sleeve): sleeve is string => Boolean(sleeve))
+      .filter((sleeve, index, self) => self.indexOf(sleeve) === index);
   };
 
   const getAvailableColorsForSelection = () => {
@@ -172,115 +177,52 @@ export default function ProductDetailsPage({ params }: PageProps) {
     if (product && selectedColor && !currentAvailableColors.includes(selectedColor)) {
       setSelectedColor(currentAvailableColors[0] || '');
     }
-  }, [selectedSize, selectedSleeveType]);
+  }, [selectedSize, selectedSleeveType, currentAvailableColors, product, selectedColor]);
 
   useEffect(() => {
     if (product && selectedSize && !currentAvailableSizes.includes(selectedSize)) {
       setSelectedSize(currentAvailableSizes[0] || '');
     }
-  }, [selectedColor, selectedSleeveType]);
+  }, [selectedColor, selectedSleeveType, currentAvailableSizes, product, selectedSize]);
 
   useEffect(() => {
     if (product && selectedSleeveType && !currentAvailableSleeveTypes.includes(selectedSleeveType)) {
       setSelectedSleeveType(currentAvailableSleeveTypes[0] || '');
     }
-  }, [selectedColor, selectedSize]);
+  }, [selectedColor, selectedSize, currentAvailableSleeveTypes, product, selectedSleeveType]);
 
-  // Load product data
+  // Load product data from API
   useEffect(() => {
-    const loadProduct = () => {
-      // Mock product data - replace with actual API call
-      const mockProduct: Product = {
-        id: '1',
-        name: 'Premium Cotton Shirt',
-        slug: 'premium-cotton-shirt',
-        description: 'Experience luxury with our premium cotton shirt, crafted from the finest 100% cotton fabric. This versatile piece features a modern fit that\'s perfect for both professional and casual settings. The breathable fabric ensures all-day comfort while maintaining a polished appearance.',
-        price: 2999,
-        originalPrice: 3999,
-        sku: 'PCS001',
-        inStock: true,
-        featured: true,
-        images: [
-          {
-            id: '1',
-            url: '/images/products/shirt-1.jpg',
-            alt: 'Premium Cotton Shirt - Front View',
-            isPrimary: true
-          },
-          {
-            id: '2',
-            url: '/images/products/shirt-2.jpg',
-            alt: 'Premium Cotton Shirt - Side View',
-            isPrimary: false
-          },
-          {
-            id: '3',
-            url: '/images/products/shirt-3.jpg',
-            alt: 'Premium Cotton Shirt - Back View',
-            isPrimary: false
+    const loadProduct = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch actual product data by slug from API
+        const response = await fetch(`/api/products/${resolvedParams.slug}`);
+        
+        if (response.ok) {
+          const productData = await response.json();
+          setProduct(productData);
+          
+          // Set default selections from actual variants
+          if (productData.variants && productData.variants.length > 0) {
+            const firstVariant = productData.variants[0];
+            setSelectedColor(firstVariant.color || '');
+            setSelectedSize(firstVariant.size || '');
+            if (firstVariant.sleeveType) {
+              setSelectedSleeveType(firstVariant.sleeveType);
+            }
           }
-        ],
-        variants: [
-          // White variants
-          { id: '1', size: 'S', color: 'White', sleeveType: 'Short Sleeve', stock: 10 },
-          { id: '2', size: 'M', color: 'White', sleeveType: 'Short Sleeve', stock: 15 },
-          { id: '3', size: 'L', color: 'White', sleeveType: 'Short Sleeve', stock: 12 },
-          { id: '4', size: 'XL', color: 'White', sleeveType: 'Short Sleeve', stock: 8 },
-          { id: '5', size: 'S', color: 'White', sleeveType: 'Full Sleeve', stock: 8 },
-          { id: '6', size: 'M', color: 'White', sleeveType: 'Full Sleeve', stock: 12 },
-          { id: '7', size: 'L', color: 'White', sleeveType: 'Full Sleeve', stock: 10 },
-          { id: '8', size: 'XL', color: 'White', sleeveType: 'Full Sleeve', stock: 6 },
-          
-          // Blue variants
-          { id: '9', size: 'S', color: 'Blue', sleeveType: 'Short Sleeve', stock: 6 },
-          { id: '10', size: 'M', color: 'Blue', sleeveType: 'Short Sleeve', stock: 9 },
-          { id: '11', size: 'L', color: 'Blue', sleeveType: 'Short Sleeve', stock: 7 },
-          { id: '12', size: 'XL', color: 'Blue', sleeveType: 'Short Sleeve', stock: 5 },
-          { id: '13', size: 'S', color: 'Blue', sleeveType: 'Full Sleeve', stock: 7 },
-          { id: '14', size: 'M', color: 'Blue', sleeveType: 'Full Sleeve', stock: 10 },
-          { id: '15', size: 'L', color: 'Blue', sleeveType: 'Full Sleeve', stock: 8 },
-          
-          // Black variants (only full sleeve)
-          { id: '16', size: 'S', color: 'Black', sleeveType: 'Full Sleeve', stock: 8 },
-          { id: '17', size: 'M', color: 'Black', sleeveType: 'Full Sleeve', stock: 12 },
-          { id: '18', size: 'L', color: 'Black', sleeveType: 'Full Sleeve', stock: 10 },
-          { id: '19', size: 'XL', color: 'Black', sleeveType: 'Full Sleeve', stock: 6 },
-          
-          // Navy variants
-          { id: '20', size: 'M', color: 'Navy', sleeveType: 'Short Sleeve', stock: 5 },
-          { id: '21', size: 'L', color: 'Navy', sleeveType: 'Short Sleeve', stock: 7 },
-          { id: '22', size: 'M', color: 'Navy', sleeveType: 'Full Sleeve', stock: 6 },
-          { id: '23', size: 'L', color: 'Navy', sleeveType: 'Full Sleeve', stock: 8 },
-          { id: '24', size: 'XL', color: 'Navy', sleeveType: 'Full Sleeve', stock: 4 },
-
-          // New colors
-          { id: '25', size: 'S', color: 'Red', sleeveType: 'Short Sleeve', stock: 5 },
-          { id: '26', size: 'M', color: 'Red', sleeveType: 'Short Sleeve', stock: 8 },
-          { id: '27', size: 'L', color: 'Green', sleeveType: 'Full Sleeve', stock: 6 },
-          { id: '28', size: 'M', color: 'Purple', sleeveType: 'Short Sleeve', stock: 4 },
-        ],
-        category: {
-          id: '1',
-          name: 'Men',
-          slug: 'men'
-        },
-        subcategory: {
-          name: 'Shirts',
-          slug: 'shirts'
-        },
-        sortOrder: 1
-      };
-
-      setProduct(mockProduct);
-      
-      // Set default selections
-      setSelectedColor(mockProduct.variants[0].color);
-      setSelectedSize(mockProduct.variants[0].size);
-      if (mockProduct.variants[0].sleeveType) {
-        setSelectedSleeveType(mockProduct.variants[0].sleeveType);
+        } else {
+          console.error('Product not found');
+          setProduct(null);
+        }
+      } catch (error) {
+        console.error('Error fetching product:', error);
+        setProduct(null);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     loadProduct();
@@ -466,6 +408,14 @@ export default function ProductDetailsPage({ params }: PageProps) {
                 <div className="border-t border-b border-gray-200 py-6">
                   <div className="flex items-center space-x-4">
                     <span className="text-3xl font-bold text-gray-900">₹{formatPrice(product.price)}</span>
+                    {product.originalPrice && product.originalPrice > product.price && (
+                      <>
+                        <span className="text-xl text-gray-500 line-through">₹{formatPrice(product.originalPrice)}</span>
+                        <span className="px-2 py-1 bg-red-100 text-red-800 text-sm font-semibold rounded">
+                          Save ₹{formatPrice(product.originalPrice - product.price)}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
