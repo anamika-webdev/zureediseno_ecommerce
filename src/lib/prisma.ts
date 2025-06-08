@@ -1,4 +1,4 @@
-// src/lib/prisma.ts
+// src/lib/prisma.ts - Clean TiDB configuration without Railway
 
 import { PrismaClient } from '@prisma/client'
 
