@@ -12,7 +12,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
+    const { id } = await params // Await the params Promise
     
     const category = await prisma.category.findUnique({
       where: { id },
@@ -68,7 +68,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
+    const { id } = await params // Await the params Promise
     const body = await request.json()
     const { name, slug, description, sortOrder } = body
 
@@ -141,7 +141,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
+    const { id } = await params // Await the params Promise
     
     // Check if category exists and has products or subcategories
     const category = await prisma.category.findUnique({

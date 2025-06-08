@@ -4,11 +4,13 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params // Await the params Promise
+    
     const product = await prisma.product.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         category: {
           select: {
@@ -50,9 +52,10 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params // Await the params Promise
     const body = await request.json()
     const { 
       name, 
@@ -74,7 +77,7 @@ export async function PUT(
 
     // Check if product exists
     const existingProduct = await prisma.product.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!existingProduct) {
@@ -97,7 +100,7 @@ export async function PUT(
       const slugExists = await prisma.product.findFirst({
         where: {
           slug,
-          id: { not: params.id }
+          id: { not: id }
         }
       })
 
@@ -107,7 +110,7 @@ export async function PUT(
     }
 
     const product = await prisma.product.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: name.trim(),
         slug,
@@ -157,12 +160,14 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params // Await the params Promise
+    
     // Check if product exists
     const existingProduct = await prisma.product.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: {
@@ -189,16 +194,16 @@ export async function DELETE(
 
     // Delete related data first (due to foreign key constraints)
     await prisma.productVariant.deleteMany({
-      where: { productId: params.id }
+      where: { productId: id }
     })
 
     await prisma.productImage.deleteMany({
-      where: { productId: params.id }
+      where: { productId: id }
     })
 
     // Delete the product
     await prisma.product.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({ 

@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
+    const { id } = await params // Await the params Promise
     const user = await currentUser();
     
     if (!user) {
@@ -61,7 +61,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
+    const { id } = await params // Await the params Promise
     const user = await currentUser();
     
     if (!user) {
