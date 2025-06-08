@@ -1,5 +1,3 @@
-// prisma/schema.prisma - Updated to match your ACTUAL database structure
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,40 +8,36 @@ datasource db {
 }
 
 model Category {
-  id          String   @id @default(cuid())
-  name        String   @db.VarChar(255)  // Match your existing DB
-  slug        String   @unique @db.VarChar(255)  // Match your existing DB
-  description String?
-  image       String?  @db.VarChar(500)  // Match your existing DB
-  featured    Boolean  @default(false)   // This EXISTS in your DB
-  sortOrder   Int      @default(0)       // This EXISTS in your DB
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
+  id            String        @id @default(cuid())
+  name          String        @db.VarChar(255)
+  slug          String        @unique @db.VarChar(255)
+  description   String?
+  image         String?       @db.VarChar(500)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  featured      Boolean       @default(false)
+  sortOrder     Int           @default(0)
   products      Product[]
   subcategories Subcategory[]
-  
+
   @@index([sortOrder])
   @@index([featured])
   @@map("categories")
 }
 
 model Subcategory {
-  id          String   @id @default(cuid())
-  name        String   @db.VarChar(255)  // Match your existing DB
-  slug        String   @unique @db.VarChar(255)  // Match your existing DB
+  id          String    @id @default(cuid())
+  name        String    @db.VarChar(255)
+  slug        String    @unique @db.VarChar(255)
   description String?
-  featured    Boolean  @default(false)   // This EXISTS in your DB
-  sortOrder   Int      @default(0)       // This EXISTS in your DB
   categoryId  String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  products Product[]
-  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  featured    Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  products    Product[]
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
   @@index([categoryId])
   @@index([sortOrder])
   @@index([featured])
@@ -51,28 +45,26 @@ model Subcategory {
 }
 
 model Product {
-  id            String   @id @default(cuid())
-  name          String   @db.VarChar(255)  // Match your existing DB
-  slug          String   @unique @db.VarChar(255)  // Match your existing DB
-  description   String?  @db.Text
-  price         Decimal  @db.Decimal(10, 2)
-  originalPrice Decimal? @db.Decimal(10, 2)
-  sku           String?  @unique
-  inStock       Boolean  @default(true)
-  featured      Boolean  @default(false)
-  sortOrder     Int      @default(0)       // This EXISTS in your DB
+  id            String           @id @default(cuid())
+  name          String           @db.VarChar(255)
+  slug          String           @unique @db.VarChar(255)
+  description   String?          @db.Text
+  price         Decimal          @db.Decimal(10, 2)
+  originalPrice Decimal?         @db.Decimal(10, 2)
+  sku           String?          @unique
+  inStock       Boolean          @default(true)
+  featured      Boolean          @default(false)
   categoryId    String
   subcategoryId String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Relations
-  category    Category     @relation(fields: [categoryId], references: [id])
-  subcategory Subcategory? @relation(fields: [subcategoryId], references: [id])
-  images      ProductImage[]
-  variants    ProductVariant[]
-  orderItems  OrderItem[]
-  
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  sortOrder     Int              @default(0)
+  orderItems    OrderItem[]
+  images        ProductImage[]
+  variants      ProductVariant[]
+  category      Category         @relation(fields: [categoryId], references: [id])
+  subcategory   Subcategory?     @relation(fields: [subcategoryId], references: [id])
+
   @@index([categoryId])
   @@index([subcategoryId])
   @@index([featured])
@@ -82,34 +74,30 @@ model Product {
 }
 
 model ProductImage {
-  id        String  @id @default(cuid())
-  url       String  @db.VarChar(500)  // Match your existing DB
-  alt       String? @db.VarChar(255)  // Match your existing DB
-  isPrimary Boolean @default(false)
+  id        String   @id @default(cuid())
+  url       String   @db.VarChar(500)
+  alt       String?  @db.VarChar(255)
+  isPrimary Boolean  @default(false)
   productId String
   createdAt DateTime @default(now())
-  
-  // Relations
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
   @@index([productId])
   @@map("product_images")
 }
 
 model ProductVariant {
-  id         String @id @default(cuid())
+  id         String   @id @default(cuid())
   productId  String
   size       String
   color      String
   sleeveType String?
-  stock      Int    @default(0)
-  sku        String? @unique
+  stock      Int      @default(0)
+  sku        String?  @unique
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  
-  // Relations
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
   @@unique([productId, size, color, sleeveType])
   @@index([productId])
   @@map("product_variants")
@@ -125,48 +113,44 @@ model User {
   role      UserRole @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  // Relations
-  orders Order[]
-  
+  orders    Order[]
+
   @@map("users")
 }
 
 model Order {
-  id              String        @id @default(cuid())
-  userId          String
-  email           String
-  firstName       String
-  lastName        String
-  phone           String
-  address         String
-  city            String
-  state           String
-  zipCode         String
-  country         String
-  subtotal        Float
-  tax             Float
-  shipping        Float
-  total           Float
-  status          OrderStatus   @default(PENDING)
-  paymentStatus   PaymentStatus @default(PENDING)
-  paymentMethod   String
-  razorpayOrderId String?
+  id                String        @id @default(cuid())
+  userId            String
+  email             String
+  firstName         String
+  lastName          String
+  phone             String
+  address           String
+  city              String
+  state             String
+  zipCode           String
+  country           String
+  subtotal          Float
+  tax               Float
+  shipping          Float
+  total             Float
+  status            OrderStatus   @default(PENDING)
+  paymentStatus     PaymentStatus @default(PENDING)
+  paymentMethod     String
+  razorpayOrderId   String?
   razorpayPaymentId String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
-  // Relations
-  user       User        @relation(fields: [userId], references: [id])
-  orderItems OrderItem[]
-  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  orderItems        OrderItem[]
+  user              User          @relation(fields: [userId], references: [id])
+
   @@index([userId])
   @@index([status])
   @@map("orders")
 }
 
 model OrderItem {
-  id        String @id @default(cuid())
+  id        String   @id @default(cuid())
   orderId   String
   productId String
   quantity  Int
@@ -174,11 +158,9 @@ model OrderItem {
   size      String
   color     String
   createdAt DateTime @default(now())
-  
-  // Relations
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
-  
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
+
   @@index([orderId])
   @@index([productId])
   @@map("order_items")

@@ -5,15 +5,18 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
+
+
 import {
   Home,
-  Package,
-  ShoppingCart,
-  Users,
-  Settings,
-  BarChart3,
-  Tag,
-  Layers
+  LayoutDashboard, 
+  Package, 
+  Tag, 
+  Layers, 
+  ShoppingCart, 
+  Users, 
+  CreditCard, 
+  Settings 
 } from 'lucide-react';
 
 // Define proper User type for sidebar
@@ -53,18 +56,18 @@ const navigation = [
   },
   {
     name: 'Orders',
-    href: '/admin/orders',
+    href: '/dashboard/admin/orders',
     icon: ShoppingCart,
   },
   {
     name: 'Customers',
-    href: '/dashboard/customers',
+    href: '/dashboard/admin/customers',
     icon: Users,
   },
   {
-    name: 'Analytics',
-    href: '/dashboard/analytics',
-    icon: BarChart3,
+    name: 'Payments',
+    href: '/dashboard/admin/payments',
+    icon: CreditCard,
   },
   {
     name: 'Settings',
