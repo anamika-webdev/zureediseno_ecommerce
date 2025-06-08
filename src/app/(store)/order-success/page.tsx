@@ -1,7 +1,7 @@
-// src/app/order-success/page.tsx
+// src/app/(store)/order-success/page.tsx
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -13,11 +13,21 @@ import {
   CreditCard
 } from 'lucide-react';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
-export default function OrderSuccessPage() {
+function OrderSuccessContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const orderNumber = searchParams.get('orderNumber');
   const paymentMethod = searchParams.get('payment');
+
+  const handleContinueShopping = () => {
+    router.push('/products');
+  };
+
+  const handleGoHome = () => {
+    router.push('/');
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -114,17 +124,13 @@ export default function OrderSuccessPage() {
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4">
-          <Button asChild className="flex-1">
-            <Link href="/products">
-              Continue Shopping
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
+          <Button onClick={handleContinueShopping} className="flex-1">
+            Continue Shopping
+            <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
-          <Button variant="outline" asChild className="flex-1">
-            <Link href="/">
-              <Home className="mr-2 h-4 w-4" />
-              Go Home
-            </Link>
+          <Button variant="outline" onClick={handleGoHome} className="flex-1">
+            <Home className="mr-2 h-4 w-4" />
+            Go Home
           </Button>
         </div>
 
@@ -145,5 +151,23 @@ export default function OrderSuccessPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function OrderSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="animate-pulse">
+            <div className="h-20 w-20 bg-gray-200 rounded-full mx-auto mb-6"></div>
+            <div className="h-8 bg-gray-200 rounded mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto"></div>
+          </div>
+        </div>
+      </div>
+    }>
+      <OrderSuccessContent />
+    </Suspense>
   );
 }
