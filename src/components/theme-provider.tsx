@@ -1,52 +1,11 @@
-// src/components/theme-provider.tsx - Hydration-safe theme provider
+// components/providers/theme-provider.tsx
 "use client"
 
 import * as React from "react"
-import { useEffect, useState } from "react"
-
-export function SystemThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-    
-    // Apply initial theme
-    const applyTheme = (isDark: boolean) => {
-      if (isDark) {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
-    }
-
-    // Check system preference
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    applyTheme(mediaQuery.matches)
-
-    // Listen for changes
-    const handleChange = (e: MediaQueryListEvent) => {
-      applyTheme(e.matches)
-    }
-
-    mediaQuery.addEventListener('change', handleChange)
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleChange)
-    }
-  }, [])
-
-  // Prevent hydration mismatch by not rendering until mounted
-  if (!mounted) {
-    return <div style={{ visibility: 'hidden' }}>{children}</div>
-  }
-
-  return <>{children}</>
-}
-
-// Alternative with next-themes for better SSR support
 import { ThemeProvider as NextThemesProvider } from "next-themes"
+import { type ThemeProviderProps } from "next-themes/dist/types"
 
-export function NextThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   return (
     <NextThemesProvider
       attribute="class"
@@ -54,6 +13,34 @@ export function NextThemeProvider({ children }: { children: React.ReactNode }) {
       enableSystem={true}
       disableTransitionOnChange={false}
       storageKey="zuree-theme"
+      {...props}
+    >
+      {children}
+    </NextThemesProvider>
+  )
+}
+
+// Alternative provider with enhanced system detection
+export function EnhancedThemeProvider({ children, ...props }: ThemeProviderProps) {
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return <>{children}</>
+  }
+
+  return (
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem={true}
+      disableTransitionOnChange={false}
+      storageKey="zuree-theme"
+      themes={['light', 'dark', 'system']}
+      {...props}
     >
       {children}
     </NextThemesProvider>

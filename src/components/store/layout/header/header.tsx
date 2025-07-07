@@ -168,16 +168,16 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-sm">
+    <header className="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors duration-200">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         {/* Mobile Menu Button */}
         <div className="lg:hidden">
           <button 
             onClick={handleMenuToggle} 
             aria-label="Toggle menu"
-            className="p-1 hover:bg-gray-100 rounded"
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
           >
-            <Menu className="h-6 w-6" />
+            <Menu className="h-6 w-6 text-gray-900 dark:text-white" />
           </button>
         </div>
 
@@ -201,27 +201,27 @@ const Header = () => {
         <nav className="hidden lg:block">
           <ul className="flex items-center space-x-8">
             <li>
-              <Link href="/" className="text-sm font-medium hover:text-zuree-red transition-colors">
+              <Link href="/" className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors">
                 Home
               </Link>
             </li>
             <li>
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center text-sm font-medium hover:text-zuree-red transition-colors">
+                <DropdownMenuTrigger className="flex items-center text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors">
                   Shop
                   <ChevronDown className="h-4 w-4 ml-1" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-64 max-h-96 overflow-y-auto">
+                <DropdownMenuContent className="w-64 max-h-96 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                   <DropdownMenuItem asChild>
-                    <Link href="/shop" className="w-full font-medium">
+                    <Link href="/shop" className="w-full font-medium text-gray-900 dark:text-white hover:text-zuree-red">
                       All Collections
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-600" />
                   
                   {categoriesLoading ? (
                     <DropdownMenuItem disabled>
-                      <span className="text-gray-500">Loading categories...</span>
+                      <span className="text-gray-500 dark:text-gray-400">Loading categories...</span>
                     </DropdownMenuItem>
                   ) : (
                     categories.map((category) => (
@@ -229,11 +229,11 @@ const Header = () => {
                         <DropdownMenuItem asChild>
                           <Link 
                             href={`/products/${category.url}`} 
-                            className="w-full font-medium hover:text-zuree-red"
+                            className="w-full font-medium text-gray-900 dark:text-white hover:text-zuree-red"
                           >
                             {category.name}
                             {category._count?.products && (
-                              <span className="ml-auto text-xs text-gray-500">
+                              <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
                                 ({category._count.products})
                               </span>
                             )}
@@ -245,7 +245,7 @@ const Header = () => {
                           <DropdownMenuItem key={subcategory.id} asChild>
                             <Link 
                               href={`/products/${category.url}?subcategory=${subcategory.url}`} 
-                              className="w-full pl-4 text-sm text-gray-600 hover:text-zuree-red"
+                              className="w-full pl-4 text-sm text-gray-600 dark:text-gray-300 hover:text-zuree-red"
                             >
                               {subcategory.name}
                             </Link>
@@ -266,7 +266,7 @@ const Header = () => {
                         
                         {/* Add separator between categories except for the last one */}
                         {categories.indexOf(category) < categories.length - 1 && (
-                          <DropdownMenuSeparator />
+                          <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-600" />
                         )}
                       </div>
                     ))
@@ -275,22 +275,22 @@ const Header = () => {
               </DropdownMenu>
             </li>
             <li>
-              <Link href="/shop" className="text-sm font-medium hover:text-zuree-red transition-colors">
+              <Link href="/shop" className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors">
                 Explore Designs
               </Link>
             </li>
             <li>
-              <Link href="/tailoredoutfit" className="text-sm font-medium hover:text-zuree-red transition-colors flex items-center">
+              <Link href="/tailoredoutfit" className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors flex items-center">
                 <Scissors className="h-4 w-4 mr-1" /> Custom Design
               </Link>
             </li>
             <li>
-              <Link href="/about" className="text-sm font-medium hover:text-zuree-red transition-colors">
+              <Link href="/about" className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors">
                 About
               </Link>
             </li>
             <li>
-              <Link href="/contact" className="text-sm font-medium hover:text-zuree-red transition-colors">
+              <Link href="/contact" className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors">
                 Contact
               </Link>
             </li>
@@ -299,12 +299,12 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="lg:hidden absolute top-full left-0 right-0 bg-white p-4 shadow-md z-50 border-t">
+          <div className="lg:hidden absolute top-full left-0 right-0 bg-white dark:bg-gray-900 p-4 shadow-md z-50 border-t border-gray-200 dark:border-gray-700">
             <ul className="flex flex-col space-y-3">
               <li>
                 <Link 
                   href="/" 
-                  className="text-sm font-medium hover:text-zuree-red transition-colors block py-2"
+                  className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors block py-2"
                   onClick={closeMobileMenu}
                 >
                   Home
@@ -314,7 +314,7 @@ const Header = () => {
                 <div className="flex flex-col space-y-1">
                   <Link 
                     href="/shop" 
-                    className="text-sm font-medium hover:text-zuree-red transition-colors block py-2"
+                    className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors block py-2"
                     onClick={closeMobileMenu}
                   >
                     All Collections
@@ -323,13 +323,13 @@ const Header = () => {
                   {/* Mobile Categories Navigation */}
                   <div className="pl-4 space-y-2">
                     {categoriesLoading ? (
-                      <span className="text-sm text-gray-500">Loading categories...</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Loading categories...</span>
                     ) : (
                       categories.map((category) => (
                         <div key={category.id} className="space-y-1">
                           <Link 
                             href={`/products/${category.url}`} 
-                            className="text-sm font-medium hover:text-zuree-red transition-colors block py-1"
+                            className="text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-zuree-red transition-colors block py-1"
                             onClick={closeMobileMenu}
                           >
                             {category.name}
@@ -342,7 +342,7 @@ const Header = () => {
                                 <Link 
                                   key={subcategory.id}
                                   href={`/products/${category.url}?subcategory=${subcategory.url}`} 
-                                  className="text-xs text-gray-600 hover:text-zuree-red transition-colors block py-1"
+                                  className="text-xs text-gray-600 dark:text-gray-300 hover:text-zuree-red transition-colors block py-1"
                                   onClick={closeMobileMenu}
                                 >
                                   {subcategory.name}
@@ -368,7 +368,7 @@ const Header = () => {
               <li>
                 <Link 
                   href="/shop" 
-                  className="text-sm font-medium hover:text-zuree-red transition-colors block py-2"
+                  className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors block py-2"
                   onClick={closeMobileMenu}
                 >
                   Explore Designs
@@ -377,7 +377,7 @@ const Header = () => {
               <li>
                 <Link 
                   href="/tailoredoutfit" 
-                  className="text-sm font-medium hover:text-zuree-red transition-colors flex items-center py-2"
+                  className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors flex items-center py-2"
                   onClick={closeMobileMenu}
                 >
                   <Scissors className="h-4 w-4 mr-1" /> Custom Design
@@ -386,7 +386,7 @@ const Header = () => {
               <li>
                 <Link 
                   href="/about" 
-                  className="text-sm font-medium hover:text-zuree-red transition-colors block py-2"
+                  className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors block py-2"
                   onClick={closeMobileMenu}
                 >
                   About
@@ -395,7 +395,7 @@ const Header = () => {
               <li>
                 <Link 
                   href="/contact" 
-                  className="text-sm font-medium hover:text-zuree-red transition-colors block py-2"
+                  className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors block py-2"
                   onClick={closeMobileMenu}
                 >
                   Contact
@@ -410,9 +410,9 @@ const Header = () => {
           {/* Search Button - You can enhance this later */}
           <button 
             aria-label="Search" 
-            className="hidden md:block p-1 hover:bg-gray-100 rounded"
+            className="hidden md:block p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
           >
-            <Search className="h-5 w-5" />
+            <Search className="h-5 w-5 text-gray-900 dark:text-white" />
           </button>
 
           {/* Auth Section - Using Clerk components for better integration */}
@@ -421,9 +421,9 @@ const Header = () => {
               <SignInButton>
                 <button 
                   aria-label="Sign In"
-                  className="p-1 hover:bg-gray-100 rounded"
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
                 >
-                  <User className="h-5 w-5" />
+                  <User className="h-5 w-5 text-gray-900 dark:text-white" />
                 </button>
               </SignInButton>
             </SignedOut>
@@ -432,7 +432,10 @@ const Header = () => {
                 afterSignOutUrl="/"
                 appearance={{
                   elements: {
-                    avatarBox: "h-8 w-8"
+                    avatarBox: "h-8 w-8",
+                    userButtonPopover: "bg-white dark:bg-gray-800",
+                    userButtonPopoverCard: "bg-white dark:bg-gray-800",
+                    userButtonPopoverText: "text-gray-900 dark:text-white"
                   }
                 }}
               />
