@@ -129,7 +129,7 @@ export function CartDrawer() {
                       </div>
                       
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm">₹{item.price.toFixed(2)}</span>
+                        <span className="font-bold text-sm">₹₹{Number(item.price).toFixed(2)}</span>
                         
                         <div className="flex items-center gap-1">
                           <Button
