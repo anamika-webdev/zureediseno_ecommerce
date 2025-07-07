@@ -99,7 +99,38 @@ module.exports = nextConfig*/
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    // Enable server components with serializable props only
+    serverComponentsExternalPackages: ['nodemailer'],
+  },
+  // Disable strict mode for development if needed
+  reactStrictMode: true,
   
+  // Environment variables
+  env: {
+    CUSTOM_KEY: process.env.CUSTOM_KEY,
+  },
+
+  // Webpack configuration for handling nodemailer
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Handle nodemailer's dependencies
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
+    return config;
+  },
+
+  // Image configuration
+  images: {
+    domains: ['localhost'],
+    unoptimized: true,
+  },
+
   // Remove swcMinify - it's deprecated in Next.js 15
   // SWC minification is enabled by default
   
@@ -165,5 +196,6 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
 };
+
 
 module.exports = nextConfig;

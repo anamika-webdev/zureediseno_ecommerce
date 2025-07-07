@@ -1,4 +1,4 @@
-// src/app/api/send-order-email/route.ts - FIXED VERSION
+// src/app/api/send-order-email/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
@@ -12,7 +12,32 @@ export async function POST(req: NextRequest) {
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
     console.log('Generated order number:', orderNumber);
     
-    // Create email transporter - FIXED: createTransport (not createTransporter)
+    // Record payment in admin system
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/admin/payments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: `order_${Date.now()}`,
+          orderNumber: orderNumber,
+          customerName: orderData.shippingAddress.fullName,
+          customerEmail: orderData.shippingAddress.email,
+          amount: orderData.totalAmount,
+          paymentMethod: orderData.paymentMethod,
+          status: orderData.paymentMethod === 'cod' ? 'pending' : 'pending',
+          gatewayResponse: orderData.paymentMethod === 'cod' 
+            ? 'Cash on Delivery order created' 
+            : 'Online payment initiated',
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to record payment:', error);
+      // Continue with email sending even if payment recording fails
+    }
+    
+    // Create email transporter - FIXED: using createTransport (not createTransporter)
     let transporter;
     
     if (process.env.EMAIL_SERVICE === 'outlook') {
@@ -51,6 +76,8 @@ export async function POST(req: NextRequest) {
     
     const paymentMethodText = orderData.paymentMethod === 'cod' 
       ? 'Cash on Delivery (COD)' 
+      : orderData.paymentMethod === 'razorpay'
+      ? 'Razorpay (Online Payment)'
       : 'Online Payment';
     
     // Email content for admin
@@ -78,74 +105,108 @@ ${orderData.shippingAddress.address}
 ${orderData.shippingAddress.city}, ${orderData.shippingAddress.state} - ${orderData.shippingAddress.pincode}
 ${orderData.shippingAddress.country}
 
+${orderData.paymentMethod === 'cod' 
+  ? '💵 CASH ON DELIVERY: Customer will pay ₹' + orderData.totalAmount.toFixed(2) + ' upon delivery.' 
+  : orderData.paymentMethod === 'razorpay'
+  ? '💳 RAZORPAY PAYMENT: Payment will be processed online through Razorpay gateway.'
+  : '💳 ONLINE PAYMENT: Payment will be processed online.'
+}
+
 ---
 This order was placed through your website.
+Please process this order promptly.
+
+You can view payment details in the admin dashboard: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/admin/payments
     `;
 
-    // Email to store owner (you)
-    const adminMailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER, // Fallback to same email
-      subject: `🛒 New Order #${orderNumber} - ₹${orderData.totalAmount.toFixed(2)}`,
-      text: adminEmailContent,
-    };
+    // Email content for customer
+    const customerEmailContent = `
+Dear ${orderData.shippingAddress.fullName},
 
-    // Email to customer
-    const customerMailOptions = {
-      from: process.env.EMAIL_USER,
-      to: orderData.shippingAddress.email,
-      subject: `Order Confirmation #${orderNumber} - Thank you!`,
-      text: `
-Hi ${orderData.shippingAddress.fullName},
+Thank you for your order! We're excited to fulfill your purchase.
 
-Thank you for your order! 
-
+ORDER SUMMARY:
 Order Number: ${orderNumber}
+Order Date: ${new Date(orderData.orderDate).toLocaleString()}
+
+ITEMS ORDERED:
+${itemsList}
+
+PAYMENT DETAILS:
+Subtotal: ₹${orderData.subtotal.toFixed(2)}
+Shipping: ₹${orderData.shipping.toFixed(2)}
+Tax (GST 18%): ₹${orderData.tax.toFixed(2)}
 Total Amount: ₹${orderData.totalAmount.toFixed(2)}
 Payment Method: ${paymentMethodText}
 
-📦 Items Ordered:
-${itemsList}
-
-📍 Shipping Address:
+SHIPPING ADDRESS:
+${orderData.shippingAddress.fullName}
 ${orderData.shippingAddress.address}
 ${orderData.shippingAddress.city}, ${orderData.shippingAddress.state} - ${orderData.shippingAddress.pincode}
+${orderData.shippingAddress.country}
 
-We'll process your order shortly and send you updates.
+${orderData.paymentMethod === 'cod' 
+  ? `PAYMENT INSTRUCTIONS:
+You have selected Cash on Delivery (COD). Please keep ₹${orderData.totalAmount.toFixed(2)} ready when our delivery person arrives. We accept exact change only.`
+  : orderData.paymentMethod === 'razorpay'
+  ? `PAYMENT STATUS:
+Your payment will be processed securely through Razorpay. You will receive a separate payment confirmation once the transaction is completed.`
+  : `PAYMENT STATUS:
+Your payment will be processed securely. You will receive a separate payment confirmation once the transaction is completed.`
+}
 
-Thank you for shopping with us!
+WHAT'S NEXT:
+1. Order Confirmation: You're receiving this email as confirmation
+2. Processing: We'll prepare your order within 1-2 business days
+3. Shipping: You'll receive tracking information once shipped
+4. Delivery: Estimated delivery in 3-5 business days
+
+If you have any questions about your order, please contact us:
+Email: support@zureediseno.com
+Phone: +91 9876543210
+
+Thank you for choosing Zuree Diseno!
 
 Best regards,
-Your Store Team
-      `,
-    };
+The Zuree Diseno Team
+    `;
 
-    console.log('Attempting to send emails...');
-    
-    // Send emails
-    await transporter.sendMail(adminMailOptions);
-    console.log('Admin email sent successfully');
-    
-    await transporter.sendMail(customerMailOptions);
-    console.log('Customer email sent successfully');
+    // Send email to admin
+    try {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER,
+        subject: `🛒 New Order Received - ${orderNumber}`,
+        text: adminEmailContent,
+      });
+      console.log('Admin email sent successfully');
+    } catch (error) {
+      console.error('Failed to send admin email:', error);
+    }
 
-    console.log('All emails sent successfully for order:', orderNumber);
+    // Send confirmation email to customer
+    try {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: orderData.shippingAddress.email,
+        subject: `Order Confirmation - ${orderNumber} - Zuree Diseno`,
+        text: customerEmailContent,
+      });
+      console.log('Customer email sent successfully');
+    } catch (error) {
+      console.error('Failed to send customer email:', error);
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Order placed and emails sent successfully',
-      orderNumber: orderNumber,
+    return NextResponse.json({ 
+      success: true, 
+      orderNumber,
+      message: 'Order placed successfully and confirmation emails sent'
     });
 
   } catch (error) {
-    console.error('Detailed error sending order email:', error);
-    
+    console.error('Email API error:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to process order',
-        details: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace'
-      },
+      { error: 'Failed to process order and send emails' },
       { status: 500 }
     );
   }

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { 
   Search, 
   Eye, 
@@ -17,9 +18,14 @@ import {
   Banknote, 
   RefreshCw,
   TrendingUp,
-  TrendingDown,
   DollarSign,
-  Calendar
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Clock,
+  RotateCcw,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,7 +36,7 @@ interface Payment {
   customerName: string;
   customerEmail: string;
   amount: number;
-  paymentMethod: 'cod' | 'razorpay' | 'stripe' | 'upi';
+  paymentMethod: 'cod' | 'razorpay';
   status: 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled';
   transactionId?: string;
   gatewayResponse?: string;
@@ -48,89 +54,51 @@ interface PaymentStats {
   refundedAmount: number;
 }
 
-const mockPayments: Payment[] = [
-  {
-    id: '1',
-    orderId: 'order_1',
-    orderNumber: 'ORD-2024-001',
-    customerName: 'John Doe',
-    customerEmail: 'john.doe@example.com',
-    amount: 2999,
-    paymentMethod: 'razorpay',
-    status: 'completed',
-    transactionId: 'txn_razorpay_123456',
-    gatewayResponse: 'Payment successful',
-    createdAt: '2024-11-22T10:30:00Z',
-    updatedAt: '2024-11-22T10:31:00Z',
-    processedAt: '2024-11-22T10:31:00Z'
-  },
-  {
-    id: '2',
-    orderId: 'order_2',
-    orderNumber: 'ORD-2024-002',
-    customerName: 'Jane Smith',
-    customerEmail: 'jane.smith@example.com',
-    amount: 1599,
-    paymentMethod: 'cod',
-    status: 'pending',
-    createdAt: '2024-11-22T11:15:00Z',
-    updatedAt: '2024-11-22T11:15:00Z'
-  },
-  {
-    id: '3',
-    orderId: 'order_3',
-    orderNumber: 'ORD-2024-003',
-    customerName: 'Robert Johnson',
-    customerEmail: 'robert.j@example.com',
-    amount: 4299,
-    paymentMethod: 'upi',
-    status: 'failed',
-    transactionId: 'txn_upi_789012',
-    gatewayResponse: 'Transaction declined by bank',
-    createdAt: '2024-11-22T09:45:00Z',
-    updatedAt: '2024-11-22T09:46:00Z'
-  },
-  {
-    id: '4',
-    orderId: 'order_4',
-    orderNumber: 'ORD-2024-004',
-    customerName: 'Emily Davis',
-    customerEmail: 'emily.davis@example.com',
-    amount: 3599,
-    paymentMethod: 'razorpay',
-    status: 'refunded',
-    transactionId: 'txn_razorpay_345678',
-    gatewayResponse: 'Refund processed successfully',
-    createdAt: '2024-11-21T16:20:00Z',
-    updatedAt: '2024-11-22T14:30:00Z',
-    processedAt: '2024-11-21T16:22:00Z'
-  },
-  {
-    id: '5',
-    orderId: 'order_5',
-    orderNumber: 'ORD-2024-005',
-    customerName: 'Michael Brown',
-    customerEmail: 'michael.brown@example.com',
-    amount: 5999,
-    paymentMethod: 'razorpay',
-    status: 'completed',
-    transactionId: 'txn_razorpay_567890',
-    gatewayResponse: 'Payment successful',
-    createdAt: '2024-11-22T08:30:00Z',
-    updatedAt: '2024-11-22T08:31:00Z',
-    processedAt: '2024-11-22T08:31:00Z'
-  }
-];
-
 export default function AdminPaymentsPage() {
-  const [payments, setPayments] = useState<Payment[]>(mockPayments);
-  const [filteredPayments, setFilteredPayments] = useState<Payment[]>(mockPayments);
-  const [loading, setLoading] = useState(false);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Fetch payments data
+  const fetchPayments = async () => {
+    try {
+      const response = await fetch('/api/admin/payments');
+      if (response.ok) {
+        const data = await response.json();
+        setPayments(data.payments || []);
+      } else {
+        throw new Error('Failed to fetch payments');
+      }
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      toast.error('Failed to load payment data');
+      // Fallback to empty array if API fails
+      setPayments([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    fetchPayments();
+  }, []);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchPayments();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Calculate stats
   const stats: PaymentStats = {
@@ -140,6 +108,18 @@ export default function AdminPaymentsPage() {
     failedPayments: payments.filter(p => p.status === 'failed').length,
     pendingPayments: payments.filter(p => p.status === 'pending').length,
     refundedAmount: payments.filter(p => p.status === 'refunded').reduce((sum, p) => sum + p.amount, 0)
+  };
+
+  // Calculate payment method stats
+  const paymentMethodStats = {
+    razorpay: {
+      count: payments.filter(p => p.paymentMethod === 'razorpay').length,
+      revenue: payments.filter(p => p.paymentMethod === 'razorpay' && p.status === 'completed').reduce((sum, p) => sum + p.amount, 0)
+    },
+    cod: {
+      count: payments.filter(p => p.paymentMethod === 'cod').length,
+      revenue: payments.filter(p => p.paymentMethod === 'cod' && p.status === 'completed').reduce((sum, p) => sum + p.amount, 0)
+    }
   };
 
   // Filter payments
@@ -180,12 +160,21 @@ export default function AdminPaymentsPage() {
     }
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="h-4 w-4" />;
+      case 'pending': return <Clock className="h-4 w-4" />;
+      case 'failed': return <XCircle className="h-4 w-4" />;
+      case 'refunded': return <RotateCcw className="h-4 w-4" />;
+      case 'cancelled': return <AlertCircle className="h-4 w-4" />;
+      default: return <Clock className="h-4 w-4" />;
+    }
+  };
+
   const getMethodIcon = (method: string) => {
     switch (method) {
       case 'cod': return <Banknote className="h-4 w-4" />;
-      case 'razorpay': 
-      case 'stripe': 
-      case 'upi': return <CreditCard className="h-4 w-4" />;
+      case 'razorpay': return <CreditCard className="h-4 w-4" />;
       default: return <CreditCard className="h-4 w-4" />;
     }
   };
@@ -194,8 +183,6 @@ export default function AdminPaymentsPage() {
     switch (method) {
       case 'cod': return 'Cash on Delivery';
       case 'razorpay': return 'Razorpay';
-      case 'stripe': return 'Stripe';
-      case 'upi': return 'UPI';
       default: return method.toUpperCase();
     }
   };
@@ -206,16 +193,9 @@ export default function AdminPaymentsPage() {
   };
 
   const handleRefreshPayments = async () => {
-    setLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Payments refreshed successfully');
-    } catch (error) {
-      toast.error('Failed to refresh payments');
-    } finally {
-      setLoading(false);
-    }
+    setRefreshing(true);
+    await fetchPayments();
+    toast.success('Payments data refreshed successfully');
   };
 
   const handleExportPayments = () => {
@@ -259,6 +239,17 @@ export default function AdminPaymentsPage() {
     ? ((stats.successfulPayments / stats.totalTransactions) * 100).toFixed(1)
     : '0';
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading payment data...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -266,13 +257,14 @@ export default function AdminPaymentsPage() {
         <div>
           <h1 className="text-3xl font-bold">Payments</h1>
           <p className="text-gray-600">Monitor and manage all payment transactions</p>
+          <p className="text-sm text-gray-500">Last updated: {new Date().toLocaleTimeString()}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRefreshPayments} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <Button variant="outline" onClick={handleRefreshPayments} disabled={refreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button onClick={handleExportPayments}>
+          <Button variant="outline" onClick={handleExportPayments}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -280,112 +272,115 @@ export default function AdminPaymentsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Total Revenue */}
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalRevenue)}</p>
-                <p className="text-xs text-gray-500 flex items-center mt-1">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  {stats.successfulPayments} successful
-                </p>
+                <p className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-green-500" />
+              <DollarSign className="h-8 w-8 text-green-600" />
             </div>
+            <p className="text-xs text-gray-600 mt-1">
+              From {stats.successfulPayments} successful transactions
+            </p>
           </CardContent>
         </Card>
 
+        {/* Success Rate */}
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Success Rate</p>
-                <p className="text-2xl font-bold text-blue-600">{successRate}%</p>
-                <p className="text-xs text-gray-500">{stats.successfulPayments}/{stats.totalTransactions} transactions</p>
+                <p className="text-2xl font-bold">{successRate}%</p>
               </div>
-              <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-blue-600" />
-              </div>
+              <TrendingUp className="h-8 w-8 text-blue-600" />
             </div>
+            <p className="text-xs text-gray-600 mt-1">
+              {stats.successfulPayments} of {stats.totalTransactions} transactions
+            </p>
           </CardContent>
         </Card>
 
+        {/* Razorpay Orders */}
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.pendingPayments}</p>
-                <p className="text-xs text-gray-500">Awaiting payment</p>
+                <p className="text-sm font-medium text-gray-600">Razorpay Orders</p>
+                <p className="text-2xl font-bold">{paymentMethodStats.razorpay.count}</p>
               </div>
-              <Calendar className="h-8 w-8 text-yellow-500" />
+              <CreditCard className="h-8 w-8 text-blue-600" />
             </div>
+            <p className="text-xs text-gray-600 mt-1">
+              Revenue: {formatCurrency(paymentMethodStats.razorpay.revenue)}
+            </p>
           </CardContent>
         </Card>
 
+        {/* COD Orders */}
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Refunded</p>
-                <p className="text-2xl font-bold text-red-600">{formatCurrency(stats.refundedAmount)}</p>
-                <p className="text-xs text-gray-500 flex items-center mt-1">
-                  <TrendingDown className="h-3 w-3 mr-1" />
-                  Amount refunded
-                </p>
+                <p className="text-sm font-medium text-gray-600">COD Orders</p>
+                <p className="text-2xl font-bold">{paymentMethodStats.cod.count}</p>
               </div>
-              <RefreshCw className="h-8 w-8 text-red-500" />
+              <Banknote className="h-8 w-8 text-green-600" />
             </div>
+            <p className="text-xs text-gray-600 mt-1">
+              Revenue: {formatCurrency(paymentMethodStats.cod.revenue)}
+            </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-6">
           <div className="flex flex-col md:flex-row gap-4">
+            {/* Search */}
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by order number, customer, or transaction ID..."
+                  placeholder="Search orders, customers, or transaction IDs..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-9"
                 />
               </div>
             </div>
-            <div className="md:w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                  <SelectItem value="refunded">Refunded</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:w-48">
-              <Select value={methodFilter} onValueChange={setMethodFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Methods</SelectItem>
-                  <SelectItem value="cod">Cash on Delivery</SelectItem>
-                  <SelectItem value="razorpay">Razorpay</SelectItem>
-                  <SelectItem value="stripe">Stripe</SelectItem>
-                  <SelectItem value="upi">UPI</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Payment Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="refunded">Refunded</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Method Filter */}
+            <Select value={methodFilter} onValueChange={setMethodFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Payment Method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Methods</SelectItem>
+                <SelectItem value="cod">Cash on Delivery</SelectItem>
+                <SelectItem value="razorpay">Razorpay</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -393,7 +388,10 @@ export default function AdminPaymentsPage() {
       {/* Payments Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Payment Transactions ({filteredPayments.length})</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Payment Transactions ({filteredPayments.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -411,75 +409,55 @@ export default function AdminPaymentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPayments.length > 0 ? (
-                  filteredPayments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{payment.orderNumber}</p>
-                          <p className="text-sm text-gray-600">Order ID: {payment.orderId}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{payment.customerName}</p>
-                          <p className="text-sm text-gray-600">{payment.customerEmail}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(payment.amount)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getMethodIcon(payment.paymentMethod)}
-                          <span>{getMethodDisplayName(payment.paymentMethod)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(payment.status)}>
-                          {payment.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-mono text-sm">
-                          {payment.transactionId ? (
-                            <span title={payment.transactionId}>
-                              {payment.transactionId.length > 15 
-                                ? `${payment.transactionId.substring(0, 15)}...`
-                                : payment.transactionId
-                              }
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">—</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {formatDate(payment.createdAt)}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewPayment(payment)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
-                      <CreditCard className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <p className="text-gray-500">No payments found</p>
+                {filteredPayments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell className="font-medium">{payment.orderNumber}</TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{payment.customerName}</p>
+                        <p className="text-sm text-gray-600">{payment.customerEmail}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {getMethodIcon(payment.paymentMethod)}
+                        <span>{getMethodDisplayName(payment.paymentMethod)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(payment.status)} className="flex items-center gap-1 w-fit">
+                        {getStatusIcon(payment.status)}
+                        {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {payment.transactionId || '-'}
+                    </TableCell>
+                    <TableCell>{formatDate(payment.createdAt)}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewPayment(payment)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
                     </TableCell>
                   </TableRow>
-                )}
+                ))}
               </TableBody>
             </Table>
           </div>
+
+          {filteredPayments.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-gray-500">
+                {payments.length === 0 ? 'No payment data available.' : 'No payments found matching your criteria.'}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -489,102 +467,83 @@ export default function AdminPaymentsPage() {
           <DialogHeader>
             <DialogTitle>Payment Details</DialogTitle>
           </DialogHeader>
-          
           {selectedPayment && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Payment Information</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Order Number</p>
-                        <p className="font-mono">{selectedPayment.orderNumber}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Amount</p>
-                        <p className="text-lg font-bold">{formatCurrency(selectedPayment.amount)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Payment Method</p>
-                        <div className="flex items-center gap-2">
-                          {getMethodIcon(selectedPayment.paymentMethod)}
-                          <span>{getMethodDisplayName(selectedPayment.paymentMethod)}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Status</p>
-                        <Badge variant={getStatusBadgeVariant(selectedPayment.status)}>
-                          {selectedPayment.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Order Number</Label>
+                  <p className="font-mono">{selectedPayment.orderNumber}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Amount</Label>
+                  <p className="text-lg font-bold">{formatCurrency(selectedPayment.amount)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Payment Method</Label>
+                  <div className="flex items-center gap-2">
+                    {getMethodIcon(selectedPayment.paymentMethod)}
+                    <span>{getMethodDisplayName(selectedPayment.paymentMethod)}</span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Status</Label>
+                  <Badge variant={getStatusBadgeVariant(selectedPayment.status)} className="flex items-center gap-1 w-fit">
+                    {getStatusIcon(selectedPayment.status)}
+                    {selectedPayment.status.charAt(0).toUpperCase() + selectedPayment.status.slice(1)}
+                  </Badge>
+                </div>
+              </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Customer & Transaction</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
+              {/* Customer Info */}
+              <div>
+                <Label className="text-sm font-medium text-gray-600">Customer Information</Label>
+                <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                  <p className="font-medium">{selectedPayment.customerName}</p>
+                  <p className="text-sm text-gray-600">{selectedPayment.customerEmail}</p>
+                </div>
+              </div>
+
+              {/* Transaction Details */}
+              {selectedPayment.transactionId && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Transaction Details</Label>
+                  <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-600">Customer</p>
-                        <p>{selectedPayment.customerName}</p>
-                        <p className="text-sm text-gray-600">{selectedPayment.customerEmail}</p>
+                        <p className="text-sm text-gray-600">Transaction ID</p>
+                        <p className="font-mono text-sm">{selectedPayment.transactionId}</p>
                       </div>
-                      {selectedPayment.transactionId && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Transaction ID</p>
-                          <p className="font-mono text-sm break-all">{selectedPayment.transactionId}</p>
-                        </div>
-                      )}
                       {selectedPayment.gatewayResponse && (
                         <div>
-                          <p className="text-sm font-medium text-gray-600">Gateway Response</p>
+                          <p className="text-sm text-gray-600">Gateway Response</p>
                           <p className="text-sm">{selectedPayment.gatewayResponse}</p>
                         </div>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Timeline</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Created</p>
-                      <p>{formatDate(selectedPayment.createdAt)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Last Updated</p>
-                      <p>{formatDate(selectedPayment.updatedAt)}</p>
-                    </div>
-                    {selectedPayment.processedAt && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Processed</p>
-                        <p>{formatDate(selectedPayment.processedAt)}</p>
-                      </div>
-                    )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              )}
 
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Close
-                </Button>
-                {selectedPayment.status === 'completed' && (
-                  <Button variant="destructive">
-                    Process Refund
-                  </Button>
-                )}
+              {/* Timestamps */}
+              <div>
+                <Label className="text-sm font-medium text-gray-600">Timeline</Label>
+                <div className="mt-2 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm">Created:</span>
+                    <span className="text-sm font-mono">{formatDate(selectedPayment.createdAt)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">Updated:</span>
+                    <span className="text-sm font-mono">{formatDate(selectedPayment.updatedAt)}</span>
+                  </div>
+                  {selectedPayment.processedAt && (
+                    <div className="flex justify-between">
+                      <span className="text-sm">Processed:</span>
+                      <span className="text-sm font-mono">{formatDate(selectedPayment.processedAt)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
