@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import { CartDrawer } from "../../CartDrawer";
+
 import { 
   Dialog,
   DialogContent,

@@ -1,4 +1,4 @@
-
+/* src/app/globals.css - CSS-only system theme approach */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
 
 @tailwind base;
@@ -9,76 +9,88 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
-
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-
     --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
-
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
-
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
-
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
-
     --radius: 0.5rem;
-
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Set color scheme for browser UI */
+    color-scheme: light dark;
   }
 
+  /* Automatic dark mode via CSS media query - NO JavaScript needed */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 222.2 84% 4.9%;
+      --foreground: 210 40% 98%;
+      --card: 222.2 84% 4.9%;
+      --card-foreground: 210 40% 98%;
+      --popover: 222.2 84% 4.9%;
+      --popover-foreground: 210 40% 98%;
+      --primary: 210 40% 98%;
+      --primary-foreground: 222.2 47.4% 11.2%;
+      --secondary: 217.2 32.6% 17.5%;
+      --secondary-foreground: 210 40% 98%;
+      --muted: 217.2 32.6% 17.5%;
+      --muted-foreground: 215 20.2% 65.1%;
+      --accent: 217.2 32.6% 17.5%;
+      --accent-foreground: 210 40% 98%;
+      --destructive: 0 62.8% 30.6%;
+      --destructive-foreground: 210 40% 98%;
+      --border: 217.2 32.6% 17.5%;
+      --input: 217.2 32.6% 17.5%;
+      --ring: 212.7 26.8% 83.9%;
+      --sidebar-background: 240 5.9% 10%;
+      --sidebar-foreground: 240 4.8% 95.9%;
+      --sidebar-primary: 224.3 76.3% 48%;
+      --sidebar-primary-foreground: 0 0% 100%;
+      --sidebar-accent: 240 3.7% 15.9%;
+      --sidebar-accent-foreground: 240 4.8% 95.9%;
+      --sidebar-border: 240 3.7% 15.9%;
+      --sidebar-ring: 217.2 91.2% 59.8%;
+    }
+  }
+
+  /* Keep your existing .dark class for manual overrides if needed */
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
-
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
-
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-
     --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 11.2%;
-
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
-
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
@@ -100,7 +112,13 @@
 
   body {
     @apply bg-background text-foreground;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 @layer utilities {
@@ -127,6 +145,17 @@
     @apply bg-white text-black border border-black py-2 px-6 hover:bg-gray-100 transition-colors font-medium text-sm tracking-wide;
   }
 
+  /* Update buttons for dark mode */
+  @media (prefers-color-scheme: dark) {
+    .btn-primary {
+      @apply bg-white text-black hover:bg-gray-200;
+    }
+
+    .btn-secondary {
+      @apply bg-black text-white border-white hover:bg-gray-900;
+    }
+  }
+
   .heading-xl {
     @apply font-serif text-4xl md:text-5xl font-medium;
   }
@@ -144,46 +173,61 @@
   }
 
   .line-clamp-1 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .dashboard-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .dashboard-sidebar {
+    flex-shrink: 0;
+    width: 250px;
+  }
+
+  .dashboard-content {
+    flex: 1;
+    overflow-y: auto;
+  }
 }
 
-.line-clamp-2 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+/* System theme aware image handling */
+@media (prefers-color-scheme: dark) {
+  img:not(.preserve-colors):not([src*=".svg"]) {
+    filter: brightness(0.8) contrast(1.1);
+  }
+  
+  .icon-invert {
+    filter: invert(1);
+  }
 }
 
-.line-clamp-3 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+/* Preserve colors for specific elements */
+.preserve-colors,
+.preserve-colors * {
+  filter: none !important;
 }
 
-
-.dashboard-layout {
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.dashboard-sidebar {
-  flex-shrink: 0;
-  width: 250px;
-}
-
-.dashboard-content {
-  flex: 1;
-  overflow-y: auto;
-}
-}
-/* Add this to your src/app/globals.css file for black notifications ONLY in admin portal */
-
-/* Admin Portal Black Notifications - Scoped to admin routes */
+/* All your existing admin portal notification styles remain unchanged */
 .admin-portal [data-sonner-toast],
 [data-route*="/dashboard/admin"] [data-sonner-toast],
 [data-route*="/admin"] [data-sonner-toast] {
@@ -373,4 +417,12 @@
 [data-route*="/dashboard/admin"] .toast .toast-action:hover,
 [data-route*="/admin"] .toast .toast-action:hover {
   background: #444444 !important;
+}
+
+/* Print styles */
+@media print {
+  * {
+    background: white !important;
+    color: black !important;
+  }
 }
