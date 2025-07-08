@@ -11,7 +11,7 @@ model Category {
   id            String        @id @default(cuid())
   name          String        @db.VarChar(255)
   slug          String        @unique @db.VarChar(255)
-  description   String?
+  description   String?       @db.Text
   image         String?       @db.VarChar(500)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -29,7 +29,7 @@ model Subcategory {
   id          String    @id @default(cuid())
   name        String    @db.VarChar(255)
   slug        String    @unique @db.VarChar(255)
-  description String?
+  description String?   @db.Text
   categoryId  String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -51,7 +51,7 @@ model Product {
   description   String?          @db.Text
   price         Decimal          @db.Decimal(10, 2)
   originalPrice Decimal?         @db.Decimal(10, 2)
-  sku           String?          @unique
+  sku           String?          @unique @db.VarChar(255)
   inStock       Boolean          @default(true)
   featured      Boolean          @default(false)
   categoryId    String
@@ -89,11 +89,11 @@ model ProductImage {
 model ProductVariant {
   id         String   @id @default(cuid())
   productId  String
-  size       String
-  color      String
-  sleeveType String?
+  size       String   @db.VarChar(50)
+  color      String   @db.VarChar(50)
+  sleeveType String?  @db.VarChar(50)
   stock      Int      @default(0)
-  sku        String?  @unique
+  sku        String?  @unique @db.VarChar(255)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -104,41 +104,47 @@ model ProductVariant {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String   @unique
-  firstName String?
-  lastName  String?
-  imageUrl  String?
-  role      UserRole @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  orders    Order[]
+  id            String    @id @default(cuid())
+  email         String    @unique @db.VarChar(255)
+  firstName     String?   @db.VarChar(100)
+  lastName      String?   @db.VarChar(100)
+  imageUrl      String?   @db.VarChar(500)
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  orders        Order[]
 
+  // Keep clerkId for migration - can be removed later
+  clerkId       String?   @unique @db.VarChar(255)
+
+  // Add password field for custom auth
+  password      String?   @db.VarChar(255)
+
+  @@index([role])
   @@map("users")
 }
 
 model Order {
   id                String        @id @default(cuid())
   userId            String
-  email             String
-  firstName         String
-  lastName          String
-  phone             String
-  address           String
-  city              String
-  state             String
-  zipCode           String
-  country           String
+  email             String        @db.VarChar(255)
+  firstName         String        @db.VarChar(100)
+  lastName          String        @db.VarChar(100)
+  phone             String        @db.VarChar(20)
+  address           String        @db.Text
+  city              String        @db.VarChar(100)
+  state             String        @db.VarChar(100)
+  zipCode           String        @db.VarChar(20)
+  country           String        @db.VarChar(100)
   subtotal          Float
   tax               Float
   shipping          Float
   total             Float
   status            OrderStatus   @default(PENDING)
   paymentStatus     PaymentStatus @default(PENDING)
-  paymentMethod     String
-  razorpayOrderId   String?
-  razorpayPaymentId String?
+  paymentMethod     String        @db.VarChar(50)
+  razorpayOrderId   String?       @db.VarChar(255)
+  razorpayPaymentId String?       @db.VarChar(255)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   orderItems        OrderItem[]
@@ -146,6 +152,7 @@ model Order {
 
   @@index([userId])
   @@index([status])
+  @@index([paymentStatus])
   @@map("orders")
 }
 
@@ -155,8 +162,8 @@ model OrderItem {
   productId String
   quantity  Int
   price     Float
-  size      String
-  color     String
+  size      String   @db.VarChar(50)
+  color     String   @db.VarChar(50)
   createdAt DateTime @default(now())
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product   Product  @relation(fields: [productId], references: [id])
@@ -169,6 +176,7 @@ model OrderItem {
 enum UserRole {
   USER
   ADMIN
+  SELLER
 }
 
 enum OrderStatus {

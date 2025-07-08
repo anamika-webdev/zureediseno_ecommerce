@@ -1,13 +1,14 @@
 // src/app/api/payment/create-order/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { getCurrentUser } from '@/lib/auth'
 
 // Import Razorpay directly instead of using the lib
 const Razorpay = require('razorpay');
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const user = await getCurrentUser()
+const userId = user?.id
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

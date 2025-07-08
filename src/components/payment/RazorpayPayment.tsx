@@ -1,8 +1,8 @@
-// src/components/payment/RazorpayPayment.tsx - Enhanced with better error handling
+// src/components/payment/RazorpayPayment.tsx - Fixed version
 'use client';
 
-import { useState } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useState, useCallback } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { CreditCard, Shield, Loader2, AlertCircle } from 'lucide-react';
@@ -21,9 +21,18 @@ declare global {
 }
 
 export function RazorpayPayment({ amount, onSuccess, onError, disabled }: RazorpayPaymentProps) {
-  const { user } = useUser();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
+
+  // Use useCallback to make functions serializable
+  const handleSuccess = useCallback(() => {
+    onSuccess();
+  }, [onSuccess]);
+
+  const handleError = useCallback(() => {
+    onError();
+  }, [onError]);
 
   const handlePayment = async () => {
     if (!user) {
@@ -50,7 +59,7 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
           setLoading(false);
           setError('Failed to load payment gateway. Please check your internet connection.');
           toast.error('Failed to load payment gateway');
-          onError();
+          handleError();
         };
       } else {
         await initiatePayment();
@@ -60,7 +69,7 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
       console.error('Payment initialization error:', error);
       setError('Payment initialization failed. Please try again.');
       toast.error('Payment initialization failed');
-      onError();
+      handleError();
     }
   };
 
@@ -138,7 +147,7 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
                 }));
               }
               
-              onSuccess();
+              handleSuccess();
             } else {
               const errorData = await verifyResponse.json();
               throw new Error(errorData.error || 'Payment verification failed');
@@ -146,15 +155,15 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
           } catch (error) {
             console.error('Payment verification error:', error);
             toast.error('Payment verification failed. Please contact support.');
-            onError();
+            handleError();
           } finally {
             setLoading(false);
           }
         },
         prefill: {
           name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '',
-          email: user?.emailAddresses?.[0]?.emailAddress || '',
-          contact: user?.phoneNumbers?.[0]?.phoneNumber || '',
+          email: user?.email || '',
+          contact: '', // Remove phone number since it's not in our user type
         },
         notes: {
           user_id: user?.id || '',
@@ -190,7 +199,7 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
         toast.error(`Payment failed: ${errorMsg}`);
         setError(errorMsg);
         setLoading(false);
-        onError();
+        handleError();
       });
 
       razorpay.open();
@@ -200,7 +209,7 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
       setError(errorMessage);
       setLoading(false);
       toast.error(errorMessage);
-      onError();
+      handleError();
     }
   };
 

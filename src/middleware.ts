@@ -1,27 +1,60 @@
-// src/middleware.ts - Fixed for Next.js 15
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server'
+// src/middleware.ts
+import { NextRequest, NextResponse } from 'next/server'
+import { verifySession } from '@/lib/auth'
 
-const isProtectedRoute = createRouteMatcher([
-  '/dashboard(.*)', 
-  '/forum(.*)'
-])
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-export default clerkMiddleware(async (auth, req) => {
-  // Protect routes that need authentication
-  if (isProtectedRoute(req)) {
-    await auth.protect()
+  // Check if user is authenticated
+  const session = await verifySession()
+  const isAuthenticated = !!session
+  const userRole = session?.role
+
+  // Protect dashboard routes
+  if (pathname.startsWith('/dashboard')) {
+    if (!isAuthenticated) {
+      return NextResponse.redirect(new URL('/auth/signin', request.url))
+    }
+    
+    // Only allow ADMIN and SELLER roles to access dashboard
+    if (userRole === 'USER') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
   }
-  
-  // Allow all other routes to pass through
+
+  // Protect admin routes
+  if (pathname.startsWith('/admin')) {
+    if (!isAuthenticated) {
+      return NextResponse.redirect(new URL('/auth/signin', request.url))
+    }
+    if (userRole !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+  }
+
+  // Protect forum routes
+  if (pathname.startsWith('/forum')) {
+    if (!isAuthenticated) {
+      return NextResponse.redirect(new URL('/auth/signin', request.url))
+    }
+  }
+
+  // Protect profile and order pages
+  if (pathname.startsWith('/profile') || pathname.startsWith('/orders')) {
+    if (!isAuthenticated) {
+      return NextResponse.redirect(new URL('/auth/signin', request.url))
+    }
+  }
+
   return NextResponse.next()
-})
+}
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    // Always run for API routes
-    '/(api|trpc)(.*)',
-  ],
+    '/dashboard/:path*', 
+    '/admin/:path*', 
+    '/forum/:path*',
+    '/profile/:path*',
+    '/orders/:path*'
+  ]
 }

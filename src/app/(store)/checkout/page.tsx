@@ -1,10 +1,10 @@
-// src/app/(store)/checkout/page.tsx - Final working version
+// src/app/(store)/checkout/page.tsx - Fixed version
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@clerk/nextjs';
-import { useCart } from '@/context/CartContext'; // Your actual cart context
+import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -40,12 +40,12 @@ interface ShippingInfo {
   country: string;
 }
 
-export default function CheckoutPage() {
-  const { user } = useUser();
+export default function CheckoutPage() {  
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const { items, total, itemCount, clearCart } = useCart(); // Using your actual cart structure
+  const { items, total, itemCount, clearCart } = useCart();
   
-  const [loading, setLoading] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(false); // Renamed to avoid conflict
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [showRazorpayPayment, setShowRazorpayPayment] = useState(false);
   const [currentOrderNumber, setCurrentOrderNumber] = useState('');
@@ -67,13 +67,13 @@ export default function CheckoutPage() {
     if (user) {
       setShippingInfo(prev => ({
         ...prev,
-        fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-        email: user.emailAddresses[0]?.emailAddress || ''
+        fullName: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        email: user.email || ''
       }));
     }
   }, [user]);
 
-  // Calculate totals using your cart's existing total or calculate from items
+  // Calculate totals
   const subtotal = total || (items ? items.reduce((sum: number, item: any) => {
     const price = parseFloat(item.price) || 0;
     const quantity = item.quantity || 1;
@@ -105,7 +105,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    setLoading(true);
+    setOrderLoading(true);
 
     try {
       const orderData = {
@@ -150,7 +150,7 @@ export default function CheckoutPage() {
       console.error('Order placement error:', error);
       toast.error('Failed to place order. Please try again.');
     } finally {
-      setLoading(false);
+      setOrderLoading(false);
     }
   };
 
@@ -493,11 +493,11 @@ export default function CheckoutPage() {
 
                 <Button 
                   onClick={handlePlaceOrder}
-                  disabled={loading || !validateForm() || !items || items.length === 0}
+                  disabled={orderLoading || !validateForm() || !items || items.length === 0}
                   className="w-full"
                   size="lg"
                 >
-                  {loading ? 'Processing...' : `Place Order - ₹${orderTotal.toFixed(2)}`}
+                  {orderLoading ? 'Processing...' : `Place Order - ₹${orderTotal.toFixed(2)}`}
                 </Button>
 
                 <div className="text-xs text-gray-600 text-center">

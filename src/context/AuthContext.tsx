@@ -1,138 +1,162 @@
-// src/context/AuthContext.tsx
-"use client";
+'use client'
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { useToast } from "@/components/ui/use-toast";
+import React, { createContext, useContext, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
-type User = {
-  id: string;
-  name: string;
-  email: string | null;
-  isGuest: boolean;
-  isAdmin: boolean;
-};
+interface User {
+  id: string
+  email: string
+  firstName?: string
+  lastName?: string
+  name?: string
+  role: string
+  imageUrl?: string
+}
 
-type AuthContextType = {
-  user: User | null;
-  loginAsGuest: () => void;
-  loginAsAdmin: () => void;
-  logout: () => void;
-  isAuthenticated: boolean;
-  isGuest: boolean;
-  isAdmin: boolean;
-};
+interface AuthContextType {
+  user: User | null
+  loading: boolean
+  login: (email: string, password: string) => Promise<void>
+  register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>
+  logout: () => Promise<void>
+  isAuthenticated: boolean
+  isAdmin: boolean
+  isSeller: boolean
+  isGuest: boolean
+  loginAsGuest: () => void
+}
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [mounted, setMounted] = useState(false);
-  const { toast } = useToast();
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [isGuest, setIsGuest] = useState(false)
+  const router = useRouter()
 
-  // Handle hydration and load saved user
-  useEffect(() => {
-    setMounted(true);
-    
-    // Load user from localStorage on mount
+  const fetchUser = async () => {
     try {
-      const savedUser = localStorage.getItem('zuree_user');
-      if (savedUser) {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
+      const response = await fetch('/api/auth/me')
+      if (response.ok) {
+        const data = await response.json()
+        const userData = {
+          ...data.user,
+          name: data.user.name || `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim()
+        }
+        setUser(userData)
+        setIsGuest(false)
+      } else {
+        setUser(null)
+        setIsGuest(false)
       }
     } catch (error) {
-      console.error('Error loading saved user:', error);
-      localStorage.removeItem('zuree_user');
+      console.error('Error fetching user:', error)
+      setUser(null)
+      setIsGuest(false)
+    } finally {
+      setLoading(false)
     }
-  }, []);
+  }
 
-  // Save user to localStorage whenever it changes
   useEffect(() => {
-    if (mounted) {
-      if (user) {
-        localStorage.setItem('zuree_user', JSON.stringify(user));
-      } else {
-        localStorage.removeItem('zuree_user');
-      }
+    fetchUser()
+  }, [])
+
+  const login = async (email: string, password: string) => {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Login failed')
     }
-  }, [user, mounted]);
+
+    const userData = {
+      ...data.user,
+      name: data.user.name || `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim()
+    }
+    setUser(userData)
+    setIsGuest(false)
+    
+    if (data.user.role === 'ADMIN') {
+      router.push('/dashboard/admin')
+    } else if (data.user.role === 'SELLER') {
+      router.push('/dashboard/seller')
+    } else {
+      router.push('/')
+    }
+    
+    router.refresh()
+  }
+
+  const register = async (firstName: string, lastName: string, email: string, password: string) => {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firstName, lastName, email, password }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Registration failed')
+    }
+
+    const userData = {
+      ...data.user,
+      name: data.user.name || `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim()
+    }
+    setUser(userData)
+    setIsGuest(false)
+    router.push('/')
+    router.refresh()
+  }
+
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+    setUser(null)
+    setIsGuest(false)
+    router.push('/')
+    router.refresh()
+  }
 
   const loginAsGuest = () => {
-    const guestUser: User = {
-      id: `guest-${Math.random().toString(36).substring(2, 9)}`,
-      name: 'Guest User',
-      email: null,
-      isGuest: true,
-      isAdmin: false,
-    };
-    
-    setUser(guestUser);
-    toast({
-      title: "Logged in as guest",
-      description: "You can now browse the store without creating an account.",
-    });
-  };
+    setIsGuest(true)
+    setUser(null)
+  }
 
-  const loginAsAdmin = () => {
-    const adminUser: User = {
-      id: `admin-${Math.random().toString(36).substring(2, 9)}`,
-      name: 'Admin User',
-      email: 'admin@zuree.com',
-      isGuest: false,
-      isAdmin: true,
-    };
-    
-    setUser(adminUser);
-    toast({
-      title: "Logged in as admin",
-      description: "You now have access to admin features.",
-    });
-  };
-
-  const logout = () => {
-    setUser(null);
-    toast({
-      title: "Logged out",
-      description: "You have been logged out successfully.",
-    });
-  };
-
-  // Don't render until mounted to prevent hydration issues
-  if (!mounted) {
-    return <div>{children}</div>;
+  const value: AuthContextType = {
+    user,
+    loading,
+    login,
+    register,
+    logout,
+    isAuthenticated: !!user,
+    isAdmin: user?.role === 'ADMIN',
+    isSeller: user?.role === 'SELLER',
+    isGuest,
+    loginAsGuest,
   }
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loginAsGuest,
-        loginAsAdmin,
-        logout,
-        isAuthenticated: !!user,
-        isGuest: user?.isGuest || false,
-        isAdmin: user?.isAdmin || false
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
-  );
-};
+  )
+}
 
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
+export function useAuth() {
+  const context = useContext(AuthContext)
   if (context === undefined) {
-    // Return a safe fallback instead of throwing an error
-    console.warn('useAuth must be used within an AuthProvider');
-    return {
-      user: null,
-      loginAsGuest: () => {},
-      loginAsAdmin: () => {},
-      logout: () => {},
-      isAuthenticated: false,
-      isGuest: false,
-      isAdmin: false,
-    };
+    throw new Error('useAuth must be used within an AuthProvider')
   }
-  return context;
-};
+  return context
+}
