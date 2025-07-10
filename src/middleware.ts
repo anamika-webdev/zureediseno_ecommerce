@@ -5,6 +5,11 @@ import { verifySession } from '@/lib/auth'
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Allow access to admin login page without authentication
+  if (pathname === '/admin/login') {
+    return NextResponse.next()
+  }
+
   // Check if user is authenticated
   const session = await verifySession()
   const isAuthenticated = !!session
@@ -22,13 +27,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect admin routes
+  // Protect admin routes (except login)
   if (pathname.startsWith('/admin')) {
     if (!isAuthenticated) {
-      return NextResponse.redirect(new URL('/auth/signin', request.url))
+      return NextResponse.redirect(new URL('/admin/login', request.url))
     }
     if (userRole !== 'ADMIN') {
-      return NextResponse.redirect(new URL('/', request.url))
+      return NextResponse.redirect(new URL('/admin/login', request.url))
     }
   }
 

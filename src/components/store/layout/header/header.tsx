@@ -1,4 +1,3 @@
-// File: src/components/store/layout/header/header.tsx
 "use client";
 
 import Link from "next/link";
@@ -73,7 +72,7 @@ const Header = () => {
             const data = await response.json();
             console.log('Categories API response:', data); // Debug log
             
-            // Transform data to match expected format and filter for header navigation
+            // Transform data to match expected format
             const navigationCategories = data
               .map((cat: any) => ({
                 id: cat.id,
@@ -84,9 +83,10 @@ const Header = () => {
                   name: sub.name,
                   slug: sub.slug
                 })) || [],
-                _count: cat._count
+                _count: cat._count || undefined
               }))
               .filter((cat: CategoryNavigation) => 
+                // Show categories that have subcategories OR are main categories
                 cat.subcategories.length > 0 || 
                 cat.name.toLowerCase().includes('men') || 
                 cat.name.toLowerCase().includes('women') || 
@@ -94,7 +94,7 @@ const Header = () => {
                 cat.name.toLowerCase().includes('shirts') ||
                 cat.name.toLowerCase().includes('dresses')
               )
-              .slice(0, 6); // Limit to prevent overflow
+              .slice(0, 8); // Limit to prevent overflow
             
             console.log('Processed categories:', navigationCategories); // Debug log
             setCategories(navigationCategories);
@@ -166,7 +166,7 @@ const Header = () => {
     setMounted(true);
   }, []);
 
-  // Safe access to context values - Updated for new cart context
+  // Safe access to context values
   const cartItemCount = cart?.itemCount || 0;
   const { user, login, register, logout, isAuthenticated, isGuest, loginAsGuest, loading } = auth || {};
 
@@ -238,7 +238,6 @@ const Header = () => {
   const handleLogout = () => {
     if (logout) {
       logout();
-      setIsAuthDialogOpen(false);
     }
   };
 
@@ -490,7 +489,7 @@ const Header = () => {
 
         {/* Right Side Actions */}
         <div className="flex items-center space-x-6">
-          {/* Search Button - You can enhance this later */}
+          {/* Search Button */}
           <button 
             aria-label="Search" 
             className="hidden md:block p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
@@ -702,7 +701,7 @@ const Header = () => {
             )}
           </div>
 
-          {/* Cart Drawer - Using the new CartDrawer component */}
+          {/* Cart Drawer */}
           <CartDrawer />
         </div>
       </div>
