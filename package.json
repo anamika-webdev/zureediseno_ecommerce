@@ -79,7 +79,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20",
+    "@types/node": "^20.19.6",
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
@@ -88,12 +88,13 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
     "postcss": "^8.5.3",
-    "prisma": "^6.8.2",
+    "prisma": "^6.11.1",
     "rimraf": "^5.0.5",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
+    "ts-node": "^10.9.2",
     "tsx": "^4.19.4",
-    "typescript": "^5"
+    "typescript": "^5.8.3"
   },
   "engines": {
     "node": ">=18.0.0",

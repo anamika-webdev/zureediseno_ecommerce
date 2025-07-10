@@ -1,7 +1,10 @@
-// src/app/dashboard/layout.tsx - Updated to support admin-specific styling
+// src/app/dashboard/layout.tsx - Updated dashboard layout with NextAuth
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from '@/components/ui/sonner';
 import Sidebar from '@/components/dashboard/sidebar/sidebar';
@@ -11,8 +14,39 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const { user, loading: authLoading, isAuthenticated, isAdmin } = useAuth();
+  const router = useRouter();
   const pathname = usePathname();
   const isAdminRoute = pathname?.includes('/dashboard/admin') || pathname?.includes('/admin');
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!isAuthenticated) {
+        router.push('/auth/signin?redirect=' + encodeURIComponent(pathname || '/dashboard'));
+        return;
+      }
+      
+      // Check if user has access to admin routes
+      if (isAdminRoute && !isAdmin) {
+        router.push('/');
+        return;
+      }
+    }
+  }, [authLoading, isAuthenticated, isAdmin, isAdminRoute, router, pathname]);
+
+  // Show loading spinner while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated or not authorized
+  if (!isAuthenticated || (isAdminRoute && !isAdmin)) {
+    return null;
+  }
 
   return (
     <div 
@@ -21,7 +55,7 @@ export default function DashboardLayout({
     >
       <div className="flex">
         {/* Fixed Sidebar */}
-        <div className="fixed inset-y-0 left-0 w-64 bg-gray-900">
+        <div className="fixed inset-y-0 left-0 w-64 z-50">
           <Sidebar />
         </div>
         
@@ -39,7 +73,7 @@ export default function DashboardLayout({
       <SonnerToaster 
         position="bottom-left" 
         expand={true}
-        richColors={!isAdminRoute} // Disable rich colors only for admin
+        richColors={!isAdminRoute}
         closeButton
         theme={isAdminRoute ? "dark" : "light"}
         toastOptions={{

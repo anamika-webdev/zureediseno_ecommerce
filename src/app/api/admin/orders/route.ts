@@ -1,8 +1,8 @@
 // src/app/api/admin/orders/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
 import mysql from 'mysql2/promise';
 
-// Database connection
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -13,16 +13,143 @@ const dbConfig = {
   queueLimit: 0
 };
 
-// Create connection pool
 const pool = mysql.createPool(dbConfig);
+
+export async function GET(req: NextRequest) {
+  let connection;
+  
+  try {
+    // Check authentication and admin role
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const offset = (page - 1) * limit;
+    const status = searchParams.get('status');
+    const searchTerm = searchParams.get('search');
+
+    connection = await pool.getConnection();
+
+    // Build the query
+    let query = `
+      SELECT 
+        o.*,
+        COUNT(oi.id) as item_count
+      FROM orders o
+      LEFT JOIN order_items oi ON o.id = oi.order_id
+    `;
+    
+    let queryParams: any[] = [];
+    let whereConditions: string[] = [];
+    
+    // Add status filter
+    if (status && status !== 'all') {
+      whereConditions.push('o.status = ?');
+      queryParams.push(status);
+    }
+    
+    // Add search filter
+    if (searchTerm) {
+      whereConditions.push(`(
+        o.order_number LIKE ? OR 
+        o.shipping_name LIKE ? OR 
+        o.shipping_email LIKE ?
+      )`);
+      const searchPattern = `%${searchTerm}%`;
+      queryParams.push(searchPattern, searchPattern, searchPattern);
+    }
+    
+    // Add WHERE clause if we have conditions
+    if (whereConditions.length > 0) {
+      query += ` WHERE ${whereConditions.join(' AND ')}`;
+    }
+    
+    query += ` 
+      GROUP BY o.id 
+      ORDER BY o.created_at DESC 
+      LIMIT ? OFFSET ?
+    `;
+    queryParams.push(limit, offset);
+
+    const [orders] = await connection.execute(query, queryParams);
+
+    // Get total count for pagination
+    let countQuery = `SELECT COUNT(DISTINCT o.id) as total FROM orders o`;
+    let countParams: any[] = [];
+    
+    if (whereConditions.length > 0) {
+      countQuery += ` WHERE ${whereConditions.join(' AND ')}`;
+      countParams = queryParams.slice(0, -2); // Remove limit and offset
+    }
+
+    const [countResult] = await connection.execute(countQuery, countParams);
+    const totalOrders = (countResult as any)[0].total;
+
+    return NextResponse.json({
+      success: true,
+      orders: orders || [],
+      pagination: {
+        page,
+        limit,
+        total: totalOrders,
+        totalPages: Math.ceil(totalOrders / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching admin orders:', error);
+    
+    return NextResponse.json(
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+}
 
 export async function POST(req: NextRequest) {
   let connection;
   
   try {
-    // Parse the request body
+    // Check authentication and admin role
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      );
+    }
+
     const orderData = await req.json();
-    console.log('Received order data:', orderData);
     
     // Validate required fields
     if (!orderData.items || !Array.isArray(orderData.items) || orderData.items.length === 0) {
@@ -39,17 +166,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get database connection
     connection = await pool.getConnection();
 
     // Generate order number
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-    
-    // Use provided user ID or generate guest user ID
-    const userId = orderData.userId || `guest_${Date.now()}`;
-    
-    // Determine payment status based on payment method
-    const paymentStatus = orderData.paymentMethod === 'cod' ? 'pending' : 'pending';
     
     // Start transaction
     await connection.beginTransaction();
@@ -60,12 +180,7 @@ export async function POST(req: NextRequest) {
         INSERT INTO orders (
           order_number, 
           user_id, 
-          total_amount,
-          subtotal,
-          shipping_amount,
-          tax_amount,
-          payment_method,
-          customer_type,
+          total_amount, 
           status, 
           payment_status,
           shipping_name,
@@ -78,18 +193,13 @@ export async function POST(req: NextRequest) {
           shipping_country,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `, [
         orderNumber,
-        userId,
+        orderData.userId || user.id, // Use provided userId or current admin user
         orderData.totalAmount,
-        orderData.subtotal || orderData.totalAmount,
-        orderData.shipping || 0,
-        orderData.tax || 0,
-        orderData.paymentMethod || 'cod',
-        orderData.customerType || 'guest',
-        'pending',
-        paymentStatus,
+        orderData.status || 'pending',
+        orderData.paymentStatus || 'pending',
         orderData.shippingAddress.fullName,
         orderData.shippingAddress.email,
         orderData.shippingAddress.phone,
@@ -133,22 +243,14 @@ export async function POST(req: NextRequest) {
       // Commit transaction
       await connection.commit();
 
-      console.log('Order created successfully:', {
-        id: orderId,
-        orderNumber,
-        paymentMethod: orderData.paymentMethod
-      });
-
-      // Return success response
       return NextResponse.json({
         success: true,
         message: 'Order created successfully',
         order: {
           id: orderId,
           orderNumber: orderNumber,
-          status: 'pending',
-          paymentStatus: paymentStatus,
-          paymentMethod: orderData.paymentMethod,
+          status: orderData.status || 'pending',
+          paymentStatus: orderData.paymentStatus || 'pending',
           totalAmount: orderData.totalAmount,
           createdAt: new Date().toISOString()
         }
@@ -161,90 +263,11 @@ export async function POST(req: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Error creating order:', error);
+    console.error('Error creating admin order:', error);
     
     return NextResponse.json(
       { 
         error: 'Internal server error', 
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
-  } finally {
-    if (connection) {
-      connection.release();
-    }
-  }
-}
-
-// GET endpoint to fetch orders
-export async function GET(req: NextRequest) {
-  let connection;
-  
-  try {
-    const { searchParams } = new URL(req.url);
-    const isAdmin = searchParams.get('admin') === 'true';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const offset = (page - 1) * limit;
-    const userId = searchParams.get('userId');
-
-    connection = await pool.getConnection();
-
-    let query = `
-      SELECT 
-        o.*,
-        COUNT(oi.id) as item_count
-      FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-    `;
-    
-    let queryParams = [];
-    
-    // If not admin and userId is provided, filter by user
-    if (!isAdmin && userId) {
-      query += ` WHERE o.user_id = ?`;
-      queryParams.push(userId);
-    }
-    
-    query += ` 
-      GROUP BY o.id 
-      ORDER BY o.created_at DESC 
-      LIMIT ? OFFSET ?
-    `;
-    queryParams.push(limit, offset);
-
-    const [orders] = await connection.execute(query, queryParams);
-
-    // Get total count for pagination
-    let countQuery = `SELECT COUNT(DISTINCT o.id) as total FROM orders o`;
-    let countParams = [];
-    
-    if (!isAdmin && userId) {
-      countQuery += ` WHERE o.user_id = ?`;
-      countParams.push(userId);
-    }
-
-    const [countResult] = await connection.execute(countQuery, countParams);
-    const totalOrders = (countResult as any)[0].total;
-
-    return NextResponse.json({
-      success: true,
-      orders,
-      pagination: {
-        page,
-        limit,
-        total: totalOrders,
-        totalPages: Math.ceil(totalOrders / limit)
-      }
-    });
-
-  } catch (error) {
-    console.error('Error fetching orders:', error);
-    
-    return NextResponse.json(
-      { 
-        error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }

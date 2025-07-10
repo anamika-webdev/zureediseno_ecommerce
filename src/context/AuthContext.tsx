@@ -1,3 +1,4 @@
+// src/context/AuthContext.tsx - Updated with proper admin redirect
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
@@ -82,8 +83,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(userData)
     setIsGuest(false)
     
+    // Redirect based on role
     if (data.user.role === 'ADMIN') {
-      router.push('/dashboard/admin')
+      router.push('/dashboard') // Changed from '/dashboard/admin' to '/dashboard'
     } else if (data.user.role === 'SELLER') {
       router.push('/dashboard/seller')
     } else {
@@ -112,6 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setUser(userData)
     setIsGuest(false)
+    
+    // Redirect to home after registration
     router.push('/')
     router.refresh()
   }
@@ -122,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error)
     }
+    
     setUser(null)
     setIsGuest(false)
     router.push('/')
@@ -133,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
   }
 
-  const value: AuthContextType = {
+  const value = {
     user,
     loading,
     login,
@@ -143,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAdmin: user?.role === 'ADMIN',
     isSeller: user?.role === 'SELLER',
     isGuest,
-    loginAsGuest,
+    loginAsGuest
   }
 
   return (

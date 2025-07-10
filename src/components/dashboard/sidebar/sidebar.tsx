@@ -1,12 +1,10 @@
-// src/components/dashboard/Sidebar.tsx
+// src/components/dashboard/sidebar/sidebar.tsx
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
-
-
-
 import {
   Home,
   LayoutDashboard, 
@@ -16,22 +14,10 @@ import {
   ShoppingCart, 
   Users, 
   CreditCard, 
-  Settings 
+  Settings,
+  LogOut
 } from 'lucide-react';
-
-// Define proper User type for sidebar
-interface SidebarUser {
-  id: string;
-  name: string;
-  email: string;
-  role?: string;
-  image?: string;
-}
-
-interface SidebarProps {
-  user?: SidebarUser | null;
-  className?: string;
-}
+import { Button } from '@/components/ui/button';
 
 const navigation = [
   {
@@ -76,15 +62,30 @@ const navigation = [
   },
 ];
 
-export default function Sidebar({ user, className = '' }: SidebarProps) {
+interface SidebarProps {
+  className?: string;
+}
+
+export default function Sidebar({ className = '' }: SidebarProps) {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   return (
     <div className={cn('flex h-full w-64 flex-col bg-gray-900', className)}>
+      {/* Header */}
       <div className="flex h-16 items-center justify-center border-b border-gray-800">
         <h1 className="text-xl font-bold text-white">Admin Dashboard</h1>
       </div>
       
+      {/* Navigation */}
       <nav className="flex-1 space-y-1 px-2 py-4">
         {navigation.map((item) => {
           const isActive = pathname === item.href;
@@ -106,19 +107,44 @@ export default function Sidebar({ user, className = '' }: SidebarProps) {
         })}
       </nav>
       
+      {/* User Profile & Logout */}
       {user && (
         <div className="border-t border-gray-800 p-4">
-          <div className="flex items-center">
+          <div className="flex items-center mb-3">
             <div className="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center">
-              <span className="text-white text-sm font-medium">
-                {user.name?.charAt(0).toUpperCase()}
-              </span>
+              {user.imageUrl ? (
+                <img 
+                  src={user.imageUrl} 
+                  alt={user.name || user.email} 
+                  className="h-10 w-10 rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-white text-sm font-medium">
+                  {user.firstName ? user.firstName[0].toUpperCase() : user.email[0].toUpperCase()}
+                  {user.lastName ? user.lastName[0].toUpperCase() : ''}
+                </span>
+              )}
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-white">{user.name}</p>
-              <p className="text-xs text-gray-400">{user.email}</p>
+            <div className="ml-3 flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">
+                {user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email}
+              </p>
+              <p className="text-xs text-gray-400 truncate">{user.email}</p>
+              {user.role && (
+                <p className="text-xs text-gray-500 uppercase">{user.role}</p>
+              )}
             </div>
           </div>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-700"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+          </Button>
         </div>
       )}
     </div>

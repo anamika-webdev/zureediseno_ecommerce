@@ -1,3 +1,4 @@
+// src/app/admin/login/page.tsx - Fixed to redirect to dashboard
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -22,7 +23,7 @@ export default function AdminLoginPage() {
   // Redirect if already logged in as admin
   useEffect(() => {
     if (!authLoading && user && isAdmin) {
-      router.push('/admin/orders')
+      router.push('/dashboard') // ✅ Fixed: redirect to main dashboard
     }
   }, [user, isAdmin, authLoading, router])
 
@@ -33,10 +34,8 @@ export default function AdminLoginPage() {
 
     try {
       await login(email, password)
-      
-      // Check if user is admin after login
-      // The login function in AuthContext will handle the redirect to /dashboard/admin
-      // but we'll add an extra check here for admin portal access
+      // The login function in AuthContext will handle the redirect
+      // But we'll also add an extra check here for admin users coming from admin login
       
     } catch (err: any) {
       setError(err.message || 'Invalid admin credentials')
@@ -79,7 +78,7 @@ export default function AdminLoginPage() {
             <CardTitle className="text-2xl text-center">Sign In</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -87,48 +86,43 @@ export default function AdminLoginPage() {
                 </Alert>
               )}
 
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                    Email Address
-                  </Label>
-                  <div className="mt-1 relative">
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
-                      placeholder="admin@example.com"
-                    />
-                    <User className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="admin@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10"
+                    required
+                    disabled={loading}
+                  />
                 </div>
+              </div>
 
-                <div>
-                  <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                    Password
-                  </Label>
-                  <div className="mt-1 relative">
-                    <Input
-                      id="password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10"
-                      placeholder="Enter your password"
-                    />
-                    <Lock className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10"
+                    required
+                    disabled={loading}
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center">
                     <button
                       type="button"
-                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
                       onClick={() => setShowPassword(!showPassword)}
+                      className="h-full px-3 text-gray-400 hover:text-gray-600"
+                      disabled={loading}
                     >
                       {showPassword ? (
                         <EyeOff className="h-5 w-5" />

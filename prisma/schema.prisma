@@ -126,51 +126,43 @@ model User {
 
 model Order {
   id                String        @id @default(cuid())
-  userId            String
-  email             String        @db.VarChar(255)
-  firstName         String        @db.VarChar(100)
-  lastName          String        @db.VarChar(100)
-  phone             String        @db.VarChar(20)
-  address           String        @db.Text
-  city              String        @db.VarChar(100)
-  state             String        @db.VarChar(100)
-  zipCode           String        @db.VarChar(20)
-  country           String        @db.VarChar(100)
+  userId            String?       // <== make optional
+  email             String?       @db.VarChar(255)
+  firstName         String?       @db.VarChar(100)
+  lastName          String?       @db.VarChar(100)
+  phone             String?       @db.VarChar(20)
+  address           String?       @db.Text
+  city              String?       @db.VarChar(100)
+  state             String?       @db.VarChar(100)
+  zipCode           String?       @db.VarChar(20)
+  country           String?       @db.VarChar(100)
   subtotal          Float
-  tax               Float
-  shipping          Float
-  total             Float
-  status            OrderStatus   @default(PENDING)
-  paymentStatus     PaymentStatus @default(PENDING)
-  paymentMethod     String        @db.VarChar(50)
+  tax               Float?
+  shipping          Float?
+  total             Float?
+  status        String   @default("PENDING") @db.VarChar(50)
+  paymentStatus String   @default("PENDING") @db.VarChar(50)
+  paymentMethod     String?       @db.VarChar(50)
   razorpayOrderId   String?       @db.VarChar(255)
   razorpayPaymentId String?       @db.VarChar(255)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   orderItems        OrderItem[]
-  user              User          @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([status])
-  @@index([paymentStatus])
-  @@map("orders")
+  user              User?         @relation(fields: [userId], references: [id])
+  
 }
 
 model OrderItem {
   id        String   @id @default(cuid())
-  orderId   String
-  productId String
+  orderId   String?  // <== make optional
+  productId String?  // <== make optional
   quantity  Int
   price     Float
   size      String   @db.VarChar(50)
   color     String   @db.VarChar(50)
   createdAt DateTime @default(now())
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id])
-
-  @@index([orderId])
-  @@index([productId])
-  @@map("order_items")
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product? @relation(fields: [productId], references: [id])
 }
 
 enum UserRole {
@@ -194,3 +186,5 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
+
+
