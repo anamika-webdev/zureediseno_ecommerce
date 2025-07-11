@@ -1,78 +1,88 @@
-// src/app/(store)/products/page.tsx - FIXED: Only show real database products
-"use client";
+// src/app/(store)/products/page.tsx - Fixed version
+'use client';
 
 import { useState, useEffect } from 'react';
 import ProductCard from '@/components/ProductCard';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Search, Filter, Grid, List } from 'lucide-react';
 
-interface Product {
+// Database product type (what comes from API)
+interface DatabaseProduct {
   id: string;
   name: string;
   slug: string;
   price: number;
   originalPrice?: number;
+  featured: boolean;
+  inStock: boolean;
   images: Array<{
     id: string;
     url: string;
     alt: string;
     isPrimary: boolean;
   }>;
-  variants: Array<{
+  variants?: Array<{
     id: string;
     size: string;
     color: string;
     stock: number;
     sleeveType?: string;
   }>;
-  inStock: boolean;
+}
+
+// UI Product type (what ProductCard expects)
+interface UIProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  originalPrice?: number;
+  images: string[];
   featured: boolean;
-  description?: string;
-  sku?: string;
-  category?: {
-    name: string;
-    slug: string;
-  };
-  subcategory?: {
-    name: string;
-    slug: string;
+  inStock: boolean;
+  variants?: Array<{
+    id: string;
+    size: string;
+    color: string;
+    stock: number;
+    sleeveType?: string;
+  }>;
+}
+
+// Transform function
+function transformProductForUI(dbProduct: DatabaseProduct): UIProduct {
+  return {
+    id: dbProduct.id,
+    name: dbProduct.name,
+    slug: dbProduct.slug,
+    price: dbProduct.price,
+    originalPrice: dbProduct.originalPrice,
+    images: dbProduct.images?.map(img => img.url) || [],
+    featured: dbProduct.featured,
+    inStock: dbProduct.inStock,
+    variants: dbProduct.variants
   };
 }
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<UIProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        setLoading(true);
-        setError('');
-        
-        console.log('🔍 Fetching products from database...');
-        
         const response = await fetch('/api/products');
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.ok) {
+          const dbProducts: DatabaseProduct[] = await response.json();
+          // Transform database products to UI format
+          const uiProducts = dbProducts.map(transformProductForUI);
+          setProducts(uiProducts);
         }
-        
-        const data = await response.json();
-        console.log('📦 API Response:', data);
-        
-        if (data.success && Array.isArray(data.products)) {
-          setProducts(data.products);
-          console.log('✅ Products loaded from database:', data.products.length);
-        } else {
-          // No fallback to mock data - show empty state
-          setProducts([]);
-          console.log('📭 No products found in database');
-        }
-        
       } catch (error) {
-        console.error('❌ Error fetching products:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load products');
-        setProducts([]); // Don't use mock data on error
+        console.error('Error fetching products:', error);
       } finally {
         setLoading(false);
       }
@@ -81,58 +91,16 @@ export default function ProductsPage() {
     fetchProducts();
   }, []);
 
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-blue-600" />
-            <p className="text-lg text-gray-600">Loading products from database...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center min-h-[400px] flex items-center justify-center">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-8 max-w-md">
-            <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-red-800 mb-2">Failed to load products</h3>
-            <p className="text-red-600 mb-4">{error}</p>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (products.length === 0) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center min-h-[400px] flex items-center justify-center">
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 max-w-md">
-            <div className="bg-gray-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
-              <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">No Products Available</h3>
-            <p className="text-gray-600 mb-4">
-              Products will appear here once they are added through the admin dashboard.
-            </p>
-            <div className="text-sm text-gray-500">
-              <p>👨‍💼 Admin: Add products in the dashboard</p>
-              <p>🛍️ Customers: Check back soon for new arrivals!</p>
-            </div>
-          </div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading products...</p>
         </div>
       </div>
     );
@@ -140,18 +108,66 @@ export default function ProductsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">All Products</h1>
-        <p className="text-gray-600">
-          Discover our latest collection ({products.length} product{products.length !== 1 ? 's' : ''})
-        </p>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">All Products</h1>
+          <p className="text-gray-600">{filteredProducts.length} products found</p>
+        </div>
+        
+        {/* Search and Filters */}
+        <div className="flex gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 w-64"
+            />
+          </div>
+          
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </div>
+      {/* Products Grid */}
+      {filteredProducts.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-500 text-lg">No products found</p>
+          {searchTerm && (
+            <p className="text-gray-400 mt-2">Try adjusting your search criteria</p>
+          )}
+        </div>
+      ) : (
+        <div className={`grid gap-6 ${
+          viewMode === 'grid' 
+            ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
+            : 'grid-cols-1'
+        }`}>
+          {filteredProducts.map((product) => (
+            <ProductCard 
+              key={product.id} 
+              product={product} // Now the types match perfectly!
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

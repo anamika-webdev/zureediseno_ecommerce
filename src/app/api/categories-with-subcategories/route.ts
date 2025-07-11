@@ -24,7 +24,25 @@ export async function GET() {
       ]
     });
 
-    return NextResponse.json(categories);
+    // Transform data to match the expected frontend format
+    const transformedCategories = categories.map(category => ({
+      id: category.id,
+      name: category.name,
+      url: category.slug, // Make sure to use slug as url
+      image: category.image, // This should contain the full image URL
+      featured: category.featured,
+      slug: category.slug,
+      subcategories: category.subcategories?.map(sub => ({
+        id: sub.id,
+        name: sub.name,
+        url: sub.slug,
+        image: (sub as any).image || null, // Handle missing image field with type assertion
+        featured: (sub as any).featured || false
+      })) || [],
+      _count: category._count
+    }));
+
+    return NextResponse.json(transformedCategories);
   } catch (error) {
     console.error('Error fetching categories:', error);
     return NextResponse.json(

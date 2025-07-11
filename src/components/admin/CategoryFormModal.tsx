@@ -77,6 +77,7 @@ export default function CategoryFormModal({
       .trim();
   };
 
+  // Fixed image upload function with correct endpoint and response handling
   const handleImageUpload = async (file: File) => {
     if (!file) return;
 
@@ -85,24 +86,27 @@ export default function CategoryFormModal({
       const formDataUpload = new FormData();
       formDataUpload.append('image', file);
 
-      const response = await fetch('/api/upload', {
+      // Use the correct API endpoint (/api/images)
+      const response = await fetch('/api/images', {
         method: 'POST',
         body: formDataUpload,
       });
 
       if (response.ok) {
         const data = await response.json();
+        // Use the correct response property (imageUrl)
         setFormData(prev => ({
           ...prev,
-          image: data.url
+          image: data.imageUrl
         }));
         toast.success('Image uploaded successfully');
       } else {
-        throw new Error('Failed to upload image');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to upload image');
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.error('Failed to upload image');
+      toast.error(error instanceof Error ? error.message : 'Failed to upload image');
     } finally {
       setUploadingImage(false);
     }
@@ -152,7 +156,7 @@ export default function CategoryFormModal({
         onSuccess();
         onClose();
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to save category');
       }
     } catch (error) {
@@ -252,7 +256,7 @@ export default function CategoryFormModal({
                             Upload category image
                           </span>
                           <span className="mt-1 block text-sm text-gray-500">
-                            PNG, JPG, GIF up to 10MB
+                            PNG, JPG, GIF up to 5MB
                           </span>
                         </label>
                         <input

@@ -1,26 +1,24 @@
-// src/components/admin/CategoryForm.tsx - Complete with image upload
-'use client';
+// src/components/CategoryForm.tsx
+'use client'
 
-import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Card, CardContent } from '@/components/ui/card';
-import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Upload, X, Image as ImageIcon } from 'lucide-react'
+import { toast } from 'sonner'
 
 export interface SerializableCategory {
-  id?: string;
+  id: string;
   name: string;
-  slug?: string;
-  description?: string;
+  slug: string;
   image?: string;
   featured: boolean;
   sortOrder: number;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface CategoryFormProps {
@@ -30,93 +28,68 @@ interface CategoryFormProps {
 }
 
 export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProps) {
-  const [formData, setFormData] = useState<SerializableCategory>({
-    name: '',
+  const [formData, setFormData] = useState({
+    name: category?.name || '',
+    slug: category?.slug || '',
     description: '',
-    image: '',
-    featured: false,
-    sortOrder: 0,
+    image: category?.image || '',
+    featured: category?.featured || false,
+    sortOrder: category?.sortOrder || 0
   });
-
-  const [loading, setLoading] = useState(false);
+  
+  const [isLoading, setIsLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>('');
-
-  // Update form data when category changes
-  useEffect(() => {
-    if (category) {
-      setFormData(category);
-      setPreviewUrl(category.image || '');
-    } else {
-      setFormData({
-        name: '',
-        description: '',
-        image: '',
-        featured: false,
-        sortOrder: 0,
-      });
-      setPreviewUrl('');
-    }
-    setSelectedFile(null);
-  }, [category]);
-
-  const handleInputChange = (field: keyof SerializableCategory, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
 
   const generateSlug = (name: string) => {
     return name
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
       .trim();
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please select an image file');
-        return;
-      }
-
-      // Validate file size (5MB max)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image size should be less than 5MB');
-        return;
-      }
-
-      setSelectedFile(file);
-      
-      // Create preview URL
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-    }
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      name,
+      slug: generateSlug(name)
+    }));
   };
 
-  const handleImageUpload = async (file: File): Promise<string> => {
-    const formDataUpload = new FormData();
-    formDataUpload.append('image', file);
-    formDataUpload.append('folder', 'categories');
+  // Fixed image upload function
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
 
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      body: formDataUpload,
-    });
+    setUploadingImage(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append('image', file);
 
-    if (!response.ok) {
-      throw new Error('Failed to upload image');
+      // Use the correct API endpoint that exists (/api/images)
+      const response = await fetch('/api/images', {
+        method: 'POST',
+        body: formDataUpload,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Use the correct response property (imageUrl)
+        setFormData(prev => ({
+          ...prev,
+          image: data.imageUrl
+        }));
+        toast.success('Image uploaded successfully');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to upload image');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
     }
-
-    const data = await response.json();
-    return data.url;
   };
 
   const handleImageRemove = () => {
@@ -124,222 +97,184 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
       ...prev,
       image: ''
     }));
-    setPreviewUrl('');
-    setSelectedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const file = files[0];
-      if (file.type.startsWith('image/')) {
-        setSelectedFile(file);
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
-      } else {
-        toast.error('Please drop an image file');
-      }
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name.trim()) {
-      toast.error('Please enter a category name');
+      toast.error('Category name is required');
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
 
     try {
-      let imageUrl = formData.image || '';
-
-      // Upload new image if selected
-      if (selectedFile) {
-        setUploadingImage(true);
-        imageUrl = await handleImageUpload(selectedFile);
-        setUploadingImage(false);
-      }
-
-      const slug = formData.slug || generateSlug(formData.name);
-      
-      const submitData = {
-        ...formData,
-        slug,
-        image: imageUrl,
-      };
-
-      const url = category?.id 
-        ? `/api/admin/categories/${category.id}`
+      const url = category 
+        ? `/api/admin/categories/${category.id}` 
         : '/api/admin/categories';
       
-      const method = category?.id ? 'PUT' : 'POST';
+      const method = category ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(submitData),
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          slug: formData.slug.trim(),
+          description: formData.description.trim() || undefined,
+          image: formData.image.trim() || undefined,
+          featured: formData.featured,
+          sortOrder: formData.sortOrder
+        }),
       });
 
-      if (response.ok) {
-        toast.success(category?.id ? 'Category updated successfully!' : 'Category created successfully!');
-        onSuccess();
-      } else {
-        const errorData = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to save category');
       }
+
+      toast.success(category ? 'Category updated successfully' : 'Category created successfully');
+      onSuccess();
     } catch (error) {
       console.error('Error saving category:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save category');
     } finally {
-      setLoading(false);
-      setUploadingImage(false);
+      setIsLoading(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Basic Information */}
-      <div className="space-y-4">
-        <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
           <Label htmlFor="name">Category Name *</Label>
           <Input
             id="name"
             value={formData.name}
-            onChange={(e) => handleInputChange('name', e.target.value)}
+            onChange={handleNameChange}
             placeholder="Enter category name"
             required
           />
         </div>
 
-        <div>
-          <Label htmlFor="description">Description</Label>
-          <Textarea
-            id="description"
-            value={formData.description || ''}
-            onChange={(e) => handleInputChange('description', e.target.value)}
-            placeholder="Enter category description"
-            rows={3}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="sortOrder">Sort Order</Label>
+        <div className="space-y-2">
+          <Label htmlFor="slug">URL Slug</Label>
           <Input
-            id="sortOrder"
-            type="number"
-            value={formData.sortOrder}
-            onChange={(e) => handleInputChange('sortOrder', parseInt(e.target.value) || 0)}
-            placeholder="0"
+            id="slug"
+            value={formData.slug}
+            onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+            placeholder="auto-generated"
           />
         </div>
       </div>
 
-      {/* Image Upload */}
-      <div>
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={formData.description}
+          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+          placeholder="Enter category description"
+          rows={3}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="sortOrder">Display Order</Label>
+        <Input
+          id="sortOrder"
+          type="number"
+          min="0"
+          value={formData.sortOrder}
+          onChange={(e) => setFormData(prev => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))}
+          placeholder="0"
+        />
+      </div>
+
+      {/* Image Upload Section */}
+      <div className="space-y-4">
         <Label>Category Image</Label>
-        <Card className="mt-2">
-          <CardContent className="p-4">
-            {previewUrl ? (
-              <div className="relative">
-                <img
-                  src={previewUrl}
-                  alt="Category preview"
-                  className="w-full h-48 object-cover rounded-lg"
-                />
+        {formData.image ? (
+          <div className="relative">
+            <div className="aspect-video relative border rounded-lg overflow-hidden max-w-md">
+              <img
+                src={formData.image}
+                alt={formData.name}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute top-2 right-2">
                 <Button
                   type="button"
-                  variant="destructive"
                   size="sm"
-                  className="absolute top-2 right-2"
+                  variant="destructive"
                   onClick={handleImageRemove}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="w-4 h-4" />
                 </Button>
               </div>
-            ) : (
-              <div
-                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer"
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {uploadingImage ? (
-                  <div className="flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                    <span className="ml-2 text-gray-600">Uploading...</span>
-                  </div>
-                ) : (
-                  <>
-                    <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-2">
-                      Drop an image here, or click to select
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Supports: JPG, PNG, GIF (Max 5MB)
-                    </p>
-                  </>
-                )}
+            </div>
+          </div>
+        ) : (
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+            <div className="text-center">
+              <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+              <div className="mt-4">
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  <span className="mt-2 block text-sm font-medium text-gray-900">
+                    Upload category image
+                  </span>
+                  <span className="mt-1 block text-sm text-gray-500">
+                    PNG, JPG, GIF up to 5MB
+                  </span>
+                </label>
+                <input
+                  id="image-upload"
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                  disabled={uploadingImage}
+                />
               </div>
-            )}
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-          </CardContent>
-        </Card>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3"
+                onClick={() => document.getElementById('image-upload')?.click()}
+                disabled={uploadingImage}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {uploadingImage ? 'Uploading...' : 'Choose Image'}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Settings */}
-      <div className="flex items-center space-x-2">
+      {/* Featured Toggle */}
+      <div className="flex items-center justify-between">
+        <div>
+          <Label htmlFor="featured">Featured Category</Label>
+          <p className="text-sm text-gray-500">Display this category prominently on the homepage</p>
+        </div>
         <Switch
           id="featured"
           checked={formData.featured}
-          onCheckedChange={(checked) => handleInputChange('featured', checked)}
+          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, featured: checked }))}
         />
-        <Label htmlFor="featured">Featured Category</Label>
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-3 pt-4">
-        <Button
-          type="submit"
-          disabled={loading || uploadingImage}
-          className="flex-1"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              {category?.id ? 'Updating...' : 'Creating...'}
-            </>
-          ) : (
-            <>
-              {category?.id ? 'Update Category' : 'Create Category'}
-            </>
-          )}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={loading || uploadingImage}
-        >
+      {/* Action Buttons */}
+      <div className="flex justify-end space-x-3 pt-6 border-t">
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
+        </Button>
+        <Button type="submit" disabled={isLoading || uploadingImage}>
+          {isLoading ? 'Saving...' : (category ? 'Update Category' : 'Create Category')}
         </Button>
       </div>
     </form>
