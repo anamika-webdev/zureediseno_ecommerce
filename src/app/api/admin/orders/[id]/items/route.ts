@@ -1,6 +1,6 @@
-// src/app/api/orders/[id]/items/route.ts
+// src/app/api/admin/orders/[id]/items/route.ts - Updated with NextAuth
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { getCurrentUser } from '@/lib/auth';
 import mysql from 'mysql2/promise';
 
 const dbConfig = {
@@ -22,13 +22,20 @@ export async function GET(
   let connection;
   
   try {
-    const { id } = await params; // Await the params Promise
-    const { userId } = await auth(); // Await the auth() call
+    const { id } = await params;
+    const user = await getCurrentUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
       );
     }
 
@@ -36,7 +43,7 @@ export async function GET(
     
     connection = await pool.getConnection();
 
-    // Get order items
+    // Get order items (admin can access all orders)
     const [items] = await connection.execute(`
       SELECT 
         oi.*,
@@ -46,13 +53,6 @@ export async function GET(
       WHERE oi.order_id = ?
       ORDER BY oi.created_at ASC
     `, [orderId]);
-
-    // Check if user has access to this order (either owner or admin)
-    if ((items as any).length > 0) {
-      const orderUserId = (items as any)[0].user_id;
-      // Add admin check logic here if needed
-      // For now, allowing all authenticated users to view order items
-    }
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,6 @@
-// src/app/api/orders/[id]/items/route.ts
+// src/app/api/orders/[id]/items/route.ts - Updated with NextAuth
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { getCurrentUser } from '@/lib/auth';
 import mysql from 'mysql2/promise';
 
 const dbConfig = {
@@ -22,10 +22,10 @@ export async function GET(
   let connection;
   
   try {
-    const { id } = await params; // Await the params Promise
-    const { userId } = await auth(); // Await the auth() call
+    const { id } = await params;
+    const user = await getCurrentUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -50,8 +50,13 @@ export async function GET(
     // Check if user has access to this order (either owner or admin)
     if ((items as any).length > 0) {
       const orderUserId = (items as any)[0].user_id;
-      // Add admin check logic here if needed
-      // For now, allowing all authenticated users to view order items
+      // Allow access if user owns the order or is admin
+      if (orderUserId !== user.id && user.role !== 'ADMIN') {
+        return NextResponse.json(
+          { error: 'Access denied' },
+          { status: 403 }
+        );
+      }
     }
 
     return NextResponse.json({

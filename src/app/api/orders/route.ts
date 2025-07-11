@@ -1,6 +1,6 @@
-// src/app/api/orders/route.ts
+// src/app/api/orders/route.ts - Updated with NextAuth
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { getCurrentUser } from '@/lib/auth';
 import mysql from 'mysql2/promise';
 
 // Database connection
@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
   
   try {
     // Check if user is authenticated
-    const { userId } = await auth(); // Await the auth() call
+    const user = await getCurrentUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized - User must be signed in' },
         { status: 401 }
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
           total_amount, 
           status, 
           payment_status,
+          payment_method,
           shipping_name,
           shipping_email,
           shipping_phone,
@@ -77,13 +78,14 @@ export async function POST(req: NextRequest) {
           shipping_country,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `, [
         orderNumber,
-        userId,
+        user.id,
         orderData.totalAmount,
         'pending',
-        'pending',
+        orderData.paymentMethod === 'cod' ? 'pending' : 'pending',
+        orderData.paymentMethod || 'cod',
         orderData.shippingAddress.fullName,
         orderData.shippingAddress.email,
         orderData.shippingAddress.phone,
@@ -127,6 +129,12 @@ export async function POST(req: NextRequest) {
       // Commit transaction
       await connection.commit();
 
+      console.log('Order created successfully:', {
+        id: orderId,
+        orderNumber,
+        paymentMethod: orderData.paymentMethod
+      });
+
       // Return success response
       return NextResponse.json({
         success: true,
@@ -135,6 +143,8 @@ export async function POST(req: NextRequest) {
           id: orderId,
           orderNumber: orderNumber,
           status: 'pending',
+          paymentStatus: orderData.paymentMethod === 'cod' ? 'pending' : 'pending',
+          paymentMethod: orderData.paymentMethod,
           totalAmount: orderData.totalAmount,
           createdAt: new Date().toISOString()
         }
@@ -163,14 +173,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET endpoint to fetch orders (for admin)
+// GET endpoint to fetch orders (for user's own orders)
 export async function GET(req: NextRequest) {
   let connection;
   
   try {
-    const { userId } = await auth(); // Await the auth() call
+    const user = await getCurrentUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -195,9 +205,10 @@ export async function GET(req: NextRequest) {
     
     let queryParams = [];
     
-    if (!isAdmin) {
+    // If not admin, filter by user
+    if (!isAdmin || user.role !== 'ADMIN') {
       query += ` WHERE o.user_id = ?`;
-      queryParams.push(userId);
+      queryParams.push(user.id);
     }
     
     query += ` 
@@ -213,9 +224,9 @@ export async function GET(req: NextRequest) {
     let countQuery = `SELECT COUNT(DISTINCT o.id) as total FROM orders o`;
     let countParams = [];
     
-    if (!isAdmin) {
+    if (!isAdmin || user.role !== 'ADMIN') {
       countQuery += ` WHERE o.user_id = ?`;
-      countParams.push(userId);
+      countParams.push(user.id);
     }
 
     const [countResult] = await connection.execute(countQuery, countParams);
