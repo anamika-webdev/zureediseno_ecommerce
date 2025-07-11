@@ -1,3 +1,4 @@
+// prisma/schema.prisma - FIXED VERSION for MySQL
 generator client {
   provider = "prisma-client-js"
 }
@@ -109,82 +110,65 @@ model User {
   firstName     String?   @db.VarChar(100)
   lastName      String?   @db.VarChar(100)
   imageUrl      String?   @db.VarChar(500)
-  role          UserRole  @default(USER)
+  role          String    @default("USER") @db.VarChar(20)  // Changed from enum to string
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   orders        Order[]
-
-  // Keep clerkId for migration - can be removed later
-  clerkId       String?   @unique @db.VarChar(255)
-
-  // Add password field for custom auth
   password      String?   @db.VarChar(255)
 
   @@index([role])
   @@map("users")
 }
 
+// FIXED ORDER MODEL - matching your actual database table structure
 model Order {
-  id                String        @id @default(cuid())
-  userId            String?       // <== make optional
-  email             String?       @db.VarChar(255)
-  firstName         String?       @db.VarChar(100)
-  lastName          String?       @db.VarChar(100)
-  phone             String?       @db.VarChar(20)
-  address           String?       @db.Text
-  city              String?       @db.VarChar(100)
-  state             String?       @db.VarChar(100)
-  zipCode           String?       @db.VarChar(20)
-  country           String?       @db.VarChar(100)
-  subtotal          Float
-  tax               Float?
-  shipping          Float?
-  total             Float?
-  status        String   @default("PENDING") @db.VarChar(50)
-  paymentStatus String   @default("PENDING") @db.VarChar(50)
-  paymentMethod     String?       @db.VarChar(50)
-  razorpayOrderId   String?       @db.VarChar(255)
-  razorpayPaymentId String?       @db.VarChar(255)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  orderItems        OrderItem[]
-  user              User?         @relation(fields: [userId], references: [id])
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique @map("order_number")
+  userId          String?     @map("user_id")
+  guestOrder      Boolean     @default(false) @map("guest_order")        // NEW
+  trackingNumber  String?     @map("tracking_number")                    // NEW
+  notes           String?     @db.Text                                   // NEW
+  totalAmount     Float       @map("total_amount")
+  status          String      @default("pending") @db.VarChar(50)        // Changed from enum
+  paymentStatus   String      @default("pending") @map("payment_status") @db.VarChar(50) // Changed from enum
+  paymentMethod   String      @default("cod") @map("payment_method") @db.VarChar(50)
+  shippingName    String      @map("shipping_name") @db.VarChar(255)
+  shippingEmail   String      @map("shipping_email") @db.VarChar(255)
+  shippingPhone   String      @map("shipping_phone") @db.VarChar(20)
+  shippingAddress String      @map("shipping_address") @db.Text
+  shippingCity    String      @map("shipping_city") @db.VarChar(100)
+  shippingState   String      @map("shipping_state") @db.VarChar(100)
+  shippingPincode String      @map("shipping_pincode") @db.VarChar(10)
+  shippingCountry String      @default("India") @map("shipping_country") @db.VarChar(100)
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
   
+  // Relations
+  user        User?        @relation(fields: [userId], references: [id])
+  orderItems  OrderItem[]
+
+  @@map("orders")
+  @@index([guestOrder, shippingEmail], map: "idx_orders_guest_email")  // NEW
+  @@index([orderNumber], map: "idx_orders_order_number")               // NEW
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
-  orderId   String?  // <== make optional
-  productId String?  // <== make optional
-  quantity  Int
-  price     Float
-  size      String   @db.VarChar(50)
-  color     String   @db.VarChar(50)
-  createdAt DateTime @default(now())
-  order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product? @relation(fields: [productId], references: [id])
+  id          String   @id @default(cuid())
+  orderId     String   @map("order_id")
+  productId   String?  @map("product_id")
+  productName String   @map("product_name") @db.VarChar(255)
+  productSlug String?  @map("product_slug") @db.VarChar(255)
+  quantity    Int
+  price       Float
+  size        String?  @db.VarChar(50)
+  color       String?  @db.VarChar(50)
+  imageUrl    String?  @map("image_url") @db.VarChar(500)
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
 }
-
-enum UserRole {
-  USER
-  ADMIN
-  SELLER
-}
-
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  PROCESSING
-  SHIPPED
-  DELIVERED
-  CANCELLED
-}
-
-enum PaymentStatus {
-  PENDING
-  PAID
-  FAILED
-  REFUNDED
-}
-
-

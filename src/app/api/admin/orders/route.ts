@@ -1,4 +1,4 @@
-// src/app/api/admin/orders/route.ts
+// src/app/api/orders/route.ts - FIXED VERSION
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import mysql from 'mysql2/promise';
@@ -7,7 +7,7 @@ const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'your_database_name',
+  database: process.env.DB_NAME || 'zureediesno_ecommerce',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -15,11 +15,11 @@ const dbConfig = {
 
 const pool = mysql.createPool(dbConfig);
 
+// GET endpoint to fetch orders (for user's own orders)
 export async function GET(req: NextRequest) {
   let connection;
   
   try {
-    // Check authentication and admin role
     const user = await getCurrentUser();
     
     if (!user) {
@@ -29,75 +29,49 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    if (user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Forbidden - Admin access required' },
-        { status: 403 }
-      );
-    }
-
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = (page - 1) * limit;
-    const status = searchParams.get('status');
-    const searchTerm = searchParams.get('search');
 
     connection = await pool.getConnection();
 
-    // Build the query
+    // FIXED: Use correct column names that match your database
     let query = `
       SELECT 
-        o.*,
+        o.id,
+        o.order_number,
+        o.user_id,
+        o.total_amount,
+        o.status,
+        o.payment_status,
+        o.payment_method,
+        o.shipping_name,
+        o.shipping_email,
+        o.shipping_phone,
+        o.shipping_address,
+        o.shipping_city,
+        o.shipping_state,
+        o.shipping_pincode,
+        o.shipping_country,
+        o.created_at,
+        o.updated_at,
         COUNT(oi.id) as item_count
       FROM orders o
       LEFT JOIN order_items oi ON o.id = oi.order_id
-    `;
-    
-    let queryParams: any[] = [];
-    let whereConditions: string[] = [];
-    
-    // Add status filter
-    if (status && status !== 'all') {
-      whereConditions.push('o.status = ?');
-      queryParams.push(status);
-    }
-    
-    // Add search filter
-    if (searchTerm) {
-      whereConditions.push(`(
-        o.order_number LIKE ? OR 
-        o.shipping_name LIKE ? OR 
-        o.shipping_email LIKE ?
-      )`);
-      const searchPattern = `%${searchTerm}%`;
-      queryParams.push(searchPattern, searchPattern, searchPattern);
-    }
-    
-    // Add WHERE clause if we have conditions
-    if (whereConditions.length > 0) {
-      query += ` WHERE ${whereConditions.join(' AND ')}`;
-    }
-    
-    query += ` 
+      WHERE o.user_id = ?
       GROUP BY o.id 
       ORDER BY o.created_at DESC 
       LIMIT ? OFFSET ?
     `;
-    queryParams.push(limit, offset);
 
-    const [orders] = await connection.execute(query, queryParams);
+    const [orders] = await connection.execute(query, [user.id, limit, offset]);
 
     // Get total count for pagination
-    let countQuery = `SELECT COUNT(DISTINCT o.id) as total FROM orders o`;
-    let countParams: any[] = [];
+    const [countResult] = await connection.execute(`
+      SELECT COUNT(*) as total FROM orders WHERE user_id = ?
+    `, [user.id]);
     
-    if (whereConditions.length > 0) {
-      countQuery += ` WHERE ${whereConditions.join(' AND ')}`;
-      countParams = queryParams.slice(0, -2); // Remove limit and offset
-    }
-
-    const [countResult] = await connection.execute(countQuery, countParams);
     const totalOrders = (countResult as any)[0].total;
 
     return NextResponse.json({
@@ -112,7 +86,7 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching admin orders:', error);
+    console.error('Error fetching orders:', error);
     
     return NextResponse.json(
       { 
@@ -128,27 +102,12 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// POST endpoint to create orders
 export async function POST(req: NextRequest) {
   let connection;
   
   try {
-    // Check authentication and admin role
     const user = await getCurrentUser();
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    if (user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Forbidden - Admin access required' },
-        { status: 403 }
-      );
-    }
-
     const orderData = await req.json();
     
     // Validate required fields
@@ -175,14 +134,17 @@ export async function POST(req: NextRequest) {
     await connection.beginTransaction();
 
     try {
-      // Insert order into orders table
+      // Insert order - FIXED: use correct column names
       const [orderResult] = await connection.execute(`
         INSERT INTO orders (
-          order_number, 
-          user_id, 
-          total_amount, 
-          status, 
+          id,
+          order_number,
+          user_id,
+          guest_order,
+          total_amount,
+          status,
           payment_status,
+          payment_method,
           shipping_name,
           shipping_email,
           shipping_phone,
@@ -193,13 +155,16 @@ export async function POST(req: NextRequest) {
           shipping_country,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `, [
+        `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate ID
         orderNumber,
-        orderData.userId || user.id, // Use provided userId or current admin user
+        user ? user.id : null,
+        user ? false : true, // guest_order flag
         orderData.totalAmount,
-        orderData.status || 'pending',
-        orderData.paymentStatus || 'pending',
+        'pending',
+        orderData.paymentMethod === 'cod' ? 'pending' : 'pending',
+        orderData.paymentMethod || 'cod',
         orderData.shippingAddress.fullName,
         orderData.shippingAddress.email,
         orderData.shippingAddress.phone,
@@ -207,15 +172,16 @@ export async function POST(req: NextRequest) {
         orderData.shippingAddress.city,
         orderData.shippingAddress.state,
         orderData.shippingAddress.pincode,
-        orderData.shippingAddress.country
+        orderData.shippingAddress.country || 'India'
       ]);
 
       const orderId = (orderResult as any).insertId;
 
-      // Insert order items
+      // Insert order items - FIXED: use correct column names
       for (const item of orderData.items) {
         await connection.execute(`
           INSERT INTO order_items (
+            id,
             order_id,
             product_id,
             product_name,
@@ -226,22 +192,29 @@ export async function POST(req: NextRequest) {
             color,
             image_url,
             created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `, [
+          `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate ID
           orderId,
-          item.productId,
+          item.productId || null,
           item.name,
           item.slug || '',
           item.quantity,
           item.price,
-          item.size || '',
-          item.color || '',
-          item.image || ''
+          item.size || null,
+          item.color || null,
+          item.image || null
         ]);
       }
 
       // Commit transaction
       await connection.commit();
+
+      console.log('Order created successfully:', {
+        id: orderId,
+        orderNumber,
+        paymentMethod: orderData.paymentMethod
+      });
 
       return NextResponse.json({
         success: true,
@@ -249,21 +222,21 @@ export async function POST(req: NextRequest) {
         order: {
           id: orderId,
           orderNumber: orderNumber,
-          status: orderData.status || 'pending',
-          paymentStatus: orderData.paymentStatus || 'pending',
+          status: 'pending',
+          paymentStatus: orderData.paymentMethod === 'cod' ? 'pending' : 'pending',
+          paymentMethod: orderData.paymentMethod,
           totalAmount: orderData.totalAmount,
           createdAt: new Date().toISOString()
         }
       });
 
     } catch (transactionError) {
-      // Rollback transaction on error
       await connection.rollback();
       throw transactionError;
     }
 
   } catch (error) {
-    console.error('Error creating admin order:', error);
+    console.error('Error creating order:', error);
     
     return NextResponse.json(
       { 

@@ -1,4 +1,4 @@
-// src/components/ProductCard.tsx - Enhanced with color palette and admin control
+// src/components/ProductCard.tsx - FIXED to work with your database structure
 'use client';
 
 import Image from 'next/image';
@@ -9,18 +9,17 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCart } from '@/context/CartContext';
 import { toast } from 'sonner';
-import { formatPrice } from '@/lib/utils';
 import { useState } from 'react';
 
 interface ProductImage {
-  id: string;
+  id?: string;
   url: string;
-  alt: string;
-  isPrimary: boolean;
+  alt?: string;
+  isPrimary?: boolean;
 }
 
 interface ProductVariant {
-  id: string;
+  id?: string;
   size: string;
   color: string;
   stock: number;
@@ -31,13 +30,14 @@ interface Product {
   id: string;
   name: string;
   slug: string;
-  price: number | string;
-  originalPrice?: number | string;
-  images: ProductImage[];
+  price: number;
+  originalPrice?: number;
+  images: ProductImage[] | string[]; // Support both formats
   variants: ProductVariant[];
   inStock: boolean;
   featured: boolean;
-  sortOrder?: number; // For display ordering
+  description?: string;
+  sku?: string;
 }
 
 interface ProductCardProps {
@@ -55,6 +55,7 @@ const colorMap: Record<string, string> = {
   'purple': '#8b5cf6',
   'pink': '#ec4899',
   'gray': '#6b7280',
+  'grey': '#6b7280',
   'orange': '#f97316',
   'indigo': '#6366f1',
   'teal': '#14b8a6',
@@ -78,7 +79,11 @@ const colorMap: Record<string, string> = {
 
 const getColorCode = (colorName: string): string => {
   const normalizedColor = colorName.toLowerCase().trim();
-  return colorMap[normalizedColor] || '#6b7280'; // Default gray if color not found
+  return colorMap[normalizedColor] || '#6b7280';
+};
+
+const formatPrice = (price: number): string => {
+  return new Intl.NumberFormat('en-IN').format(price);
 };
 
 export default function ProductCard({ product }: ProductCardProps) {
@@ -87,28 +92,34 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [selectedSleeve, setSelectedSleeve] = useState<string>('');
 
-  // Get primary image or fallback to first image
-  const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
-  const imageUrl = primaryImage?.url || '/assets/images/placeholder.jpg';
-  
+  // Handle both image formats - array of objects or array of strings
+  const getImageUrl = (): string => {
+    if (!product.images || product.images.length === 0) {
+      return '/assets/images/placeholder.jpg';
+    }
+
+    // If images is array of strings (from your database)
+    if (typeof product.images[0] === 'string') {
+      return product.images[0] as string;
+    }
+
+    // If images is array of objects
+    const imageObjects = product.images as ProductImage[];
+    const primaryImage = imageObjects.find(img => img.isPrimary) || imageObjects[0];
+    return primaryImage?.url || '/assets/images/placeholder.jpg';
+  };
+
   // Get unique options from variants
   const availableColors = [...new Set(product.variants?.map(v => v.color) || [])];
   const availableSizes = [...new Set(product.variants?.map(v => v.size) || [])];
   const availableSleeves = [...new Set(product.variants?.filter(v => v.sleeveType).map(v => v.sleeveType!) || [])];
 
   // Get available options based on current selections
-  const getFilteredVariants = () => {
-    return product.variants?.filter(variant => {
-      const colorMatch = !selectedColor || variant.color === selectedColor;
-      const sizeMatch = !selectedSize || variant.size === selectedSize;
-      const sleeveMatch = !selectedSleeve || variant.sleeveType === selectedSleeve;
-      return colorMatch && sizeMatch && sleeveMatch && variant.stock > 0;
-    }) || [];
-  };
-
   const getAvailableSizes = () => {
+    if (!selectedColor) return availableSizes;
+    
     const filtered = product.variants?.filter(variant => {
-      const colorMatch = !selectedColor || variant.color === selectedColor;
+      const colorMatch = variant.color === selectedColor;
       const sleeveMatch = !selectedSleeve || variant.sleeveType === selectedSleeve;
       return colorMatch && sleeveMatch && variant.stock > 0;
     }) || [];
@@ -116,6 +127,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   };
 
   const getAvailableSleeves = () => {
+    if (!selectedColor && !selectedSize) return availableSleeves;
+    
     const filtered = product.variants?.filter(variant => {
       const colorMatch = !selectedColor || variant.color === selectedColor;
       const sizeMatch = !selectedSize || variant.size === selectedSize;
@@ -148,6 +161,11 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const handleSizeSelect = (size: string) => {
     setSelectedSize(size);
+    // Check if current sleeve is still available with new size
+    const availableSleeveForSize = getAvailableSleeves();
+    if (selectedSleeve && !availableSleeveForSize.includes(selectedSleeve)) {
+      setSelectedSleeve('');
+    }
   };
 
   const handleSleeveSelect = (sleeve: string) => {
@@ -163,8 +181,8 @@ export default function ProductCard({ product }: ProductCardProps) {
     addToCart({
       id: product.id,
       name: product.name,
-      price: parseFloat(formatPrice(product.price)),
-      image: imageUrl,
+      price: product.price,
+      image: getImageUrl(),
       slug: product.slug,
       size: selectedSize,
       color: selectedColor,
@@ -172,199 +190,189 @@ export default function ProductCard({ product }: ProductCardProps) {
     });
 
     toast.success('Added to cart!');
-  };
-
-  const handleQuickView = () => {
-    window.location.href = `/product/${product.slug}`;
+    
+    // Reset selections
+    setSelectedColor('');
+    setSelectedSize('');
+    setSelectedSleeve('');
   };
 
   return (
-    <Card className="group relative overflow-hidden hover:shadow-lg transition-all duration-300">
-      {/* Product Image */}
-      <div className="relative aspect-square overflow-hidden bg-gray-100">
-        <Link href={`/product/${product.slug}`}>
-          <Image
-            src={imageUrl}
-            alt={product.name}
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-            onError={(e) => {
-              e.currentTarget.src = '/assets/images/placeholder.jpg';
-            }}
-          />
-        </Link>
+    <Card className="group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+      <div className="relative aspect-square overflow-hidden">
+        <Image
+          src={getImageUrl()}
+          alt={product.name}
+          fill
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        />
         
-        {/* Only Featured Badge */}
-        <div className="absolute top-2 left-2 flex flex-col gap-1">
+        {/* Badges */}
+        <div className="absolute top-3 left-3 flex flex-col gap-2">
           {product.featured && (
-            <Badge className="bg-yellow-500 text-white">
-              <Star className="h-3 w-3 mr-1" />
+            <Badge className="bg-yellow-500 hover:bg-yellow-600">
+              <Star className="w-3 h-3 mr-1" />
               Featured
             </Badge>
           )}
-          {!product.inStock && (
-            <Badge variant="secondary">
-              Out of Stock
+          {product.originalPrice && product.originalPrice > product.price && (
+            <Badge variant="destructive">
+              {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
             </Badge>
           )}
         </div>
 
-        {/* Action Buttons - Show on Hover */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300">
-          <div className="absolute bottom-2 left-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <Button 
-              size="sm" 
-              variant="secondary" 
-              className="flex-1"
-              onClick={handleQuickView}
-            >
-              Quick View
-            </Button>
-            <Button size="sm" variant="secondary">
-              <Heart className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        {/* Wishlist Button */}
+        <Button
+          size="icon"
+          variant="ghost"
+          className="absolute top-3 right-3 bg-white/80 hover:bg-white"
+        >
+          <Heart className="w-4 h-4" />
+        </Button>
       </div>
 
-      {/* Product Info */}
-      <CardContent className="p-4">
-        <div className="space-y-3">
-          {/* Product Name */}
+      <CardContent className="p-4 space-y-4">
+        {/* Product Info */}
+        <div className="space-y-2">
           <Link href={`/product/${product.slug}`}>
-            <h3 className="font-medium text-sm leading-tight hover:text-gray-600 transition-colors line-clamp-2">
+            <h3 className="font-semibold text-lg hover:text-blue-600 transition-colors line-clamp-2">
               {product.name}
             </h3>
           </Link>
-
-          {/* Price */}
+          
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-lg">
+            <span className="text-xl font-bold text-green-600">
               ₹{formatPrice(product.price)}
             </span>
+            {product.originalPrice && product.originalPrice > product.price && (
+              <span className="text-sm text-gray-500 line-through">
+                ₹{formatPrice(product.originalPrice)}
+              </span>
+            )}
           </div>
+        </div>
 
-          {/* Color Selection */}
-          {availableColors.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-700">
-                Color: {selectedColor || 'Select color'}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {availableColors.map((color) => (
+        {/* Color Selection */}
+        {availableColors.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Colors:</p>
+            <div className="flex flex-wrap gap-2">
+              {availableColors.map((color) => {
+                const isAvailable = product.variants?.some(v => 
+                  v.color === color && v.stock > 0
+                );
+                return (
                   <button
                     key={color}
-                    onClick={() => handleColorSelect(color)}
-                    className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
-                      selectedColor === color
-                        ? 'border-gray-900 shadow-lg scale-110'
-                        : 'border-gray-300 hover:border-gray-500'
-                    }`}
-                    style={{ backgroundColor: getColorCode(color) }}
+                    onClick={() => isAvailable ? handleColorSelect(color) : null}
+                    disabled={!isAvailable}
+                    className={`
+                      w-8 h-8 rounded-full border-2 transition-all duration-200
+                      ${selectedColor === color 
+                        ? 'border-blue-500 scale-110' 
+                        : 'border-gray-300 hover:border-gray-400'
+                      }
+                      ${!isAvailable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                    `}
+                    style={{ 
+                      backgroundColor: getColorCode(color),
+                      borderColor: color.toLowerCase() === 'white' ? '#d1d5db' : undefined
+                    }}
                     title={color}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Size Selection */}
+        {availableSizes.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Sizes:</p>
+            <div className="flex flex-wrap gap-2">
+              {availableSizes.map((size) => {
+                const isAvailable = getAvailableSizes().includes(size);
+                return (
+                  <button
+                    key={size}
+                    onClick={() => isAvailable ? handleSizeSelect(size) : null}
+                    disabled={!isAvailable}
+                    className={`
+                      px-3 py-1 text-sm border rounded transition-all duration-200
+                      ${selectedSize === size 
+                        ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                        : 'border-gray-300 hover:border-gray-400'
+                      }
+                      ${!isAvailable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                    `}
                   >
-                    {selectedColor === color && (
-                      <div className="w-full h-full rounded-full border-2 border-white flex items-center justify-center">
-                        <div className="w-2 h-2 bg-gray-900 rounded-full opacity-50"></div>
-                      </div>
-                    )}
+                    {size}
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Size Selection */}
-          {availableSizes.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-700">
-                Size: {selectedSize || 'Select size'}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {availableSizes.map((size) => {
-                  const availableSizesForSelection = getAvailableSizes();
-                  const isAvailable = availableSizesForSelection.includes(size);
-                  return (
-                    <button
-                      key={size}
-                      onClick={() => isAvailable && handleSizeSelect(size)}
-                      disabled={!isAvailable}
-                      className={`px-2 py-1 text-xs font-medium border rounded transition-all ${
-                        selectedSize === size
-                          ? 'border-gray-900 bg-gray-900 text-white'
-                          : isAvailable
-                          ? 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
-                          : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  );
-                })}
-              </div>
+        {/* Sleeve Type Selection */}
+        {availableSleeves.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Sleeve Type:</p>
+            <div className="flex flex-wrap gap-2">
+              {availableSleeves.map((sleeve) => {
+                const isAvailable = getAvailableSleeves().includes(sleeve);
+                return (
+                  <button
+                    key={sleeve}
+                    onClick={() => isAvailable ? handleSleeveSelect(sleeve) : null}
+                    disabled={!isAvailable}
+                    className={`
+                      px-3 py-1 text-sm border rounded transition-all duration-200
+                      ${selectedSleeve === sleeve 
+                        ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                        : 'border-gray-300 hover:border-gray-400'
+                      }
+                      ${!isAvailable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                    `}
+                  >
+                    {sleeve}
+                  </button>
+                );
+              })}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Sleeve Selection */}
-          {availableSleeves.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-700">
-                Sleeve: {selectedSleeve || 'Select sleeve'}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {availableSleeves.map((sleeve) => {
-                  const availableSleeveForSelection = getAvailableSleeves();
-                  const isAvailable = availableSleeveForSelection.includes(sleeve);
-                  return (
-                    <button
-                      key={sleeve}
-                      onClick={() => isAvailable && handleSleeveSelect(sleeve)}
-                      disabled={!isAvailable}
-                      className={`px-2 py-1 text-xs font-medium border rounded transition-all ${
-                        selectedSleeve === sleeve
-                          ? 'border-gray-900 bg-gray-900 text-white'
-                          : isAvailable
-                          ? 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
-                          : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                      }`}
-                    >
-                      {sleeve}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+        {/* Stock Status */}
+        {currentVariant && (
+          <div className="text-sm">
+            {currentVariant.stock > 0 ? (
+              <span className="text-green-600">
+                {currentVariant.stock} in stock
+              </span>
+            ) : (
+              <span className="text-red-600">Out of stock</span>
+            )}
+          </div>
+        )}
 
-          {/* Stock Info */}
-          {currentVariant && (
-            <div className="text-xs text-gray-600">
-              {currentVariant.stock} in stock
-            </div>
-          )}
-
-          {/* Add to Cart Button */}
-          <Button 
-            className="w-full" 
-            size="sm"
-            onClick={handleAddToCart}
-            disabled={!canAddToCart || !product.inStock}
-          >
-            {!product.inStock 
-              ? 'Out of Stock' 
-              : !selectedColor 
-              ? 'Select Color' 
-              : !selectedSize 
-              ? 'Select Size'
-              : availableSleeves.length > 0 && !selectedSleeve
-              ? 'Select Sleeve'
-              : !isVariantInStock
-              ? 'Out of Stock'
-              : 'Add to Cart'
-            }
-          </Button>
-        </div>
+        {/* Add to Cart Button */}
+        <Button
+          onClick={handleAddToCart}
+          disabled={!canAddToCart}
+          className="w-full"
+        >
+          <ShoppingCart className="w-4 h-4 mr-2" />
+          {!product.inStock 
+            ? 'Out of Stock'
+            : !canAddToCart 
+            ? 'Select Options'
+            : 'Add to Cart'
+          }
+        </Button>
       </CardContent>
     </Card>
   );

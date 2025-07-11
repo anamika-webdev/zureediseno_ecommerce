@@ -1,4 +1,4 @@
-// src/middleware.ts
+// src/middleware.ts - Complete updated version
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth'
 
@@ -10,7 +10,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check if user is authenticated
+  // Allow guest access to these routes (NO AUTHENTICATION REQUIRED)
+  const guestAllowedRoutes = [
+    '/checkout',
+    '/track-order', 
+    '/order-success',
+    '/shop',
+    '/products',
+    '/categories',
+    '/search',
+    '/', // home page
+    '/about',
+    '/contact',
+    '/privacy',
+    '/terms'
+  ];
+
+  // Check if current path is guest-allowed
+  const isGuestAllowed = guestAllowedRoutes.some(route => 
+    pathname === route || pathname.startsWith(route + '/')
+  );
+
+  if (isGuestAllowed) {
+    return NextResponse.next()
+  }
+
+  // For all other routes, check authentication
   const session = await verifySession()
   const isAuthenticated = !!session
   const userRole = session?.role
@@ -18,7 +43,7 @@ export async function middleware(request: NextRequest) {
   // Protect dashboard routes
   if (pathname.startsWith('/dashboard')) {
     if (!isAuthenticated) {
-      return NextResponse.redirect(new URL('/auth/signin', request.url))
+      return NextResponse.redirect(new URL('/auth/signin?redirect=' + encodeURIComponent(pathname), request.url))
     }
     
     // Only allow ADMIN and SELLER roles to access dashboard
@@ -30,7 +55,7 @@ export async function middleware(request: NextRequest) {
   // Protect admin routes (except login)
   if (pathname.startsWith('/admin')) {
     if (!isAuthenticated) {
-      return NextResponse.redirect(new URL('/admin/login', request.url))
+      return NextResponse.redirect(new URL('/admin/login?redirect=' + encodeURIComponent(pathname), request.url))
     }
     if (userRole !== 'ADMIN') {
       return NextResponse.redirect(new URL('/admin/login', request.url))
@@ -40,15 +65,20 @@ export async function middleware(request: NextRequest) {
   // Protect forum routes
   if (pathname.startsWith('/forum')) {
     if (!isAuthenticated) {
-      return NextResponse.redirect(new URL('/auth/signin', request.url))
+      return NextResponse.redirect(new URL('/auth/signin?redirect=' + encodeURIComponent(pathname), request.url))
     }
   }
 
-  // Protect profile and order pages
+  // Protect profile and user-specific order pages
   if (pathname.startsWith('/profile') || pathname.startsWith('/orders')) {
     if (!isAuthenticated) {
-      return NextResponse.redirect(new URL('/auth/signin', request.url))
+      return NextResponse.redirect(new URL('/auth/signin?redirect=' + encodeURIComponent(pathname), request.url))
     }
+  }
+
+  // Protect auth pages for already authenticated users
+  if (pathname.startsWith('/auth/') && isAuthenticated) {
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
   return NextResponse.next()
@@ -56,10 +86,14 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/dashboard/:path*', 
-    '/admin/:path*', 
-    '/forum/:path*',
-    '/profile/:path*',
-    '/orders/:path*'
-  ]
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|public|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }

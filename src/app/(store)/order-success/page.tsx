@@ -226,6 +226,30 @@ function OrderSuccessContent() {
             </div>
           </CardContent>
         </Card>
+        // Add this section to the order success page
+<Card>
+  <CardContent className="p-6">
+    <h3 className="font-semibold mb-4 flex items-center gap-2">
+      <Package className="h-5 w-5" />
+      Track Your Order
+    </h3>
+    <div className="bg-gray-50 p-4 rounded-lg">
+      <p className="text-sm text-gray-600 mb-2">
+        You can track your order status using:
+      </p>
+      <div className="space-y-1 text-sm">
+        <p><strong>Order Number:</strong> {orderNumber}</p>
+        <p><strong>Email:</strong> {searchParams.get('email') || 'Your email address'}</p>
+      </div>
+      <Link 
+        href="/track-order" 
+        className="inline-block mt-3 text-blue-600 hover:text-blue-800 text-sm font-medium"
+      >
+        Track Order Status →
+      </Link>
+    </div>
+  </CardContent>
+</Card>
       </div>
     </div>
   );

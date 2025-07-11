@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, User, Search, Menu, LogOut, ChevronDown, Scissors } from "lucide-react";
+import { ShoppingBag, User, Search, Menu, LogOut, ChevronDown, Scissors, Package } from "lucide-react";
+
 import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -703,6 +704,16 @@ const Header = () => {
 
           {/* Cart Drawer */}
           <CartDrawer />
+          <Link href="/track-order">
+    <Button
+      variant="ghost"
+      size="icon"
+      className="relative hover:bg-gray-100 transition-colors"
+      title="Track Order"
+    >
+      <Package className="h-5 w-5" />
+    </Button>
+  </Link>
         </div>
       </div>
     </header>

@@ -1,12 +1,12 @@
-// src/app/(store)/checkout/page.tsx - Fixed version
+// src/app/(store)/checkout/page.tsx - Complete updated version
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
-import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -15,19 +15,16 @@ import { RazorpayPayment } from '@/components/payment/RazorpayPayment';
 import { 
   ShoppingCart, 
   CreditCard, 
-  Banknote, 
-  Shield, 
-  CheckCircle,
-  Truck,
+  Truck, 
+  IndianRupee,
+  Loader2,
   Package,
   MapPin,
-  ArrowLeft
+  User,
+  Mail,
+  Phone
 } from 'lucide-react';
 import { toast } from 'sonner';
-import Link from 'next/link';
-
-// Define proper types
-type PaymentMethod = 'cod' | 'razorpay';
 
 interface ShippingInfo {
   fullName: string;
@@ -40,16 +37,12 @@ interface ShippingInfo {
   country: string;
 }
 
-export default function CheckoutPage() {  
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
+type PaymentMethod = 'cod' | 'razorpay';
+
+export default function CheckoutPage() {
   const router = useRouter();
-  const { items, total, itemCount, clearCart } = useCart();
-  
-  const [orderLoading, setOrderLoading] = useState(false); // Renamed to avoid conflict
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
-  const [showRazorpayPayment, setShowRazorpayPayment] = useState(false);
-  const [currentOrderNumber, setCurrentOrderNumber] = useState('');
-  const [currentOrderData, setCurrentOrderData] = useState<any>(null);
+  const { items, clearCart } = useCart();
+  const { user, isAuthenticated } = useAuth();
   
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo>({
     fullName: '',
@@ -59,26 +52,32 @@ export default function CheckoutPage() {
     city: '',
     state: '',
     pincode: '',
-    country: 'India'
+    country: 'India',
   });
 
-  // Pre-fill user information
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [showRazorpayPayment, setShowRazorpayPayment] = useState(false);
+  const [currentOrderNumber, setCurrentOrderNumber] = useState('');
+  const [currentOrderData, setCurrentOrderData] = useState<any>(null);
+
+  // Pre-fill form if user is authenticated
   useEffect(() => {
-    if (user) {
+    if (isAuthenticated && user) {
       setShippingInfo(prev => ({
         ...prev,
-        fullName: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-        email: user.email || ''
+        fullName: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.name || '',
+        email: user.email || '',
       }));
     }
-  }, [user]);
+  }, [isAuthenticated, user]);
 
   // Calculate totals
-  const subtotal = total || (items ? items.reduce((sum: number, item: any) => {
+  const subtotal = items ? items.reduce((sum: number, item: any) => {
     const price = parseFloat(item.price) || 0;
     const quantity = item.quantity || 1;
     return sum + (price * quantity);
-  }, 0) : 0);
+  }, 0) : 0;
   
   const shippingCost = subtotal > 999 ? 0 : 99;
   const taxRate = 0.18; // 18% GST
@@ -87,7 +86,41 @@ export default function CheckoutPage() {
 
   const validateForm = (): boolean => {
     const requiredFields: (keyof ShippingInfo)[] = ['fullName', 'email', 'phone', 'address', 'city', 'state', 'pincode'];
-    return requiredFields.every(field => shippingInfo[field].trim() !== '');
+    const isValid = requiredFields.every(field => shippingInfo[field].trim() !== '');
+    
+    if (!isValid) {
+      return false;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(shippingInfo.email)) {
+      toast.error('Please enter a valid email address');
+      return false;
+    }
+
+    // Phone validation
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(shippingInfo.phone)) {
+      toast.error('Please enter a valid 10-digit phone number');
+      return false;
+    }
+
+    // Pincode validation
+    const pincodeRegex = /^\d{6}$/;
+    if (!pincodeRegex.test(shippingInfo.pincode)) {
+      toast.error('Please enter a valid 6-digit pincode');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleInputChange = (field: keyof ShippingInfo, value: string) => {
+    setShippingInfo(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const handlePaymentMethodChange = (value: string) => {
@@ -96,7 +129,7 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async () => {
     if (!validateForm()) {
-      toast.error('Please fill in all required fields');
+      toast.error('Please fill in all required fields correctly');
       return;
     }
 
@@ -117,6 +150,8 @@ export default function CheckoutPage() {
         tax: taxAmount,
         totalAmount: orderTotal,
         orderDate: new Date().toISOString(),
+        isGuestOrder: !isAuthenticated, // Flag for guest orders
+        userId: isAuthenticated ? user?.id : null,
       };
 
       // Send order email
@@ -134,11 +169,34 @@ export default function CheckoutPage() {
 
       const { orderNumber } = await emailResponse.json();
 
+      // Store order details for guest users
+      if (!isAuthenticated && typeof window !== 'undefined') {
+        const guestOrders = JSON.parse(localStorage.getItem('guestOrders') || '[]');
+        const guestOrderData = {
+          orderNumber,
+          email: shippingInfo.email,
+          orderDate: new Date().toISOString(),
+          totalAmount: orderTotal,
+          paymentMethod,
+          status: 'pending',
+          items: items.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            size: item.size,
+            color: item.color,
+          })),
+          shippingAddress: shippingInfo,
+        };
+        guestOrders.push(guestOrderData);
+        localStorage.setItem('guestOrders', JSON.stringify(guestOrders));
+      }
+
       // Handle different payment methods
       if (paymentMethod === 'cod') {
         // For COD, redirect to success page immediately
         clearCart();
-        router.push(`/order-success?orderNumber=${orderNumber}&payment=cod`);
+        router.push(`/order-success?orderNumber=${orderNumber}&payment=cod&email=${encodeURIComponent(shippingInfo.email)}`);
       } else if (paymentMethod === 'razorpay') {
         // For Razorpay, initiate payment process
         setShowRazorpayPayment(true);
@@ -176,7 +234,7 @@ export default function CheckoutPage() {
     toast.success('Payment completed successfully!');
     clearCart();
     setShowRazorpayPayment(false);
-    router.push(`/order-success?orderNumber=${currentOrderNumber}&payment=razorpay&transactionId=${transactionId}`);
+    router.push(`/order-success?orderNumber=${currentOrderNumber}&payment=razorpay&transactionId=${transactionId}&email=${encodeURIComponent(shippingInfo.email)}`);
   };
 
   const handleRazorpayError = () => {
@@ -208,21 +266,9 @@ export default function CheckoutPage() {
             <p className="text-gray-600 mb-6">
               Please add some items to your cart before proceeding to checkout.
             </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/products">
-                <Button className="flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Continue Shopping
-                </Button>
-              </Link>
-              <Link href="/cart">
-                <Button variant="outline" className="flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4" />
-                  View Cart
-                </Button>
-              </Link>
-            </div>
+            <Button onClick={() => router.push('/shop')}>
+              Continue Shopping
+            </Button>
           </div>
         </div>
       </div>
@@ -231,22 +277,17 @@ export default function CheckoutPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Link href="/cart">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Cart
-            </Button>
-          </Link>
-          <h1 className="text-3xl font-bold">Checkout</h1>
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Checkout</h1>
+          <p className="text-gray-600">
+            {isAuthenticated ? `Welcome back, ${user?.name || user?.firstName}!` : 'Complete your order below'}
+          </p>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column - Forms */}
-          <div className="lg:col-span-2 space-y-6">
-            
+          <div className="space-y-6">
             {/* Shipping Information */}
             <Card>
               <CardHeader>
@@ -255,88 +296,99 @@ export default function CheckoutPage() {
                   Shipping Information
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <form className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="fullName">Full Name *</Label>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Full Name *</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                       <Input
                         id="fullName"
-                        value={shippingInfo.fullName}
-                        onChange={(e) => setShippingInfo({...shippingInfo, fullName: e.target.value})}
-                        required
                         placeholder="Enter your full name"
+                        value={shippingInfo.fullName}
+                        onChange={(e) => handleInputChange('fullName', e.target.value)}
+                        className="pl-10"
+                        required
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="email">Email *</Label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address *</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                       <Input
                         id="email"
                         type="email"
+                        placeholder="your@email.com"
                         value={shippingInfo.email}
-                        onChange={(e) => setShippingInfo({...shippingInfo, email: e.target.value})}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        className="pl-10"
                         required
-                        placeholder="Enter your email"
                       />
                     </div>
                   </div>
+                </div>
 
-                  <div>
-                    <Label htmlFor="phone">Phone Number *</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number *</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       id="phone"
-                      type="tel"
+                      placeholder="10-digit mobile number"
                       value={shippingInfo.phone}
-                      onChange={(e) => setShippingInfo({...shippingInfo, phone: e.target.value})}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                      className="pl-10"
+                      maxLength={10}
                       required
-                      placeholder="Enter your phone number"
                     />
                   </div>
+                </div>
 
-                  <div>
-                    <Label htmlFor="address">Street Address *</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address *</Label>
+                  <Input
+                    id="address"
+                    placeholder="House number, street name, area"
+                    value={shippingInfo.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City *</Label>
                     <Input
-                      id="address"
-                      value={shippingInfo.address}
-                      onChange={(e) => setShippingInfo({...shippingInfo, address: e.target.value})}
+                      id="city"
+                      placeholder="City"
+                      value={shippingInfo.city}
+                      onChange={(e) => handleInputChange('city', e.target.value)}
                       required
-                      placeholder="House no, Building, Street"
                     />
                   </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="city">City *</Label>
-                      <Input
-                        id="city"
-                        value={shippingInfo.city}
-                        onChange={(e) => setShippingInfo({...shippingInfo, city: e.target.value})}
-                        required
-                        placeholder="City"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="state">State *</Label>
-                      <Input
-                        id="state"
-                        value={shippingInfo.state}
-                        onChange={(e) => setShippingInfo({...shippingInfo, state: e.target.value})}
-                        required
-                        placeholder="State"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="pincode">Pincode *</Label>
-                      <Input
-                        id="pincode"
-                        value={shippingInfo.pincode}
-                        onChange={(e) => setShippingInfo({...shippingInfo, pincode: e.target.value})}
-                        required
-                        placeholder="123456"
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State *</Label>
+                    <Input
+                      id="state"
+                      placeholder="State"
+                      value={shippingInfo.state}
+                      onChange={(e) => handleInputChange('state', e.target.value)}
+                      required
+                    />
                   </div>
-                </form>
+                  <div className="space-y-2">
+                    <Label htmlFor="pincode">Pincode *</Label>
+                    <Input
+                      id="pincode"
+                      placeholder="6-digit pincode"
+                      value={shippingInfo.pincode}
+                      onChange={(e) => handleInputChange('pincode', e.target.value)}
+                      maxLength={6}
+                      required
+                    />
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -350,195 +402,164 @@ export default function CheckoutPage() {
               </CardHeader>
               <CardContent>
                 <RadioGroup value={paymentMethod} onValueChange={handlePaymentMethodChange}>
-                  
-                  {/* Cash on Delivery */}
-                  <div className="flex items-center space-x-2 p-4 border rounded-lg hover:bg-gray-50">
+                  <div className="flex items-center space-x-2 p-4 border rounded-lg">
                     <RadioGroupItem value="cod" id="cod" />
-                    <Label htmlFor="cod" className="flex items-center gap-3 cursor-pointer flex-1">
-                      <Banknote className="h-5 w-5 text-green-600" />
+                    <Label htmlFor="cod" className="flex items-center gap-2 cursor-pointer flex-1">
+                      <Truck className="h-4 w-4" />
                       <div>
-                        <p className="font-medium">Cash on Delivery</p>
-                        <p className="text-sm text-gray-600">Pay when your order arrives at your doorstep</p>
+                        <div className="font-medium">Cash on Delivery</div>
+                        <div className="text-sm text-gray-600">Pay when your order arrives</div>
                       </div>
                     </Label>
-                    <div className="flex items-center gap-1">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span className="text-sm text-green-600">Available</span>
-                    </div>
                   </div>
-
-                  {/* Razorpay Payment */}
-                  <div className="flex items-center space-x-2 p-4 border rounded-lg hover:bg-gray-50">
+                  <div className="flex items-center space-x-2 p-4 border rounded-lg">
                     <RadioGroupItem value="razorpay" id="razorpay" />
-                    <Label htmlFor="razorpay" className="flex items-center gap-3 cursor-pointer flex-1">
-                      <CreditCard className="h-5 w-5 text-blue-600" />
+                    <Label htmlFor="razorpay" className="flex items-center gap-2 cursor-pointer flex-1">
+                      <CreditCard className="h-4 w-4" />
                       <div>
-                        <p className="font-medium">Razorpay</p>
-                        <p className="text-sm text-gray-600">Credit/Debit Card, UPI, Net Banking, Wallets</p>
+                        <div className="font-medium">Online Payment</div>
+                        <div className="text-sm text-gray-600">Pay securely with Razorpay</div>
                       </div>
                     </Label>
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm text-blue-600">Secure</span>
-                    </div>
                   </div>
                 </RadioGroup>
-
-                {/* Payment Method Info */}
-                {paymentMethod === 'cod' && (
-                  <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-2">
-                      <Banknote className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-800">Cash on Delivery Selected</span>
-                    </div>
-                    <p className="text-sm text-green-700 mt-1">
-                      You can pay in cash when your order is delivered. Please keep the exact amount ready.
-                    </p>
-                  </div>
-                )}
-
-                {paymentMethod === 'razorpay' && (
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">Razorpay Secure Payment</span>
-                    </div>
-                    <p className="text-sm text-blue-700 mt-1">
-                      Secure payment processing with multiple options including cards, UPI, net banking, and wallets.
-                    </p>
-                    <div className="mt-2 flex items-center gap-4 text-xs text-blue-600">
-                      <span>• Credit/Debit Cards</span>
-                      <span>• UPI & QR Code</span>
-                      <span>• Net Banking</span>
-                      <span>• Digital Wallets</span>
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>
 
           {/* Right Column - Order Summary */}
-          <div className="lg:col-span-1">
-            <Card className="sticky top-4">
+          <div className="space-y-6">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5" />
-                  Order Summary ({itemCount || items.length} {(itemCount || items.length) === 1 ? 'item' : 'items'})
+                  <Package className="h-5 w-5" />
+                  Order Summary
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Items */}
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {items.map((item: any, index: number) => (
-                    <div key={`${item.id}-${index}`} className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded bg-gray-100 flex items-center justify-center">
-                        {item.image ? (
-                          <img 
-                            src={item.image} 
-                            alt={item.name} 
-                            className="h-full w-full object-cover rounded" 
+                {/* Cart Items */}
+                <div className="space-y-3">
+                  {items.map((item: any) => (
+                    <div key={`${item.productId}-${item.size}-${item.color}`} className="flex items-center gap-3">
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                        {item.image && (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
                           />
-                        ) : (
-                          <Package className="h-6 w-6 text-gray-400" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{item.name}</p>
+                        <h4 className="font-medium text-sm truncate">{item.name}</h4>
                         <div className="text-xs text-gray-600 space-y-1">
                           {item.size && <p>Size: {item.size}</p>}
                           {item.color && <p>Color: {item.color}</p>}
                           <p>Qty: {item.quantity}</p>
                         </div>
                       </div>
-                      <p className="font-medium">
-                        ₹{(parseFloat(item.price) * item.quantity).toFixed(2)}
-                      </p>
+                      <div className="text-right">
+                        <p className="font-medium">₹{(parseFloat(item.price) * item.quantity).toFixed(2)}</p>
+                        <p className="text-xs text-gray-600">₹{parseFloat(item.price).toFixed(2)} each</p>
+                      </div>
                     </div>
                   ))}
                 </div>
 
                 <Separator />
 
-                {/* Totals */}
+                {/* Price Breakdown */}
                 <div className="space-y-2">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-sm">
                     <span>Subtotal</span>
                     <span>₹{subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="flex items-center gap-1">
-                      <Truck className="h-3 w-3" />
-                      Shipping
-                    </span>
+                  <div className="flex justify-between text-sm">
+                    <span>Shipping</span>
                     <span className={shippingCost === 0 ? 'text-green-600' : ''}>
                       {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-sm">
                     <span>Tax (GST 18%)</span>
                     <span>₹{taxAmount.toFixed(2)}</span>
                   </div>
-                  {shippingCost === 0 && (
-                    <p className="text-xs text-green-600">🎉 You saved ₹99 on shipping!</p>
-                  )}
+                  <Separator />
+                  <div className="flex justify-between font-semibold text-lg">
+                    <span>Total</span>
+                    <span className="flex items-center">
+                      <IndianRupee className="h-4 w-4" />
+                      {orderTotal.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
 
-                <Separator />
+                {/* Free Shipping Notice */}
+                {subtotal < 999 && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-600">
+                      Add ₹{(999 - subtotal).toFixed(2)} more for FREE shipping!
+                    </p>
+                  </div>
+                )}
 
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total</span>
-                  <span>₹{orderTotal.toFixed(2)}</span>
-                </div>
-
+                {/* Place Order Button */}
                 <Button 
-                  onClick={handlePlaceOrder}
-                  disabled={orderLoading || !validateForm() || !items || items.length === 0}
+                  onClick={handlePlaceOrder} 
+                  disabled={orderLoading}
                   className="w-full"
                   size="lg"
                 >
-                  {orderLoading ? 'Processing...' : `Place Order - ₹${orderTotal.toFixed(2)}`}
+                  {orderLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Placing Order...
+                    </>
+                  ) : (
+                    <>
+                      Place Order • ₹{orderTotal.toFixed(2)}
+                    </>
+                  )}
                 </Button>
 
-                <div className="text-xs text-gray-600 text-center">
-                  By placing your order, you agree to our Terms of Service and Privacy Policy.
+                {/* Security Notice */}
+                <div className="text-xs text-gray-500 text-center">
+                  🔒 Your information is secure and encrypted
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
-      </div>
 
-      {/* Razorpay Payment Modal */}
-      {showRazorpayPayment && currentOrderData && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle className="text-center">Complete Payment</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-center">
-                <p className="text-sm text-gray-600 mb-2">Order Number: {currentOrderNumber}</p>
-                <p className="text-lg font-semibold">Total: ₹{orderTotal.toFixed(2)}</p>
-              </div>
-              
+        {/* Razorpay Payment Modal */}
+        {showRazorpayPayment && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">Complete Payment</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Order: {currentOrderNumber}
+              </p>
               <RazorpayPayment
                 amount={orderTotal}
                 onSuccess={handleRazorpaySuccess}
                 onError={handleRazorpayError}
+                guestInfo={{
+                  name: shippingInfo.fullName,
+                  email: shippingInfo.email,
+                  phone: shippingInfo.phone
+                }}
               />
-              
               <Button
                 variant="outline"
                 onClick={() => setShowRazorpayPayment(false)}
-                className="w-full"
+                className="w-full mt-4"
               >
                 Cancel Payment
               </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

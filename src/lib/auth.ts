@@ -92,7 +92,6 @@ export async function getCurrentUser() {
       imageUrl: true,
       role: true,
       createdAt: true,
-      clerkId: true, // Keep for migration reference
     }
   })
 

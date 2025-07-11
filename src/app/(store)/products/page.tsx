@@ -1,8 +1,9 @@
-// src/app/(store)/products/page.tsx
+// src/app/(store)/products/page.tsx - FIXED: Only show real database products
 "use client";
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import ProductCard from '@/components/ProductCard';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -25,228 +26,113 @@ interface Product {
   }>;
   inStock: boolean;
   featured: boolean;
+  description?: string;
+  sku?: string;
+  category?: {
+    name: string;
+    slug: string;
+  };
+  subcategory?: {
+    name: string;
+    slug: string;
+  };
 }
 
-interface PageProps {
-  params: Promise<{ category: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}
-
-export default function ProductsPage({ params, searchParams }: PageProps) {
+export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Unwrap the promises using React.use()
-  const resolvedParams = use(params);
-  const resolvedSearchParams = use(searchParams);
-
-  // Safely access searchParams
-  const subcategory = typeof resolvedSearchParams.subcategory === 'string' ? resolvedSearchParams.subcategory : undefined;
-
-  // Mock data with working images
-  const mockProducts: Product[] = [
-    {
-      id: '1',
-      name: 'Classic White Shirt',
-      slug: 'classic-white-shirt',
-      price: 2999,
-      originalPrice: 3999,
-      images: [
-        {
-          id: '1',
-          url: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&h=400&fit=crop',
-          alt: 'Classic White Shirt',
-          isPrimary: true
-        }
-      ],
-      variants: [
-        { id: '1', size: 'S', color: 'White', stock: 10 },
-        { id: '2', size: 'M', color: 'White', stock: 15 },
-        { id: '3', size: 'L', color: 'White', stock: 12 }
-      ],
-      inStock: true,
-      featured: true
-    },
-    {
-      id: '2',
-      name: 'Premium Cotton T-Shirt',
-      slug: 'premium-cotton-tshirt',
-      price: 1999,
-      originalPrice: 2499,
-      images: [
-        {
-          id: '2',
-          url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop',
-          alt: 'Premium Cotton T-Shirt',
-          isPrimary: true
-        }
-      ],
-      variants: [
-        { id: '4', size: 'S', color: 'Black', stock: 8 },
-        { id: '5', size: 'M', color: 'Black', stock: 12 },
-        { id: '6', size: 'L', color: 'Black', stock: 10 }
-      ],
-      inStock: true,
-      featured: false
-    },
-    {
-      id: '3',
-      name: 'Formal Black Shirt',
-      slug: 'formal-black-shirt',
-      price: 3499,
-      originalPrice: 4299,
-      images: [
-        {
-          id: '3',
-          url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400&h=400&fit=crop',
-          alt: 'Formal Black Shirt',
-          isPrimary: true
-        }
-      ],
-      variants: [
-        { id: '7', size: 'S', color: 'Black', stock: 5 },
-        { id: '8', size: 'M', color: 'Black', stock: 8 },
-        { id: '9', size: 'L', color: 'Black', stock: 6 }
-      ],
-      inStock: true,
-      featured: false
-    },
-    {
-      id: '4',
-      name: 'Casual Denim Shirt',
-      slug: 'casual-denim-shirt',
-      price: 2799,
-      images: [
-        {
-          id: '4',
-          url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400&h=400&fit=crop',
-          alt: 'Casual Denim Shirt',
-          isPrimary: true
-        }
-      ],
-      variants: [
-        { id: '10', size: 'S', color: 'Denim Blue', stock: 4 },
-        { id: '11', size: 'M', color: 'Denim Blue', stock: 7 },
-        { id: '12', size: 'L', color: 'Denim Blue', stock: 5 }
-      ],
-      inStock: true,
-      featured: false
-    },
-    {
-      id: '5',
-      name: 'Navy Blue Polo',
-      slug: 'navy-blue-polo',
-      price: 2299,
-      originalPrice: 2799,
-      images: [
-        {
-          id: '5',
-          url: 'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=400&h=400&fit=crop',
-          alt: 'Navy Blue Polo',
-          isPrimary: true
-        }
-      ],
-      variants: [
-        { id: '13', size: 'S', color: 'Navy', stock: 6 },
-        { id: '14', size: 'M', color: 'Navy', stock: 10 },
-        { id: '15', size: 'L', color: 'Navy', stock: 8 },
-        { id: '16', size: 'XL', color: 'Navy', stock: 4 }
-      ],
-      inStock: true,
-      featured: false
-    },
-    {
-      id: '6',
-      name: 'Casual Gray Hoodie',
-      slug: 'casual-gray-hoodie',
-      price: 3499,
-      originalPrice: 4299,
-      images: [
-        {
-          id: '6',
-          url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop',
-          alt: 'Casual Gray Hoodie',
-          isPrimary: true
-        }
-      ],
-      variants: [
-        { id: '17', size: 'S', color: 'Gray', stock: 5 },
-        { id: '18', size: 'M', color: 'Gray', stock: 8 },
-        { id: '19', size: 'L', color: 'Gray', stock: 6 },
-        { id: '20', size: 'XL', color: 'Gray', stock: 3 }
-      ],
-      inStock: true,
-      featured: true
-    }
-  ];
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        let url = `/api/products?category=${resolvedParams.category}`;
-        if (subcategory) {
-          url += `&subcategory=${subcategory}`;
+        setLoading(true);
+        setError('');
+        
+        console.log('🔍 Fetching products from database...');
+        
+        const response = await fetch('/api/products');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        console.log('🔍 Fetching products from:', url);
-        const response = await fetch(url);
+        const data = await response.json();
+        console.log('📦 API Response:', data);
         
-        if (response.ok) {
-          const data = await response.json();
-          console.log('📦 API Response:', data);
-          
-          // Transform API data to match expected format
-          const transformedData = data.map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            slug: item.slug,
-            price: item.price,
-            originalPrice: item.originalPrice || item.comparePrice,
-            images: item.images ? item.images.map((img: any) => ({
-              id: img.id,
-              url: img.url,
-              alt: img.alt || item.name,
-              isPrimary: img.isPrimary
-            })) : [],
-            variants: item.variants ? item.variants.map((variant: any) => ({
-              id: variant.id,
-              size: variant.size,
-              color: variant.color,
-              stock: variant.stock,
-              sleeveType: variant.sleeveType
-            })) : [],
-            inStock: item.inStock,
-            featured: item.featured
-          }));
-          
-          setProducts(transformedData.length > 0 ? transformedData : mockProducts);
+        if (data.success && Array.isArray(data.products)) {
+          setProducts(data.products);
+          console.log('✅ Products loaded from database:', data.products.length);
         } else {
-          console.log('⚠️ API failed, using mock data');
-          setProducts(mockProducts);
+          // No fallback to mock data - show empty state
+          setProducts([]);
+          console.log('📭 No products found in database');
         }
+        
       } catch (error) {
         console.error('❌ Error fetching products:', error);
-        console.log('🔄 Using mock data as fallback');
-        setProducts(mockProducts);
+        setError(error instanceof Error ? error.message : 'Failed to load products');
+        setProducts([]); // Don't use mock data on error
       } finally {
         setLoading(false);
       }
     };
 
     fetchProducts();
-  }, [resolvedParams.category, subcategory, mockProducts]);
+  }, []);
 
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div key={i} className="animate-pulse">
-              <div className="bg-gray-200 rounded-lg h-64 mb-4"></div>
-              <div className="h-4 bg-gray-200 rounded mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-blue-600" />
+            <p className="text-lg text-gray-600">Loading products from database...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center min-h-[400px] flex items-center justify-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-8 max-w-md">
+            <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-red-800 mb-2">Failed to load products</h3>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (products.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center min-h-[400px] flex items-center justify-center">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 max-w-md">
+            <div className="bg-gray-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+              <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
             </div>
-          ))}
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">No Products Available</h3>
+            <p className="text-gray-600 mb-4">
+              Products will appear here once they are added through the admin dashboard.
+            </p>
+            <div className="text-sm text-gray-500">
+              <p>👨‍💼 Admin: Add products in the dashboard</p>
+              <p>🛍️ Customers: Check back soon for new arrivals!</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -254,55 +140,18 @@ export default function ProductsPage({ params, searchParams }: PageProps) {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Header */}
       <div className="mb-8">
-        <nav className="text-sm text-gray-500 mb-4">
-          <span>Home</span> / <span>Shop</span> / <span className="capitalize">{resolvedParams.category}</span>
-          {subcategory && <span> / <span className="capitalize">{subcategory}</span></span>}
-        </nav>
-        
-        <h1 className="text-3xl font-bold text-center mb-2 capitalize">
-          {subcategory || resolvedParams.category}
-        </h1>
-        <p className="text-gray-600 text-center">
-          {subcategory ? `${subcategory} collection` : `${resolvedParams.category}'s fashion collection`}
+        <h1 className="text-3xl font-bold mb-2">All Products</h1>
+        <p className="text-gray-600">
+          Discover our latest collection ({products.length} product{products.length !== 1 ? 's' : ''})
         </p>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex justify-center mb-8">
-        <div className="flex bg-gray-100 rounded-lg p-1">
-          <button className="px-4 py-2 bg-black text-white rounded-md transition-colors">
-            All
-          </button>
-          <button className="px-4 py-2 text-gray-600 hover:text-black transition-colors">
-            Shirts
-          </button>
-          <button className="px-4 py-2 text-gray-600 hover:text-black transition-colors">
-            T-Shirts
-          </button>
-          <button className="px-4 py-2 text-gray-600 hover:text-black transition-colors">
-            Hoodies
-          </button>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {products.map((product) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
       </div>
-
-      {/* Products Grid */}
-      {products.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No products found in this category.</p>
-          <p className="text-sm text-gray-400 mt-2">
-            Category: {resolvedParams.category}
-            {subcategory && ` | Subcategory: ${subcategory}`}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

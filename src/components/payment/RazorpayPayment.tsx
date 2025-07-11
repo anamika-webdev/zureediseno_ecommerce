@@ -1,8 +1,7 @@
-// src/components/payment/RazorpayPayment.tsx - Fixed version
+// src/components/payment/RazorpayPayment.tsx - Updated for guest checkout
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { CreditCard, Shield, Loader2, AlertCircle } from 'lucide-react';
@@ -12,6 +11,11 @@ interface RazorpayPaymentProps {
   onSuccess: () => void;
   onError: () => void;
   disabled?: boolean;
+  guestInfo?: {
+    name: string;
+    email: string;
+    phone?: string;
+  };
 }
 
 declare global {
@@ -20,12 +24,16 @@ declare global {
   }
 }
 
-export function RazorpayPayment({ amount, onSuccess, onError, disabled }: RazorpayPaymentProps) {
-  const { user } = useAuth();
+export function RazorpayPayment({ 
+  amount, 
+  onSuccess, 
+  onError, 
+  disabled, 
+  guestInfo 
+}: RazorpayPaymentProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
 
-  // Use useCallback to make functions serializable
   const handleSuccess = useCallback(() => {
     onSuccess();
   }, [onSuccess]);
@@ -35,11 +43,6 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
   }, [onError]);
 
   const handlePayment = async () => {
-    if (!user) {
-      toast.error('Please sign in to make a payment');
-      return;
-    }
-
     setLoading(true);
     setError('');
 
@@ -77,8 +80,8 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
     try {
       console.log('Creating payment order for amount:', amount);
 
-      // Create order on backend
-      const orderResponse = await fetch('/api/payment/create-order', {
+      // Create order on backend - no authentication required for guest checkout
+      const orderResponse = await fetch('/api/payment/create-order-guest', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -104,7 +107,6 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
       const orderData = JSON.parse(responseText);
       console.log('Order created successfully:', orderData);
 
-      // Validate order data
       if (!orderData.orderId || !orderData.amount) {
         throw new Error('Invalid order data received from server');
       }
@@ -123,7 +125,7 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
             console.log('Payment response received:', response);
 
             // Verify payment on backend
-            const verifyResponse = await fetch('/api/payment/verify', {
+            const verifyResponse = await fetch('/api/payment/verify-guest', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -161,12 +163,12 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
           }
         },
         prefill: {
-          name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '',
-          email: user?.email || '',
-          contact: '', // Remove phone number since it's not in our user type
+          name: guestInfo?.name || '',
+          email: guestInfo?.email || '',
+          contact: guestInfo?.phone || '',
         },
         notes: {
-          user_id: user?.id || '',
+          guest_checkout: 'true',
           order_source: 'website',
         },
         theme: {
@@ -182,7 +184,7 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
           enabled: true,
           max_count: 3,
         },
-        timeout: 300, // 5 minutes timeout
+        timeout: 300,
         remember_customer: false,
       };
 
@@ -222,43 +224,28 @@ export function RazorpayPayment({ amount, onSuccess, onError, disabled }: Razorp
         size="lg"
       >
         {loading ? (
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Processing...
-          </div>
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Processing Payment...
+          </>
         ) : (
-          <div className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            Pay ₹{amount.toFixed(2)}
-          </div>
+          <>
+            <CreditCard className="h-4 w-4 mr-2" />
+            Pay ₹{amount.toFixed(2)} with Razorpay
+          </>
         )}
       </Button>
       
-      {/* Error Display */}
       {error && (
-        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <span className="text-sm text-red-800">{error}</span>
-          </div>
+        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md flex items-center gap-2 text-red-600 text-sm">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {error}
         </div>
       )}
       
-      {/* Payment Security Info */}
-      <div className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-600">
+      <div className="mt-2 flex items-center justify-center gap-2 text-xs text-gray-500">
         <Shield className="h-3 w-3" />
-        <span>Secured by Razorpay</span>
-      </div>
-      
-      {/* Supported Payment Methods */}
-      <div className="mt-2 text-center">
-        <p className="text-xs text-gray-500 mb-1">Supported payment methods:</p>
-        <div className="flex items-center justify-center gap-3 text-xs text-gray-600">
-          <span>💳 Cards</span>
-          <span>📱 UPI</span>
-          <span>🏦 Net Banking</span>
-          <span>💰 Wallets</span>
-        </div>
+        Secured by Razorpay
       </div>
     </div>
   );
