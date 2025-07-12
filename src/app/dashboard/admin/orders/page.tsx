@@ -1,41 +1,38 @@
-// src/app/dashboard/admin/orders/page.tsx
-'use client';
+// app/dashboard/admin/orders/page.tsx - Enhanced with real-time updates
+
+
+"use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { useRealTimeAdminData } from '@/hooks/useRealTimeAdminData';
+import { toast } from 'react-hot-toast';
+
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+
 import { 
-  Package, 
+  RefreshCw, 
   Search, 
-  Filter, 
   Eye, 
-  Edit,
-  ChevronLeft,
-  ChevronRight,
+  Package, 
+  Clock, 
+  CheckCircle, 
+  XCircle,
+  Filter,
   Download,
-  RefreshCw,
-  Shield,
-  AlertCircle,
-  Calendar,
-  DollarSign,
-  TrendingUp,
-  Users
+  Wifi,
+  WifiOff
 } from 'lucide-react';
-import { toast } from 'sonner';
 
 interface OrderItem {
-  id: number;
+  id: string;
   product_name: string;
   quantity: number;
   price: number;
@@ -44,62 +41,72 @@ interface OrderItem {
   image_url?: string;
 }
 
-interface Order {
-  id: number;
-  order_number: string;
-  user_id: string;
-  total_amount: number;
-  status: string;
-  payment_status: string;
-  shipping_name: string;
-  shipping_email: string;
-  shipping_phone: string;
-  shipping_address: string;
-  shipping_city: string;
-  shipping_state: string;
-  shipping_pincode: string;
-  shipping_country: string;
-  created_at: string;
-  updated_at: string;
-  item_count: number;
-}
-
 export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const { user, loading: authLoading, isAuthenticated, isAdmin } = useAuth();
+  const router = useRouter();
+  
+  // Use the real-time hook
+  const {
+    orders,
+    stats,
+    loading,
+    error,
+    lastUpdated,
+    isConnected,
+    refreshData,
+    updateOrder,
+  } = useRealTimeAdminData({
+    refreshInterval: 15000, // 15 seconds for orders
+    enableSSE: true,
+    enableOrderUpdates: true,
+    enableCustomerUpdates: false,
+    enablePaymentUpdates: false,
+  });
+
+  // Local state
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const itemsPerPage = 10;
 
-  // Fetch orders
-  const fetchOrders = async (page = 1) => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/admin/orders?page=${page}&limit=10`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch orders');
-      }
-
-      const data = await response.json();
-      setOrders(data.orders || []);
-      setTotalPages(data.pagination?.totalPages || 1);
-      setCurrentPage(page);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      toast.error('Failed to load orders');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Check authentication
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    if (!authLoading) {
+      if (!isAuthenticated) {
+        router.push('/auth/signin?redirect=/dashboard/admin/orders');
+        return;
+      }
+      
+      if (!isAdmin) {
+        router.push('/');
+        return;
+      }
+    }
+  }, [authLoading, isAuthenticated, isAdmin, router]);
+
+  // Filter orders
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = !searchTerm || 
+      order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.shipping_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.shipping_email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    const matchesPaymentStatus = paymentStatusFilter === 'all' || order.payment_status === paymentStatusFilter;
+    
+    return matchesSearch && matchesStatus && matchesPaymentStatus;
+  });
+
+  // Paginate orders
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   // Fetch order items
   const fetchOrderItems = async (orderId: number) => {
@@ -115,34 +122,28 @@ export default function AdminOrdersPage() {
     }
   };
 
-  // Update order status
-  const updateOrderStatus = async (orderId: number, newStatus: string) => {
-    try {
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (response.ok) {
-        toast.success('Order status updated successfully');
-        fetchOrders(currentPage);
-        if (selectedOrder && selectedOrder.id === orderId) {
-          setSelectedOrder({ ...selectedOrder, status: newStatus });
-        }
-      } else {
-        throw new Error('Failed to update order status');
-      }
-    } catch (error) {
-      console.error('Error updating order status:', error);
+  // Handle order status update
+  const handleUpdateOrderStatus = async (orderId: number, newStatus: string) => {
+    const success = await updateOrder(orderId, { status: newStatus });
+    if (success) {
+      toast.success('Order status updated successfully');
+    } else {
       toast.error('Failed to update order status');
     }
   };
 
+  // Handle payment status update
+  const handleUpdatePaymentStatus = async (orderId: number, newPaymentStatus: string) => {
+    const success = await updateOrder(orderId, { payment_status: newPaymentStatus });
+    if (success) {
+      toast.success('Payment status updated successfully');
+    } else {
+      toast.error('Failed to update payment status');
+    }
+  };
+
   // Handle view order
-  const handleViewOrder = async (order: Order) => {
+  const handleViewOrder = async (order: any) => {
     setSelectedOrder(order);
     await fetchOrderItems(order.id);
     setIsDialogOpen(true);
@@ -152,70 +153,103 @@ export default function AdminOrdersPage() {
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'pending': return 'secondary';
-      case 'confirmed': return 'default';
       case 'processing': return 'default';
-      case 'shipped': return 'default';
+      case 'shipped': return 'outline';
       case 'delivered': return 'default';
+      case 'paid': return 'default';
       case 'cancelled': return 'destructive';
       default: return 'secondary';
     }
   };
 
+  // Get payment status badge variant
   const getPaymentStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'paid': return 'default';
       case 'pending': return 'secondary';
+      case 'paid': return 'default';
       case 'failed': return 'destructive';
       case 'refunded': return 'outline';
       default: return 'secondary';
     }
   };
 
-  // Filter orders
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.shipping_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.shipping_email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+    }).format(amount);
+  };
 
-  // Calculate stats
-  const totalOrders = orders.length;
-  const pendingOrders = orders.filter(o => o.status === 'pending').length;
-  const processingOrders = orders.filter(o => o.status === 'processing').length;
-  const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
-  const totalRevenue = orders.reduce((sum, order) => sum + order.total_amount, 0);
+  // Format date
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('en-IN');
+  };
 
-  if (loading) {
+  if (authLoading || loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <RefreshCw className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
     return (
       <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <RefreshCw className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading orders...</span>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">Error: {error}</p>
+          <Button onClick={refreshData} className="mt-2">
+            Try Again
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Order Management</h1>
-          <p className="text-gray-600">Manage and track all customer orders</p>
+          <h1 className="text-3xl font-bold text-gray-900">Orders Management</h1>
+          <p className="text-gray-600">
+            Manage and track all customer orders in real-time
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => fetchOrders(currentPage)}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+        
+        <div className="flex items-center gap-3">
+          {/* Connection Status */}
+          <div className="flex items-center gap-2 text-sm">
+            {isConnected ? (
+              <>
+                <Wifi className="h-4 w-4 text-green-500" />
+                <span className="text-green-600">Live</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-4 w-4 text-gray-400" />
+                <span className="text-gray-500">Offline</span>
+              </>
+            )}
+          </div>
+          
+          {/* Last Updated */}
+          {lastUpdated && (
+            <span className="text-xs text-gray-500">
+              Updated: {new Date(lastUpdated).toLocaleTimeString()}
+            </span>
+          )}
+          
+          {/* Refresh Button */}
+          <Button
+            onClick={refreshData}
+            disabled={loading}
+            size="sm"
+            variant="outline"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
-          </Button>
-          <Button>
-            <Download className="h-4 w-4 mr-2" />
-            Export Orders
           </Button>
         </div>
       </div>
@@ -223,67 +257,56 @@ export default function AdminOrdersPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Orders</p>
-                <p className="text-2xl font-bold">{totalOrders}</p>
-              </div>
-              <Package className="h-8 w-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{pendingOrders}</p>
-              </div>
-              <div className="h-8 w-8 bg-yellow-100 rounded-full flex items-center justify-center">
-                <div className="h-3 w-3 bg-yellow-500 rounded-full"></div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Processing</p>
-                <p className="text-2xl font-bold text-blue-600">{processingOrders}</p>
-              </div>
-              <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <div className="h-3 w-3 bg-blue-500 rounded-full"></div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Delivered</p>
-                <p className="text-2xl font-bold text-green-600">{deliveredOrders}</p>
-              </div>
-              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-                <div className="h-3 w-3 bg-green-500 rounded-full"></div>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.orders.total}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.orders.todayCount} today
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-purple-600">₹{totalRevenue.toFixed(2)}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-purple-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.orders.pending}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Processing</CardTitle>
+            <RefreshCw className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.orders.processing}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.orders.completed}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Today's Revenue</CardTitle>
+            <XCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(stats.orders.todayRevenue)}
             </div>
           </CardContent>
         </Card>
@@ -292,10 +315,11 @@ export default function AdminOrdersPage() {
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   placeholder="Search by order number, customer name, or email..."
                   value={searchTerm}
@@ -304,22 +328,35 @@ export default function AdminOrdersPage() {
                 />
               </div>
             </div>
-            <div className="md:w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="processing">Processing</SelectItem>
-                  <SelectItem value="shipped">Shipped</SelectItem>
-                  <SelectItem value="delivered">Delivered</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
+                <SelectItem value="shipped">Shipped</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Payment Status Filter */}
+            <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Payment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Payments</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="refunded">Refunded</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -330,101 +367,109 @@ export default function AdminOrdersPage() {
           <CardTitle>Orders ({filteredOrders.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order #</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOrders.length > 0 ? (
-                  filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono">
-                        {order.order_number}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{order.shipping_name}</p>
-                          <p className="text-sm text-gray-600">{order.shipping_email}</p>
-                          {order.user_id.startsWith('guest_') && (
-                            <Badge variant="outline" className="text-xs mt-1">Guest</Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{order.item_count} items</TableCell>
-                      <TableCell className="font-medium">
-                        ₹{order.total_amount.toFixed(2)}
-                      </TableCell>
-                      <TableCell>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order Number</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Payment</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedOrders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">
+                    {order.order_number}
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{order.shipping_name}</div>
+                      <div className="text-sm text-gray-500">{order.shipping_email}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{formatCurrency(order.total_amount)}</TableCell>
+                  <TableCell>
+                    <Select
+                      value={order.status}
+                      onValueChange={(value) => handleUpdateOrderStatus(order.id, value)}
+                    >
+                      <SelectTrigger className="w-32">
                         <Badge variant={getStatusBadgeVariant(order.status)}>
                           {order.status}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="processing">Processing</SelectItem>
+                        <SelectItem value="shipped">Shipped</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={order.payment_status}
+                      onValueChange={(value) => handleUpdatePaymentStatus(order.id, value)}
+                    >
+                      <SelectTrigger className="w-32">
                         <Badge variant={getPaymentStatusBadgeVariant(order.payment_status)}>
                           {order.payment_status}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(order.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewOrder(order)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
-                      <Package className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <p className="text-gray-500">No orders found</p>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                        <SelectItem value="refunded">Refunded</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    {formatDate(order.created_at)}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      onClick={() => handleViewOrder(order)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
 
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
-              </p>
+              <div className="text-sm text-gray-500">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to{' '}
+                {Math.min(currentPage * itemsPerPage, filteredOrders.length)} of{' '}
+                {filteredOrders.length} orders
+              </div>
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchOrders(currentPage - 1)}
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
+                  size="sm"
+                  variant="outline"
                 >
-                  <ChevronLeft className="h-4 w-4" />
                   Previous
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchOrders(currentPage + 1)}
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
+                  size="sm"
+                  variant="outline"
                 >
                   Next
-                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -436,55 +481,86 @@ export default function AdminOrdersPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Order Details</DialogTitle>
+            <DialogTitle>Order Details - {selectedOrder?.order_number}</DialogTitle>
           </DialogHeader>
           
           {selectedOrder && (
             <div className="space-y-6">
-              {/* Order Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Order Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Order Information</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <p><strong>Order #:</strong> {selectedOrder.order_number}</p>
-                      <p><strong>Customer Type:</strong> 
-                        {selectedOrder.user_id.startsWith('guest_') ? (
-                          <Badge variant="outline" className="ml-2">Guest Order</Badge>
-                        ) : (
-                          <Badge variant="default" className="ml-2">Registered User</Badge>
-                        )}
-                      </p>
-                      <p><strong>Status:</strong> 
-                        <Badge className="ml-2" variant={getStatusBadgeVariant(selectedOrder.status)}>
-                          {selectedOrder.status}
-                        </Badge>
-                      </p>
-                      <p><strong>Payment:</strong> 
-                        <Badge className="ml-2" variant={getPaymentStatusBadgeVariant(selectedOrder.payment_status)}>
-                          {selectedOrder.payment_status}
-                        </Badge>
-                      </p>
-                      <p><strong>Total:</strong> ₹{selectedOrder.total_amount.toFixed(2)}</p>
-                      <p><strong>Date:</strong> {new Date(selectedOrder.created_at).toLocaleString()}</p>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <span className="font-medium">Order Number:</span>
+                      <span className="ml-2">{selectedOrder.order_number}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Status:</span>
+                      <Badge 
+                        variant={getStatusBadgeVariant(selectedOrder.status)}
+                        className="ml-2"
+                      >
+                        {selectedOrder.status}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="font-medium">Payment Status:</span>
+                      <Badge 
+                        variant={getPaymentStatusBadgeVariant(selectedOrder.payment_status)}
+                        className="ml-2"
+                      >
+                        {selectedOrder.payment_status}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="font-medium">Total Amount:</span>
+                      <span className="ml-2 font-bold text-lg">
+                        {formatCurrency(selectedOrder.total_amount)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Order Date:</span>
+                      <span className="ml-2">{formatDate(selectedOrder.created_at)}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Last Updated:</span>
+                      <span className="ml-2">{formatDate(selectedOrder.updated_at)}</span>
                     </div>
                   </CardContent>
                 </Card>
 
+                {/* Shipping Information */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Shipping Address</CardTitle>
+                    <CardTitle className="text-lg">Shipping Information</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-1">
-                      <p><strong>{selectedOrder.shipping_name}</strong></p>
-                      <p>{selectedOrder.shipping_email}</p>
-                      <p>{selectedOrder.shipping_phone}</p>
-                      <p>{selectedOrder.shipping_address}</p>
-                      <p>{selectedOrder.shipping_city}, {selectedOrder.shipping_state}</p>
-                      <p>{selectedOrder.shipping_pincode}, {selectedOrder.shipping_country}</p>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <span className="font-medium">Name:</span>
+                      <span className="ml-2">{selectedOrder.shipping_name}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Email:</span>
+                      <span className="ml-2">{selectedOrder.shipping_email}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Phone:</span>
+                      <span className="ml-2">{selectedOrder.shipping_phone}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Address:</span>
+                      <div className="ml-2 text-sm">
+                        <div>{selectedOrder.shipping_address}</div>
+                        <div>
+                          {selectedOrder.shipping_city}, {selectedOrder.shipping_state}
+                        </div>
+                        <div>
+                          {selectedOrder.shipping_pincode}, {selectedOrder.shipping_country}
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -496,57 +572,59 @@ export default function AdminOrdersPage() {
                   <CardTitle className="text-lg">Order Items</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {orderItems.map((item) => (
-                      <div key={item.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                        {item.image_url && (
-                          <div className="w-16 h-16 bg-white rounded overflow-hidden flex-shrink-0">
-                            <img 
-                              src={item.image_url} 
-                              alt={item.product_name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <h4 className="font-medium">{item.product_name}</h4>
-                          <div className="text-sm text-gray-600 space-y-1">
-                            {item.size && <p>Size: {item.size}</p>}
-                            {item.color && <p>Color: {item.color}</p>}
-                            <p>Quantity: {item.quantity}</p>
-                            <p>Price: ₹{item.price.toFixed(2)} each</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orderItems.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              {item.image_url && (
+                                <img
+                                  src={item.image_url}
+                                  alt={item.product_name}
+                                  className="w-12 h-12 object-cover rounded"
+                                />
+                              )}
+                              <div>
+                                <div className="font-medium">{item.product_name}</div>
+                                {(item.size || item.color) && (
+                                  <div className="text-sm text-gray-500">
+                                    {item.size && `Size: ${item.size}`}
+                                    {item.size && item.color && ' | '}
+                                    {item.color && `Color: ${item.color}`}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{item.quantity}</TableCell>
+                          <TableCell>{formatCurrency(item.price)}</TableCell>
+                          <TableCell>{formatCurrency(item.price * item.quantity)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
 
-              {/* Status Update */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Update Order Status</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2 flex-wrap">
-                    {['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map((status) => (
-                      <Button
-                        key={status}
-                        size="sm"
-                        variant={selectedOrder.status === status ? 'default' : 'outline'}
-                        onClick={() => updateOrderStatus(selectedOrder.id, status)}
-                        disabled={selectedOrder.status === status}
-                      >
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </Button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Close
+                </Button>
+                <Button onClick={() => window.print()}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Print Order
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

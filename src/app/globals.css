@@ -244,16 +244,16 @@
 }
 
 /* Success Toast - Admin Portal */
-.admin-portal [data-sonner-toast][data-type="success"],
-[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="success"],
-[data-route*="/admin"] [data-sonner-toast][data-type="success"] {
+.admin-portal [data-sonner-toast][data-type="default"],
+[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="default"],
+[data-route*="/admin"] [data-sonner-toast][data-type="default"] {
   background: #000000 !important;
   border-left: 4px solid #22c55e !important;
 }
 
-.admin-portal [data-sonner-toast][data-type="success"] [data-icon],
-[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="success"] [data-icon],
-[data-route*="/admin"] [data-sonner-toast][data-type="success"] [data-icon] {
+.admin-portal [data-sonner-toast][data-type="default"] [data-icon],
+[data-route*="/dashboard/admin"] [data-sonner-toast][data-type="default"] [data-icon],
+[data-route*="/admin"] [data-sonner-toast][data-type="default"] [data-icon] {
   color: #22c55e !important;
 }
 

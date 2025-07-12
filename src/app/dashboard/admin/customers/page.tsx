@@ -1,96 +1,76 @@
-// src/app/dashboard/admin/customers/page.tsx
-'use client';
+// app/dashboard/admin/customers/page.tsx - Complete Fixed Version
+"use client";
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
+import { useRealTimeAdminData } from '@/hooks/useRealTimeAdminData';
+import { toast } from 'react-hot-toast';
+
+// Individual UI component imports (fixes the import error)
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { 
-  Users, 
+  RefreshCw, 
   Search, 
-  Filter, 
   Eye, 
-  Edit,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  RefreshCw,
-  UserPlus,
+  Users, 
+  UserPlus, 
+  UserCheck, 
+  UserX,
   Mail,
   Phone,
   Calendar,
   DollarSign,
   ShoppingBag,
-  TrendingUp,
-  Activity
+  Wifi,
+  WifiOff,
+  MoreHorizontal,
+  Edit,
+  Ban,
+  CheckCircle
 } from 'lucide-react';
-import { toast } from 'sonner';
-
-interface Customer {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  role: string;
-  isActive: boolean;
-  createdAt: string;
-  lastLoginAt?: string;
-  totalOrders: number;
-  totalSpent: number;
-  averageOrderValue: number;
-  lastOrderDate?: string;
-}
-
-interface CustomerStats {
-  totalCustomers: number;
-  activeCustomers: number;
-  newCustomersThisMonth: number;
-  averageCustomerValue: number;
-  topSpendingCustomers: Customer[];
-  customerGrowthRate: number;
-}
 
 export default function AdminCustomersPage() {
   const { user, loading: authLoading, isAuthenticated, isAdmin } = useAuth();
   const router = useRouter();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [stats, setStats] = useState<CustomerStats>({
-    totalCustomers: 0,
-    activeCustomers: 0,
-    newCustomersThisMonth: 0,
-    averageCustomerValue: 0,
-    topSpendingCustomers: [],
-    customerGrowthRate: 0
+  
+  // Use the real-time hook
+  const {
+    customers,
+    stats,
+    loading,
+    error,
+    lastUpdated,
+    isConnected,
+    refreshData,
+    updateCustomer,
+  } = useRealTimeAdminData({
+    refreshInterval: 20000, // 20 seconds for customers
+    enableSSE: true,
+    enableOrderUpdates: false,
+    enableCustomerUpdates: true,
+    enablePaymentUpdates: false,
   });
-  const [loading, setLoading] = useState(true);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+
+  // Local state
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const itemsPerPage = 10;
 
-  // Check authentication and admin access
+  // Check authentication
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
@@ -102,147 +82,164 @@ export default function AdminCustomersPage() {
         router.push('/');
         return;
       }
-      
-      fetchCustomers();
-      fetchCustomerStats();
     }
   }, [authLoading, isAuthenticated, isAdmin, router]);
 
-  // Real-time data refresh every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchCustomers(currentPage, false); // Silent refresh
-      fetchCustomerStats();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [currentPage]);
-
-  const fetchCustomers = async (page = 1, showLoading = true) => {
-    try {
-      if (showLoading) setLoading(true);
-      
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '10',
-        search: searchTerm,
-        role: roleFilter,
-        status: statusFilter
-      });
-
-      const response = await fetch(`/api/admin/customers?${params}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch customers');
-      }
-
-      const data = await response.json();
-      setCustomers(data.customers || []);
-      setTotalPages(data.pagination?.totalPages || 1);
-      setCurrentPage(page);
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-      if (showLoading) {
-        toast.error('Failed to load customers');
-      }
-    } finally {
-      if (showLoading) setLoading(false);
-    }
-  };
-
-  const fetchCustomerStats = async () => {
-    try {
-      const response = await fetch('/api/admin/customers/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.stats);
-      }
-    } catch (error) {
-      console.error('Error fetching customer stats:', error);
-    }
-  };
-
-  const handleViewCustomer = async (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setIsDialogOpen(true);
-  };
-
-  const handleToggleCustomerStatus = async (customerId: string, isActive: boolean) => {
-    try {
-      const response = await fetch(`/api/admin/customers/${customerId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ isActive: !isActive }),
-      });
-
-      if (response.ok) {
-        toast.success(`Customer ${!isActive ? 'activated' : 'deactivated'} successfully`);
-        fetchCustomers(currentPage);
-      } else {
-        throw new Error('Failed to update customer status');
-      }
-    } catch (error) {
-      console.error('Error updating customer status:', error);
-      toast.error('Failed to update customer status');
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
+  // Filter customers
   const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || 
+      customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phone?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesRole = roleFilter === 'all' || customer.role === roleFilter;
     const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'active' && customer.isActive) ||
-                         (statusFilter === 'inactive' && !customer.isActive);
+      (statusFilter === 'active' && customer.isActive) ||
+      (statusFilter === 'inactive' && !customer.isActive);
     
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  if (loading) {
+  // Paginate customers
+  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
+  const paginatedCustomers = filteredCustomers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Fetch customer orders
+  const fetchCustomerOrders = async (customerId: string) => {
+    try {
+      const response = await fetch(`/api/admin/customers/${customerId}/orders`);
+      if (response.ok) {
+        const data = await response.json();
+        setCustomerOrders(data.orders || []);
+      }
+    } catch (error) {
+      console.error('Error fetching customer orders:', error);
+      setCustomerOrders([]);
+    }
+  };
+
+  // Handle customer status toggle
+  const handleToggleCustomerStatus = async (customerId: string, isActive: boolean) => {
+    const success = await updateCustomer(customerId, { isActive: !isActive });
+    if (success) {
+      toast.success(`Customer ${!isActive ? 'activated' : 'deactivated'} successfully`);
+    } else {
+      toast.error('Failed to update customer status');
+    }
+  };
+
+  // Handle view customer
+  const handleViewCustomer = async (customer: any) => {
+    setSelectedCustomer(customer);
+    await fetchCustomerOrders(customer.id);
+    setIsDialogOpen(true);
+  };
+
+  // Get status badge variant - fixed type definition
+  const getStatusBadgeVariant = (isActive: boolean): "default" | "secondary" | "destructive" | "outline" | null | undefined => {
+    return isActive ? 'default' : 'secondary';
+  };
+
+  // Get role badge variant - fixed type definition
+  const getRoleBadgeVariant = (role: string): "default" | "secondary" | "destructive" | "outline" | null | undefined => {
+    switch (role) {
+      case 'ADMIN': return 'destructive';
+      case 'SELLER': return 'default';
+      case 'USER': return 'outline';
+      default: return 'secondary';
+    }
+  };
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+    }).format(amount);
+  };
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN');
+  };
+
+  // Get initials for avatar
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <RefreshCw className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
     return (
       <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <RefreshCw className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Loading customers...</span>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">Error: {error}</p>
+          <Button onClick={refreshData} className="mt-2">
+            Try Again
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Customer Management</h1>
-          <p className="text-gray-600">Manage and analyze customer data</p>
+          <h1 className="text-3xl font-bold text-gray-900">Customer Management</h1>
+          <p className="text-gray-600">
+            Manage customer accounts and track their activity in real-time
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => fetchCustomers(currentPage)}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+        
+        <div className="flex items-center gap-3">
+          {/* Connection Status */}
+          <div className="flex items-center gap-2 text-sm">
+            {isConnected ? (
+              <>
+                <Wifi className="h-4 w-4 text-green-500" />
+                <span className="text-green-600">Live</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-4 w-4 text-gray-400" />
+                <span className="text-gray-500">Offline</span>
+              </>
+            )}
+          </div>
+          
+          {/* Last Updated */}
+          {lastUpdated && (
+            <span className="text-xs text-gray-500">
+              Updated: {new Date(lastUpdated).toLocaleTimeString()}
+            </span>
+          )}
+          
+          {/* Refresh Button */}
+          <Button
+            onClick={refreshData}
+            disabled={loading}
+            size="sm"
+            variant="outline"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
-          </Button>
-          <Button>
-            <Download className="h-4 w-4 mr-2" />
-            Export Data
           </Button>
         </div>
       </div>
@@ -250,57 +247,56 @@ export default function AdminCustomersPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Customers</p>
-                <p className="text-2xl font-bold">{stats.totalCustomers.toLocaleString()}</p>
-                <p className="text-xs text-green-600 flex items-center mt-1">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +{stats.customerGrowthRate}% this month
-                </p>
-              </div>
-              <Users className="h-8 w-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active Customers</p>
-                <p className="text-2xl font-bold">{stats.activeCustomers.toLocaleString()}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {((stats.activeCustomers / stats.totalCustomers) * 100).toFixed(1)}% of total
-                </p>
-              </div>
-              <Activity className="h-8 w-8 text-green-500" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.customers.total}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.customers.newToday} new today
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">New This Month</p>
-                <p className="text-2xl font-bold">{stats.newCustomersThisMonth}</p>
-              </div>
-              <UserPlus className="h-8 w-8 text-purple-500" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Customers</CardTitle>
+            <UserCheck className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.customers.active}</div>
+            <p className="text-xs text-muted-foreground">
+              {Math.round((stats.customers.active / Math.max(stats.customers.total, 1)) * 100)}% of total
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Avg. Customer Value</p>
-                <p className="text-2xl font-bold">{formatCurrency(stats.averageCustomerValue)}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-yellow-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">New Today</CardTitle>
+            <UserPlus className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.customers.newToday}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Top Spender</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats.customers.topSpenders[0] 
+                ? formatCurrency(stats.customers.topSpenders[0].totalSpent)
+                : formatCurrency(0)
+              }
             </div>
+            <p className="text-xs text-muted-foreground">
+              {stats.customers.topSpenders[0]?.name || 'No data'}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -309,18 +305,23 @@ export default function AdminCustomersPage() {
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search customers..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            {/* Search - Fixed type error */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search by name, email, or phone..."
+                  value={searchTerm}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filter by role" />
+            
+            {/* Role Filter */}
+            <Select value={roleFilter} onValueChange={(value: string) => setRoleFilter(value)}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
@@ -329,9 +330,11 @@ export default function AdminCustomersPage() {
                 <SelectItem value="ADMIN">Admin</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filter by status" />
+            
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value)}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
@@ -349,104 +352,127 @@ export default function AdminCustomersPage() {
           <CardTitle>Customers ({filteredCustomers.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Orders</TableHead>
-                  <TableHead>Total Spent</TableHead>
-                  <TableHead>Last Order</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead>Actions</TableHead>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Orders</TableHead>
+                <TableHead>Total Spent</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedCustomers.map((customer) => (
+                <TableRow key={customer.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={customer.imageUrl} alt={customer.name} />
+                        <AvatarFallback>{getInitials(customer.name || 'U')}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{customer.name}</div>
+                        <div className="text-sm text-gray-500">ID: {customer.id}</div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="flex items-center gap-1">
+                        <Mail className="h-3 w-3 text-gray-400" />
+                        <span className="text-sm">{customer.email}</span>
+                      </div>
+                      {customer.phone && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Phone className="h-3 w-3 text-gray-400" />
+                          <span className="text-sm text-gray-500">{customer.phone}</span>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getRoleBadgeVariant(customer.role)}>
+                      {customer.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={getStatusBadgeVariant(customer.isActive)}>
+                        {customer.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                      <Button
+                        onClick={() => handleToggleCustomerStatus(customer.id, customer.isActive)}
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0"
+                      >
+                        {customer.isActive ? (
+                          <Ban className="h-3 w-3 text-red-500" />
+                        ) : (
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                        )}
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <ShoppingBag className="h-3 w-3 text-gray-400" />
+                      <span className="font-medium">{customer.totalOrders || 0}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium">
+                      {formatCurrency(customer.totalSpent || 0)}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3 text-gray-400" />
+                      <span className="text-sm">{formatDate(customer.createdAt)}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      onClick={() => handleViewCustomer(customer)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCustomers.length > 0 ? (
-                  filteredCustomers.map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {customer.firstName} {customer.lastName}
-                          </div>
-                          <div className="text-sm text-gray-500">{customer.email}</div>
-                          {customer.phone && (
-                            <div className="text-sm text-gray-500">{customer.phone}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={customer.role === 'ADMIN' ? 'default' : 'secondary'}>
-                          {customer.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={customer.isActive ? 'default' : 'secondary'}>
-                          {customer.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{customer.totalOrders}</TableCell>
-                      <TableCell>{formatCurrency(customer.totalSpent)}</TableCell>
-                      <TableCell>
-                        {customer.lastOrderDate ? formatDate(customer.lastOrderDate) : 'Never'}
-                      </TableCell>
-                      <TableCell>{formatDate(customer.createdAt)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleViewCustomer(customer)}
-                          >
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleToggleCustomerStatus(customer.id, customer.isActive)}
-                          >
-                            {customer.isActive ? 'Deactivate' : 'Activate'}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-gray-500">
-                      No customers found matching your criteria.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
 
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
+              <div className="text-sm text-gray-500">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to{' '}
+                {Math.min(currentPage * itemsPerPage, filteredCustomers.length)} of{' '}
+                {filteredCustomers.length} customers
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex gap-2">
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchCustomers(currentPage - 1)}
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
+                  size="sm"
+                  variant="outline"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  Previous
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchCustomers(currentPage + 1)}
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
+                  size="sm"
+                  variant="outline"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  Next
                 </Button>
               </div>
             </div>
@@ -456,43 +482,161 @@ export default function AdminCustomersPage() {
 
       {/* Customer Details Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Customer Details</DialogTitle>
+            <DialogTitle>Customer Details - {selectedCustomer?.name}</DialogTitle>
           </DialogHeader>
+          
           {selectedCustomer && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-semibold mb-2">Personal Information</h3>
-                  <div className="space-y-2 text-sm">
-                    <p><strong>Name:</strong> {selectedCustomer.firstName} {selectedCustomer.lastName}</p>
-                    <p><strong>Email:</strong> {selectedCustomer.email}</p>
+              {/* Customer Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Personal Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-16 w-16">
+                        <AvatarImage src={selectedCustomer.imageUrl} alt={selectedCustomer.name} />
+                        <AvatarFallback className="text-lg">
+                          {getInitials(selectedCustomer.name || 'U')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="font-semibold text-lg">{selectedCustomer.name}</h3>
+                        <Badge variant={getRoleBadgeVariant(selectedCustomer.role)}>
+                          {selectedCustomer.role}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <span className="font-medium">Email:</span>
+                      <span className="ml-2">{selectedCustomer.email}</span>
+                    </div>
+                    
                     {selectedCustomer.phone && (
-                      <p><strong>Phone:</strong> {selectedCustomer.phone}</p>
+                      <div>
+                        <span className="font-medium">Phone:</span>
+                        <span className="ml-2">{selectedCustomer.phone}</span>
+                      </div>
                     )}
-                    <p><strong>Role:</strong> {selectedCustomer.role}</p>
-                    <p><strong>Status:</strong> {selectedCustomer.isActive ? 'Active' : 'Inactive'}</p>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2">Order Statistics</h3>
-                  <div className="space-y-2 text-sm">
-                    <p><strong>Total Orders:</strong> {selectedCustomer.totalOrders}</p>
-                    <p><strong>Total Spent:</strong> {formatCurrency(selectedCustomer.totalSpent)}</p>
-                    <p><strong>Average Order:</strong> {formatCurrency(selectedCustomer.averageOrderValue)}</p>
-                    <p><strong>Last Order:</strong> {selectedCustomer.lastOrderDate ? formatDate(selectedCustomer.lastOrderDate) : 'Never'}</p>
-                  </div>
-                </div>
+                    
+                    <div>
+                      <span className="font-medium">Status:</span>
+                      <Badge 
+                        variant={getStatusBadgeVariant(selectedCustomer.isActive)}
+                        className="ml-2"
+                      >
+                        {selectedCustomer.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    
+                    <div>
+                      <span className="font-medium">Member Since:</span>
+                      <span className="ml-2">{formatDate(selectedCustomer.createdAt)}</span>
+                    </div>
+                    
+                    {selectedCustomer.lastLoginAt && (
+                      <div>
+                        <span className="font-medium">Last Login:</span>
+                        <span className="ml-2">{formatDate(selectedCustomer.lastLoginAt)}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Customer Stats */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Customer Statistics</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center p-3 bg-blue-50 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {selectedCustomer.totalOrders || 0}
+                        </div>
+                        <div className="text-sm text-blue-600">Total Orders</div>
+                      </div>
+                      
+                      <div className="text-center p-3 bg-green-50 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">
+                          {formatCurrency(selectedCustomer.totalSpent || 0)}
+                        </div>
+                        <div className="text-sm text-green-600">Total Spent</div>
+                      </div>
+                    </div>
+                    
+                    {selectedCustomer.totalOrders > 0 && (
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <div className="text-lg font-bold text-gray-600">
+                          {formatCurrency((selectedCustomer.totalSpent || 0) / selectedCustomer.totalOrders)}
+                        </div>
+                        <div className="text-sm text-gray-600">Average Order Value</div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-              <div>
-                <h3 className="font-semibold mb-2">Account Information</h3>
-                <div className="space-y-2 text-sm">
-                  <p><strong>Joined:</strong> {formatDate(selectedCustomer.createdAt)}</p>
-                  {selectedCustomer.lastLoginAt && (
-                    <p><strong>Last Login:</strong> {formatDate(selectedCustomer.lastLoginAt)}</p>
+
+              {/* Customer Orders */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Recent Orders</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {customerOrders.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Order Number</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {customerOrders.slice(0, 10).map((order) => (
+                          <TableRow key={order.id}>
+                            <TableCell className="font-medium">
+                              {order.order_number}
+                            </TableCell>
+                            <TableCell>
+                              {formatCurrency(order.total_amount)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={getStatusBadgeVariant(order.status === 'delivered')}>
+                                {order.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {formatDate(order.created_at)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      No orders found for this customer
+                    </div>
                   )}
-                </div>
+                </CardContent>
+              </Card>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Close
+                </Button>
+                <Button
+                  onClick={() => handleToggleCustomerStatus(selectedCustomer.id, selectedCustomer.isActive)}
+                  variant={selectedCustomer.isActive ? "destructive" : "default"}
+                >
+                  {selectedCustomer.isActive ? 'Deactivate' : 'Activate'} Customer
+                </Button>
               </div>
             </div>
           )}

@@ -1,253 +1,219 @@
-// src/app/api/orders/route.ts - FIXED VERSION
+// app/api/admin/orders/route.ts - Fixed version with correct imports and functions
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import mysql from 'mysql2/promise';
+import { prisma } from '@/lib/prisma';
 
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'zureediesno_ecommerce',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-};
+// Notification functions - will be implemented in SSE server
+async function notifyOrderUpdate(orderId: string, orderData: any) {
+  // This will be implemented when you set up the SSE server
+  // For now, we'll just log it
+  console.log('Order updated:', orderId, orderData);
+}
 
-const pool = mysql.createPool(dbConfig);
+async function notifyNewOrder(orderData: any) {
+  // This will be implemented when you set up the SSE server
+  // For now, we'll just log it
+  console.log('New order created:', orderData);
+}
 
-// GET endpoint to fetch orders (for user's own orders)
-export async function GET(req: NextRequest) {
-  let connection;
-  
+export async function GET(request: NextRequest) {
   try {
+    // Check authentication
     const user = await getCurrentUser();
-    
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
-    const offset = (page - 1) * limit;
+    const search = searchParams.get('search') || '';
+    const status = searchParams.get('status') || '';
+    const paymentStatus = searchParams.get('payment_status') || '';
 
-    connection = await pool.getConnection();
+    // Build where clause for filtering
+    const where: any = {};
+    
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { shippingName: { contains: search, mode: 'insensitive' } },
+        { shippingEmail: { contains: search, mode: 'insensitive' } }
+      ];
+    }
 
-    // FIXED: Use correct column names that match your database
-    let query = `
-      SELECT 
-        o.id,
-        o.order_number,
-        o.user_id,
-        o.total_amount,
-        o.status,
-        o.payment_status,
-        o.payment_method,
-        o.shipping_name,
-        o.shipping_email,
-        o.shipping_phone,
-        o.shipping_address,
-        o.shipping_city,
-        o.shipping_state,
-        o.shipping_pincode,
-        o.shipping_country,
-        o.created_at,
-        o.updated_at,
-        COUNT(oi.id) as item_count
-      FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      WHERE o.user_id = ?
-      GROUP BY o.id 
-      ORDER BY o.created_at DESC 
-      LIMIT ? OFFSET ?
-    `;
+    if (status && status !== 'all') {
+      where.status = status;
+    }
 
-    const [orders] = await connection.execute(query, [user.id, limit, offset]);
+    if (paymentStatus && paymentStatus !== 'all') {
+      where.paymentStatus = paymentStatus;
+    }
 
     // Get total count for pagination
-    const [countResult] = await connection.execute(`
-      SELECT COUNT(*) as total FROM orders WHERE user_id = ?
-    `, [user.id]);
-    
-    const totalOrders = (countResult as any)[0].total;
+    const total = await prisma.order.count({ where });
+
+    // Fetch orders with order items count
+    const orders = await prisma.order.findMany({
+      where,
+      include: {
+        orderItems: {
+          select: {
+            id: true,
+            quantity: true
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      skip: (page - 1) * limit,
+      take: limit
+    });
+
+    // Transform data to match expected format
+    const transformedOrders = orders.map(order => ({
+      id: order.id,
+      order_number: order.orderNumber,
+      user_id: order.userId,
+      total_amount: order.totalAmount,
+      status: order.status,
+      payment_status: order.paymentStatus,
+      payment_method: order.paymentMethod,
+      shipping_name: order.shippingName,
+      shipping_email: order.shippingEmail,
+      shipping_phone: order.shippingPhone,
+      shipping_address: order.shippingAddress,
+      shipping_city: order.shippingCity,
+      shipping_state: order.shippingState,
+      shipping_pincode: order.shippingPincode,
+      shipping_country: order.shippingCountry,
+      created_at: order.createdAt.toISOString(),
+      updated_at: order.updatedAt.toISOString(),
+      item_count: order.orderItems.reduce((sum, item) => sum + item.quantity, 0),
+      customer: order.user ? {
+        name: `${order.user.firstName || ''} ${order.user.lastName || ''}`.trim(),
+        email: order.user.email
+      } : null
+    }));
+
+    const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({
       success: true,
-      orders: orders || [],
+      orders: transformedOrders,
       pagination: {
         page,
         limit,
-        total: totalOrders,
-        totalPages: Math.ceil(totalOrders / limit)
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
       }
     });
 
   } catch (error) {
     console.error('Error fetching orders:', error);
-    
     return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to fetch orders' },
       { status: 500 }
     );
-  } finally {
-    if (connection) {
-      connection.release();
-    }
   }
 }
 
-// POST endpoint to create orders
-export async function POST(req: NextRequest) {
-  let connection;
-  
+export async function POST(request: NextRequest) {
   try {
+    // Check authentication
     const user = await getCurrentUser();
-    const orderData = await req.json();
-    
-    // Validate required fields
-    if (!orderData.items || !Array.isArray(orderData.items) || orderData.items.length === 0) {
-      return NextResponse.json(
-        { error: 'Order must contain at least one item' },
-        { status: 400 }
-      );
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!orderData.shippingAddress || !orderData.totalAmount) {
-      return NextResponse.json(
-        { error: 'Shipping address and total amount are required' },
-        { status: 400 }
-      );
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
-    connection = await pool.getConnection();
+    const orderData = await request.json();
 
-    // Generate order number
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-    
-    // Start transaction
-    await connection.beginTransaction();
-
-    try {
-      // Insert order - FIXED: use correct column names
-      const [orderResult] = await connection.execute(`
-        INSERT INTO orders (
-          id,
-          order_number,
-          user_id,
-          guest_order,
-          total_amount,
-          status,
-          payment_status,
-          payment_method,
-          shipping_name,
-          shipping_email,
-          shipping_phone,
-          shipping_address,
-          shipping_city,
-          shipping_state,
-          shipping_pincode,
-          shipping_country,
-          created_at,
-          updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-      `, [
-        `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate ID
-        orderNumber,
-        user ? user.id : null,
-        user ? false : true, // guest_order flag
-        orderData.totalAmount,
-        'pending',
-        orderData.paymentMethod === 'cod' ? 'pending' : 'pending',
-        orderData.paymentMethod || 'cod',
-        orderData.shippingAddress.fullName,
-        orderData.shippingAddress.email,
-        orderData.shippingAddress.phone,
-        orderData.shippingAddress.address,
-        orderData.shippingAddress.city,
-        orderData.shippingAddress.state,
-        orderData.shippingAddress.pincode,
-        orderData.shippingAddress.country || 'India'
-      ]);
-
-      const orderId = (orderResult as any).insertId;
-
-      // Insert order items - FIXED: use correct column names
-      for (const item of orderData.items) {
-        await connection.execute(`
-          INSERT INTO order_items (
-            id,
-            order_id,
-            product_id,
-            product_name,
-            product_slug,
-            quantity,
-            price,
-            size,
-            color,
-            image_url,
-            created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-        `, [
-          `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate ID
-          orderId,
-          item.productId || null,
-          item.name,
-          item.slug || '',
-          item.quantity,
-          item.price,
-          item.size || null,
-          item.color || null,
-          item.image || null
-        ]);
-      }
-
-      // Commit transaction
-      await connection.commit();
-
-      console.log('Order created successfully:', {
-        id: orderId,
-        orderNumber,
-        paymentMethod: orderData.paymentMethod
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Order created successfully',
-        order: {
-          id: orderId,
-          orderNumber: orderNumber,
-          status: 'pending',
-          paymentStatus: orderData.paymentMethod === 'cod' ? 'pending' : 'pending',
-          paymentMethod: orderData.paymentMethod,
-          totalAmount: orderData.totalAmount,
-          createdAt: new Date().toISOString()
+    // Create new order
+    const newOrder = await prisma.order.create({
+      data: {
+        orderNumber: `ORD-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
+        userId: orderData.userId,
+        totalAmount: orderData.totalAmount,
+        status: orderData.status || 'pending',
+        paymentStatus: orderData.paymentStatus || 'pending',
+        paymentMethod: orderData.paymentMethod || 'cod',
+        shippingName: orderData.shippingName,
+        shippingEmail: orderData.shippingEmail,
+        shippingPhone: orderData.shippingPhone,
+        shippingAddress: orderData.shippingAddress,
+        shippingCity: orderData.shippingCity,
+        shippingState: orderData.shippingState,
+        shippingPincode: orderData.shippingPincode,
+        shippingCountry: orderData.shippingCountry || 'India',
+        guestOrder: !orderData.userId
+      },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true
+          }
         }
-      });
+      }
+    });
 
-    } catch (transactionError) {
-      await connection.rollback();
-      throw transactionError;
-    }
+    // Transform for response
+    const transformedOrder = {
+      id: newOrder.id,
+      order_number: newOrder.orderNumber,
+      user_id: newOrder.userId,
+      total_amount: newOrder.totalAmount,
+      status: newOrder.status,
+      payment_status: newOrder.paymentStatus,
+      payment_method: newOrder.paymentMethod,
+      shipping_name: newOrder.shippingName,
+      shipping_email: newOrder.shippingEmail,
+      shipping_phone: newOrder.shippingPhone,
+      shipping_address: newOrder.shippingAddress,
+      shipping_city: newOrder.shippingCity,
+      shipping_state: newOrder.shippingState,
+      shipping_pincode: newOrder.shippingPincode,
+      shipping_country: newOrder.shippingCountry,
+      created_at: newOrder.createdAt.toISOString(),
+      updated_at: newOrder.updatedAt.toISOString(),
+      item_count: 0
+    };
+
+    // Notify real-time subscribers about new order
+    await notifyNewOrder(transformedOrder);
+
+    return NextResponse.json({
+      success: true,
+      order: transformedOrder,
+      message: 'Order created successfully'
+    });
 
   } catch (error) {
     console.error('Error creating order:', error);
-    
     return NextResponse.json(
-      { 
-        error: 'Internal server error', 
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to create order' },
       { status: 500 }
     );
-  } finally {
-    if (connection) {
-      connection.release();
-    }
   }
 }

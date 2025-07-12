@@ -1,4 +1,4 @@
-// prisma/schema.prisma - FIXED VERSION for MySQL
+// prisma/schema.prisma - Fixed version with correct relations
 generator client {
   provider = "prisma-client-js"
 }
@@ -104,34 +104,48 @@ model ProductVariant {
   @@map("product_variants")
 }
 
+// Enhanced User model with admin features
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique @db.VarChar(255)
-  firstName     String?   @db.VarChar(100)
-  lastName      String?   @db.VarChar(100)
-  imageUrl      String?   @db.VarChar(500)
-  role          String    @default("USER") @db.VarChar(20)  // Changed from enum to string
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id            String                @id @default(cuid())
+  email         String                @unique @db.VarChar(255)
+  firstName     String?               @db.VarChar(100)
+  lastName      String?               @db.VarChar(100)
+  phone         String?               @db.VarChar(20)          // NEW: Phone number
+  imageUrl      String?               @db.VarChar(500)
+  role          String                @default("USER") @db.VarChar(20)
+  isActive      Boolean               @default(true)           // NEW: Account status
+  lastLoginAt   DateTime?             @map("last_login_at")    // NEW: Last login tracking
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  password      String?               @db.VarChar(255)
+  
+  // Relations
   orders        Order[]
-  password      String?   @db.VarChar(255)
+  payments      Payment[]             // NEW: Payment relation
+  adminLogs     AdminLog[]            // NEW: Admin logs relation
+  notifications SystemNotification[]  // NEW: Notifications relation
+  connections   WebSocketConnection[] // NEW: WebSocket connections relation
 
   @@index([role])
+  @@index([isActive])  // NEW: Index for status queries
+  @@index([email])
   @@map("users")
 }
 
-// FIXED ORDER MODEL - matching your actual database table structure
+// Enhanced Order model with real-time features
 model Order {
   id              String      @id @default(cuid())
   orderNumber     String      @unique @map("order_number")
   userId          String?     @map("user_id")
-  guestOrder      Boolean     @default(false) @map("guest_order")        // NEW
-  trackingNumber  String?     @map("tracking_number")                    // NEW
-  notes           String?     @db.Text                                   // NEW
+  guestOrder      Boolean     @default(false) @map("guest_order")
+  trackingNumber  String?     @map("tracking_number")
+  notes           String?     @db.Text
   totalAmount     Float       @map("total_amount")
-  status          String      @default("pending") @db.VarChar(50)        // Changed from enum
-  paymentStatus   String      @default("pending") @map("payment_status") @db.VarChar(50) // Changed from enum
+  status          String      @default("pending") @db.VarChar(50)
+  paymentStatus   String      @default("pending") @map("payment_status") @db.VarChar(50)
   paymentMethod   String      @default("cod") @map("payment_method") @db.VarChar(50)
+  transactionId   String?     @map("transaction_id") @db.VarChar(255)        // NEW: Gateway transaction ID
+  gatewayResponse Json?       @map("gateway_response")                       // NEW: Payment gateway response
   shippingName    String      @map("shipping_name") @db.VarChar(255)
   shippingEmail   String      @map("shipping_email") @db.VarChar(255)
   shippingPhone   String      @map("shipping_phone") @db.VarChar(20)
@@ -144,12 +158,17 @@ model Order {
   updatedAt       DateTime    @updatedAt @map("updated_at")
   
   // Relations
-  user        User?        @relation(fields: [userId], references: [id])
+  user        User?       @relation(fields: [userId], references: [id])
   orderItems  OrderItem[]
+  payments    Payment[]   // NEW: Payment relation
 
   @@map("orders")
-  @@index([guestOrder, shippingEmail], map: "idx_orders_guest_email")  // NEW
-  @@index([orderNumber], map: "idx_orders_order_number")               // NEW
+  @@index([guestOrder, shippingEmail], map: "idx_orders_guest_email")
+  @@index([orderNumber], map: "idx_orders_order_number")
+  @@index([status])        // NEW: Index for status filtering
+  @@index([paymentStatus]) // NEW: Index for payment status filtering
+  @@index([createdAt])     // NEW: Index for date sorting
+  @@index([userId])        // NEW: Index for user queries
 }
 
 model OrderItem {
@@ -171,4 +190,113 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@map("order_items")
+}
+
+// NEW: Dedicated Payment model for detailed payment tracking
+model Payment {
+  id              String   @id @default(cuid())
+  orderId         String   @map("order_id")
+  userId          String?  @map("user_id")
+  orderNumber     String   @map("order_number")
+  customerName    String   @map("customer_name") @db.VarChar(255)
+  customerEmail   String   @map("customer_email") @db.VarChar(255)
+  amount          Float
+  paymentMethod   String   @map("payment_method") @db.VarChar(50)
+  status          String   @default("pending") @db.VarChar(50)      // pending, completed, failed, refunded
+  transactionId   String?  @map("transaction_id") @db.VarChar(255)
+  gatewayResponse Json?    @map("gateway_response")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  completedAt     DateTime? @map("completed_at")
+  refundedAt      DateTime? @map("refunded_at")
+  refundAmount    Float?   @map("refund_amount")
+  fees            Float?   @default(0)                             // Payment processing fees
+  
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id])
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@index([paymentMethod])
+  @@index([createdAt])
+  @@index([transactionId])
+  @@map("payments")
+}
+
+// NEW: Admin action logging for audit trail
+model AdminLog {
+  id        String   @id @default(cuid())
+  adminId   String   @map("admin_id")
+  action    String   @db.VarChar(100)  // 'order_update', 'customer_update', 'payment_update', etc.
+  entityType String  @map("entity_type") @db.VarChar(50) // 'order', 'customer', 'payment', 'product'
+  entityId  String   @map("entity_id")
+  oldValues Json?    @map("old_values") // Previous state before change
+  newValues Json?    @map("new_values") // New state after change
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  userAgent String?  @map("user_agent") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("admin_logs")
+}
+
+// NEW: System notifications for real-time alerts
+model SystemNotification {
+  id        String   @id @default(cuid())
+  type      String   @db.VarChar(50) // 'order_created', 'payment_received', 'low_stock', etc.
+  title     String   @db.VarChar(255)
+  message   String   @db.Text
+  data      Json?    // Additional data for the notification
+  isRead    Boolean  @default(false) @map("is_read")
+  userId    String?  @map("user_id") // Null for system-wide notifications
+  createdAt DateTime @default(now()) @map("created_at")
+  readAt    DateTime? @map("read_at")
+  
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("system_notifications")
+}
+
+// NEW: Real-time analytics cache for dashboard performance
+model AnalyticsCache {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(100) // 'daily_revenue', 'order_stats', etc.
+  data        Json     // Cached analytics data
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([key])
+  @@index([expiresAt])
+  @@map("analytics_cache")
+}
+
+// NEW: WebSocket connection tracking for real-time features
+model WebSocketConnection {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")
+  connectionId String  @unique @map("connection_id")
+  type        String   @db.VarChar(50) // 'admin', 'customer'
+  isActive    Boolean  @default(true) @map("is_active")
+  lastPing    DateTime @default(now()) @map("last_ping")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([isActive])
+  @@index([lastPing])
+  @@map("websocket_connections")
 }

@@ -124,7 +124,7 @@ function AdminComponent() {
 
   const handleShadcnToast = () => {
     toast.shadcn({
-      title: "Success",
+      title: "default",
       description: "Your action was completed.",
     });
   };

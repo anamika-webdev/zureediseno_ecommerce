@@ -1,81 +1,138 @@
-// src/app/api/admin/payments/route.ts
+// app/api/admin/payments/route.ts - Real-time database implementation
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { notifyPaymentUpdate, notifyNewPayment } from '@/app/api/ws/admin/route';
 
-// Payment interface
-interface Payment {
-  id: string;
-  orderId: string;
-  orderNumber: string;
-  customerName: string;
-  customerEmail: string;
-  amount: number;
-  paymentMethod: 'cod' | 'razorpay';
-  status: 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled';
-  transactionId?: string;
-  gatewayResponse?: string;
-  createdAt: string;
-  updatedAt: string;
-  processedAt?: string;
+// First, we need to create a Payment model in your Prisma schema
+// Add this to your prisma/schema.prisma file:
+
+/*
+model Payment {
+  id              String   @id @default(cuid())
+  orderId         String   @map("order_id")
+  orderNumber     String   @map("order_number")
+  customerName    String   @map("customer_name") @db.VarChar(255)
+  customerEmail   String   @map("customer_email") @db.VarChar(255)
+  amount          Float
+  paymentMethod   String   @map("payment_method") @db.VarChar(50)
+  status          String   @default("pending") @db.VarChar(50)
+  transactionId   String?  @map("transaction_id") @db.VarChar(255)
+  gatewayResponse Json?    @map("gateway_response")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  completedAt     DateTime? @map("completed_at")
+  refundedAt      DateTime? @map("refunded_at")
+  refundAmount    Float?   @map("refund_amount")
+  fees            Float?
+  
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
+  @@index([paymentMethod])
+  @@map("payments")
 }
+*/
 
-// Simple in-memory storage (replace with database in production)
-let paymentsStore: Payment[] = [];
+// Also add to Order model:
+// payments Payment[]
 
 export async function GET(request: NextRequest) {
   try {
-   const user = await getCurrentUser()
-const userId = user?.id
-    
-    if (!userId) {
+    // Check authentication
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get query parameters for filtering
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
+    // Get query parameters
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const method = searchParams.get('method');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    const status = searchParams.get('status') || '';
+    const method = searchParams.get('method') || '';
 
-    let filteredPayments = [...paymentsStore];
+    // Since Payment model might not exist yet, let's get payment data from orders
+    // This is a temporary solution until you add the Payment model
+    const where: any = {};
+    
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { shippingName: { contains: search, mode: 'insensitive' } },
+        { shippingEmail: { contains: search, mode: 'insensitive' } }
+      ];
+    }
 
-    // Apply filters
     if (status && status !== 'all') {
-      filteredPayments = filteredPayments.filter(p => p.status === status);
+      where.paymentStatus = status;
     }
 
     if (method && method !== 'all') {
-      filteredPayments = filteredPayments.filter(p => p.paymentMethod === method);
+      where.paymentMethod = method;
     }
 
-    // Sort by creation date (newest first)
-    filteredPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // Get total count for pagination
+    const total = await prisma.order.count({ where });
 
-    // Apply pagination
-    const paginatedPayments = filteredPayments.slice(offset, offset + limit);
+    // Fetch orders as payment records
+    const orders = await prisma.order.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      skip: (page - 1) * limit,
+      take: limit
+    });
 
-    // Calculate stats
-    const stats = {
-      total: paymentsStore.length,
-      completed: paymentsStore.filter(p => p.status === 'completed').length,
-      pending: paymentsStore.filter(p => p.status === 'pending').length,
-      failed: paymentsStore.filter(p => p.status === 'failed').length,
-      totalRevenue: paymentsStore
-        .filter(p => p.status === 'completed')
-        .reduce((sum, p) => sum + p.amount, 0),
-    };
+    // Transform orders to payment format
+    const transformedPayments = orders.map(order => ({
+      id: `payment_${order.id}`,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.shippingName,
+      customerEmail: order.shippingEmail,
+      amount: order.totalAmount,
+      paymentMethod: order.paymentMethod,
+      status: order.paymentStatus,
+      transactionId: null, // Add transactionId field to Order model if needed
+      gatewayResponse: null, // Add gatewayResponse field to Order model if needed
+      createdAt: order.createdAt.toISOString(),
+      updatedAt: order.updatedAt.toISOString(),
+      completedAt: order.paymentStatus === 'paid' ? order.updatedAt.toISOString() : null,
+      refundedAt: order.paymentStatus === 'refunded' ? order.updatedAt.toISOString() : null,
+      refundAmount: order.paymentStatus === 'refunded' ? order.totalAmount : null,
+      fees: order.paymentMethod !== 'cod' ? order.totalAmount * 0.02 : 0 // 2% fee for online payments
+    }));
+
+    const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({
       success: true,
-      payments: paginatedPayments,
-      stats,
+      payments: transformedPayments,
       pagination: {
-        total: filteredPayments.length,
+        page,
         limit,
-        offset,
-        hasMore: offset + limit < filteredPayments.length,
-      },
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
     });
 
   } catch (error) {
@@ -89,39 +146,62 @@ const userId = user?.id
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-const userId = user?.id
-    
-    if (!userId) {
+    // Check authentication
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
     const paymentData = await request.json();
 
-    // Create new payment record
-    const newPayment: Payment = {
-      id: `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      orderId: paymentData.orderId || `order_${Date.now()}`,
-      orderNumber: paymentData.orderNumber,
-      customerName: paymentData.customerName,
-      customerEmail: paymentData.customerEmail,
-      amount: Number(paymentData.amount),
-      paymentMethod: paymentData.paymentMethod,
-      status: paymentData.status || 'pending',
-      transactionId: paymentData.transactionId,
-      gatewayResponse: paymentData.gatewayResponse,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      processedAt: paymentData.status === 'completed' ? new Date().toISOString() : undefined,
+    // Update the order's payment status
+    const updatedOrder = await prisma.order.update({
+      where: { id: paymentData.orderId },
+      data: {
+        paymentStatus: paymentData.status,
+        paymentMethod: paymentData.paymentMethod,
+        updatedAt: new Date()
+      },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    // Transform for response
+    const transformedPayment = {
+      id: `payment_${updatedOrder.id}`,
+      orderId: updatedOrder.id,
+      orderNumber: updatedOrder.orderNumber,
+      customerName: updatedOrder.shippingName,
+      customerEmail: updatedOrder.shippingEmail,
+      amount: updatedOrder.totalAmount,
+      paymentMethod: updatedOrder.paymentMethod,
+      status: updatedOrder.paymentStatus,
+      transactionId: paymentData.transactionId || null,
+      gatewayResponse: paymentData.gatewayResponse || null,
+      createdAt: updatedOrder.createdAt.toISOString(),
+      updatedAt: updatedOrder.updatedAt.toISOString(),
+      completedAt: updatedOrder.paymentStatus === 'paid' ? updatedOrder.updatedAt.toISOString() : null,
+      fees: updatedOrder.paymentMethod !== 'cod' ? updatedOrder.totalAmount * 0.02 : 0
     };
 
-    // Add to store
-    paymentsStore.push(newPayment);
+    // Notify real-time subscribers about payment update
+    await notifyNewPayment(transformedPayment);
 
     return NextResponse.json({
       success: true,
-      payment: newPayment,
-      message: 'Payment record created successfully',
+      payment: transformedPayment,
+      message: 'Payment recorded successfully'
     });
 
   } catch (error) {
@@ -133,88 +213,52 @@ const userId = user?.id
   }
 }
 
+// Update payment status endpoint
 export async function PUT(request: NextRequest) {
   try {
-   const user = await getCurrentUser()
-const userId = user?.id
-    
-    if (!userId) {
+    // Check authentication
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const updateData = await request.json();
-    const { transactionId, paymentId, ...restData } = updateData;
+    const { orderId, status, transactionId, gatewayResponse } = updateData;
 
-    let paymentIndex = -1;
+    // Update the order's payment status
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        paymentStatus: status,
+        updatedAt: new Date()
+      }
+    });
 
-    // Find payment by transactionId or paymentId
-    if (transactionId) {
-      paymentIndex = paymentsStore.findIndex(p => p.transactionId === transactionId);
-    } else if (paymentId) {
-      paymentIndex = paymentsStore.findIndex(p => p.id === paymentId);
-    }
-    
-    if (paymentIndex === -1) {
-      return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
-    }
-
-    // Update payment
-    paymentsStore[paymentIndex] = {
-      ...paymentsStore[paymentIndex],
-      ...restData,
-      updatedAt: new Date().toISOString(),
-      processedAt: restData.status === 'completed' ? new Date().toISOString() : paymentsStore[paymentIndex].processedAt,
+    const transformedPayment = {
+      id: `payment_${updatedOrder.id}`,
+      orderId: updatedOrder.id,
+      orderNumber: updatedOrder.orderNumber,
+      status: updatedOrder.paymentStatus,
+      updatedAt: updatedOrder.updatedAt.toISOString()
     };
+
+    // Notify real-time subscribers about payment update
+    await notifyPaymentUpdate(`payment_${orderId}`, transformedPayment);
 
     return NextResponse.json({
       success: true,
-      payment: paymentsStore[paymentIndex],
-      message: 'Payment updated successfully',
+      payment: transformedPayment,
+      message: 'Payment status updated successfully'
     });
 
   } catch (error) {
     console.error('Error updating payment:', error);
     return NextResponse.json(
       { error: 'Failed to update payment' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const user = await getCurrentUser()
-const userId = user?.id
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const paymentId = searchParams.get('id');
-    
-    if (!paymentId) {
-      return NextResponse.json({ error: 'Payment ID required' }, { status: 400 });
-    }
-
-    // Find and remove payment
-    const paymentIndex = paymentsStore.findIndex(p => p.id === paymentId);
-    
-    if (paymentIndex === -1) {
-      return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
-    }
-
-    paymentsStore.splice(paymentIndex, 1);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Payment deleted successfully',
-    });
-
-  } catch (error) {
-    console.error('Error deleting payment:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete payment' },
       { status: 500 }
     );
   }
