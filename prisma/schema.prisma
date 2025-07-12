@@ -1,4 +1,4 @@
-// prisma/schema.prisma - Fixed version with correct relations
+// prisma/schema.prisma - Complete schema with all required models
 generator client {
   provider = "prisma-client-js"
 }
@@ -104,7 +104,7 @@ model ProductVariant {
   @@map("product_variants")
 }
 
-// Enhanced User model with admin features
+// Enhanced User model with all required fields
 model User {
   id            String                @id @default(cuid())
   email         String                @unique @db.VarChar(255)
@@ -127,12 +127,12 @@ model User {
   connections   WebSocketConnection[] // NEW: WebSocket connections relation
 
   @@index([role])
-  @@index([isActive])  // NEW: Index for status queries
+  @@index([isActive])
   @@index([email])
   @@map("users")
 }
 
-// Enhanced Order model with real-time features
+// Enhanced Order model
 model Order {
   id              String      @id @default(cuid())
   orderNumber     String      @unique @map("order_number")
@@ -144,8 +144,8 @@ model Order {
   status          String      @default("pending") @db.VarChar(50)
   paymentStatus   String      @default("pending") @map("payment_status") @db.VarChar(50)
   paymentMethod   String      @default("cod") @map("payment_method") @db.VarChar(50)
-  transactionId   String?     @map("transaction_id") @db.VarChar(255)        // NEW: Gateway transaction ID
-  gatewayResponse Json?       @map("gateway_response")                       // NEW: Payment gateway response
+  transactionId   String?     @map("transaction_id") @db.VarChar(255)
+  gatewayResponse Json?       @map("gateway_response")
   shippingName    String      @map("shipping_name") @db.VarChar(255)
   shippingEmail   String      @map("shipping_email") @db.VarChar(255)
   shippingPhone   String      @map("shipping_phone") @db.VarChar(20)
@@ -160,15 +160,15 @@ model Order {
   // Relations
   user        User?       @relation(fields: [userId], references: [id])
   orderItems  OrderItem[]
-  payments    Payment[]   // NEW: Payment relation
+  payments    Payment[]
 
-  @@map("orders")
   @@index([guestOrder, shippingEmail], map: "idx_orders_guest_email")
   @@index([orderNumber], map: "idx_orders_order_number")
-  @@index([status])        // NEW: Index for status filtering
-  @@index([paymentStatus]) // NEW: Index for payment status filtering
-  @@index([createdAt])     // NEW: Index for date sorting
-  @@index([userId])        // NEW: Index for user queries
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([userId])
+  @@map("orders")
 }
 
 model OrderItem {
@@ -192,7 +192,7 @@ model OrderItem {
   @@map("order_items")
 }
 
-// NEW: Dedicated Payment model for detailed payment tracking
+// NEW: Dedicated Payment model
 model Payment {
   id              String   @id @default(cuid())
   orderId         String   @map("order_id")
@@ -202,7 +202,7 @@ model Payment {
   customerEmail   String   @map("customer_email") @db.VarChar(255)
   amount          Float
   paymentMethod   String   @map("payment_method") @db.VarChar(50)
-  status          String   @default("pending") @db.VarChar(50)      // pending, completed, failed, refunded
+  status          String   @default("pending") @db.VarChar(50)
   transactionId   String?  @map("transaction_id") @db.VarChar(255)
   gatewayResponse Json?    @map("gateway_response")
   createdAt       DateTime @default(now()) @map("created_at")
@@ -210,7 +210,7 @@ model Payment {
   completedAt     DateTime? @map("completed_at")
   refundedAt      DateTime? @map("refunded_at")
   refundAmount    Float?   @map("refund_amount")
-  fees            Float?   @default(0)                             // Payment processing fees
+  fees            Float?   @default(0)
   
   // Relations
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -225,15 +225,15 @@ model Payment {
   @@map("payments")
 }
 
-// NEW: Admin action logging for audit trail
+// NEW: Admin action logging
 model AdminLog {
   id        String   @id @default(cuid())
   adminId   String   @map("admin_id")
-  action    String   @db.VarChar(100)  // 'order_update', 'customer_update', 'payment_update', etc.
-  entityType String  @map("entity_type") @db.VarChar(50) // 'order', 'customer', 'payment', 'product'
+  action    String   @db.VarChar(100)
+  entityType String  @map("entity_type") @db.VarChar(50)
   entityId  String   @map("entity_id")
-  oldValues Json?    @map("old_values") // Previous state before change
-  newValues Json?    @map("new_values") // New state after change
+  oldValues Json?    @map("old_values")
+  newValues Json?    @map("new_values")
   ipAddress String?  @map("ip_address") @db.VarChar(45)
   userAgent String?  @map("user_agent") @db.Text
   createdAt DateTime @default(now()) @map("created_at")
@@ -247,15 +247,15 @@ model AdminLog {
   @@map("admin_logs")
 }
 
-// NEW: System notifications for real-time alerts
+// NEW: System notifications
 model SystemNotification {
   id        String   @id @default(cuid())
-  type      String   @db.VarChar(50) // 'order_created', 'payment_received', 'low_stock', etc.
+  type      String   @db.VarChar(50)
   title     String   @db.VarChar(255)
   message   String   @db.Text
-  data      Json?    // Additional data for the notification
+  data      Json?
   isRead    Boolean  @default(false) @map("is_read")
-  userId    String?  @map("user_id") // Null for system-wide notifications
+  userId    String?  @map("user_id")
   createdAt DateTime @default(now()) @map("created_at")
   readAt    DateTime? @map("read_at")
   
@@ -268,11 +268,11 @@ model SystemNotification {
   @@map("system_notifications")
 }
 
-// NEW: Real-time analytics cache for dashboard performance
+// NEW: Analytics cache
 model AnalyticsCache {
   id          String   @id @default(cuid())
-  key         String   @unique @db.VarChar(100) // 'daily_revenue', 'order_stats', etc.
-  data        Json     // Cached analytics data
+  key         String   @unique @db.VarChar(100)
+  data        Json
   expiresAt   DateTime @map("expires_at")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -282,12 +282,12 @@ model AnalyticsCache {
   @@map("analytics_cache")
 }
 
-// NEW: WebSocket connection tracking for real-time features
+// NEW: WebSocket connections
 model WebSocketConnection {
   id          String   @id @default(cuid())
   userId      String?  @map("user_id")
   connectionId String  @unique @map("connection_id")
-  type        String   @db.VarChar(50) // 'admin', 'customer'
+  type        String   @db.VarChar(50)
   isActive    Boolean  @default(true) @map("is_active")
   lastPing    DateTime @default(now()) @map("last_ping")
   createdAt   DateTime @default(now()) @map("created_at")

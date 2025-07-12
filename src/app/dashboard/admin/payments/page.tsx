@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 
 export default function AdminPaymentsPage() {
-  const { user, loading: authLoading, isAuthenticated, isAdmin } = useAuth();
+  const { user, loading: authLoading, isAuthenticated, isAdmin } = useAdminAuth();
   const router = useRouter();
   
   // Use the real-time hook

@@ -1,7 +1,7 @@
 // src/app/dashboard/layout.tsx - Updated dashboard layout with NextAuth
 'use client';
 
-import { useAuth } from '@/context/AuthContext';
+import { useAdminAuth } from '@/context/AdminAuthContext';
 import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
@@ -14,7 +14,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading: authLoading, isAuthenticated, isAdmin } = useAuth();
+  const { user, loading: authLoading, isAuthenticated, isAdmin } = useAdminAuth();
   const router = useRouter();
   const pathname = usePathname();
   const isAdminRoute = pathname?.includes('/dashboard/admin') || pathname?.includes('/admin');

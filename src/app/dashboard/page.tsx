@@ -1,7 +1,7 @@
 // src/app/dashboard/page.tsx - Fixed as direct client component
 'use client';
 
-import { useAuth } from '@/context/AuthContext';
+import { useAdminAuth } from '@/context/AdminAuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +26,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
-  const { user, loading: authLoading, isAuthenticated, isAdmin } = useAuth();
+  const { user, loading: authLoading, isAuthenticated, isAdmin } = useAdminAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
     totalOrders: 0,
