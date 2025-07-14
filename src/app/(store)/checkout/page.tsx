@@ -79,8 +79,9 @@ export default function CheckoutPage() {
     return sum + (price * quantity);
   }, 0) : 0;
   
-  const shippingCost = subtotal > 999 ? 0 : 99;
-  const taxRate = 0.18; // 18% GST
+ // const shippingCost = subtotal > 999 ? 0 : 99;
+  const shippingCost = 0; 
+  const taxRate = 0; // 18% GST
   const taxAmount = subtotal * taxRate;
   const orderTotal = subtotal + shippingCost + taxAmount;
 
@@ -476,14 +477,14 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Shipping</span>
-                    <span className={shippingCost === 0 ? 'text-green-600' : ''}>
+                    {/*<span className={shippingCost === 0 ? 'text-green-600' : ''}>
                       {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}
-                    </span>
+                    </span>*/}
                   </div>
-                  <div className="flex justify-between text-sm">
+                 {/* <div className="flex justify-between text-sm">
                     <span>Tax (GST 18%)</span>
                     <span>₹{taxAmount.toFixed(2)}</span>
-                  </div>
+                  </div>*/}
                   <Separator />
                   <div className="flex justify-between font-semibold text-lg">
                     <span>Total</span>

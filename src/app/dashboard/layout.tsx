@@ -1,4 +1,4 @@
-// src/app/dashboard/layout.tsx - Updated dashboard layout with NextAuth
+// src/app/dashboard/layout.tsx - Fixed dashboard layout
 'use client';
 
 import { useAdminAuth } from '@/context/AdminAuthContext';
@@ -22,13 +22,19 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push('/auth/signin?redirect=' + encodeURIComponent(pathname || '/dashboard'));
+        // Redirect to appropriate login page based on route
+        if (isAdminRoute) {
+          router.push('/admin/login?redirect=' + encodeURIComponent(pathname || '/dashboard/admin'));
+        } else {
+          router.push('/auth/signin?redirect=' + encodeURIComponent(pathname || '/dashboard'));
+        }
         return;
       }
       
       // Check if user has access to admin routes
       if (isAdminRoute && !isAdmin) {
-        router.push('/');
+        // Instead of redirecting to main site, redirect to admin login
+        router.push('/admin/login?redirect=' + encodeURIComponent(pathname || '/dashboard/admin'));
         return;
       }
     }

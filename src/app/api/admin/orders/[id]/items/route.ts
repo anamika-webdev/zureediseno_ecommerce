@@ -1,29 +1,15 @@
-// src/app/api/admin/orders/[id]/items/route.ts - Updated with NextAuth
+// src/app/api/admin/orders/[id]/items/route.ts - FIXED VERSION
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
-import mysql from 'mysql2/promise';
-
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'your_database_name',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-};
-
-const pool = mysql.createPool(dbConfig);
+import { getCurrentAdmin } from '@/lib/adminAuth';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  let connection;
-  
   try {
     const { id } = await params;
-    const user = await getCurrentUser();
+    const user = await getCurrentAdmin();
     
     if (!user) {
       return NextResponse.json(
@@ -32,7 +18,7 @@ export async function GET(
       );
     }
 
-    if (user.role !== 'ADMIN') {
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'Forbidden - Admin access required' },
         { status: 403 }
@@ -41,22 +27,42 @@ export async function GET(
 
     const orderId = id;
     
-    connection = await pool.getConnection();
+    // Fetch order items separately to avoid TypeScript issues
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: orderId },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            images: {
+              where: { isPrimary: true },
+              select: { url: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
 
-    // Get order items (admin can access all orders)
-    const [items] = await connection.execute(`
-      SELECT 
-        oi.*,
-        o.user_id
-      FROM order_items oi
-      JOIN orders o ON oi.order_id = o.id
-      WHERE oi.order_id = ?
-      ORDER BY oi.created_at ASC
-    `, [orderId]);
+    // Transform to expected format
+    const transformedItems = orderItems.map(item => ({
+      id: item.id,
+      product_name: item.productName,
+      product_slug: item.productSlug,
+      quantity: item.quantity,
+      price: item.price,
+      size: item.size,
+      color: item.color,
+      image_url: item.imageUrl || (item.product?.images[0]?.url),
+      total: item.quantity * item.price,
+      product: item.product
+    }));
 
     return NextResponse.json({
       success: true,
-      items: items
+      items: transformedItems
     });
 
   } catch (error) {
@@ -69,9 +75,5 @@ export async function GET(
       },
       { status: 500 }
     );
-  } finally {
-    if (connection) {
-      connection.release();
-    }
   }
 }

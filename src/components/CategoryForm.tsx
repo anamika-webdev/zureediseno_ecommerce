@@ -57,7 +57,7 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
     }));
   };
 
-  // Fixed image upload function
+  // Image upload function
   const handleImageUpload = async (file: File) => {
     if (!file) return;
 

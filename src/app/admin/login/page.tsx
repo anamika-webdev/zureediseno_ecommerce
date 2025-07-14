@@ -1,35 +1,30 @@
-// src/app/admin/login/page.tsx - Simplified Admin Login (Fixed)
-"use client";
+// src/app/admin/login/page.tsx - FIXED Admin Login with Proper Redirect
+'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { AlertCircle, Shield, Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('admin@test.com');
-  const [password, setPassword] = useState('password');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
-  
   const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
     setMounted(true);
+    // Check if already authenticated
+    checkExistingAuth();
   }, []);
-
-  // Simple auth check without using the context (to avoid redirect loops)
-  useEffect(() => {
-    if (mounted) {
-      checkExistingAuth();
-    }
-  }, [mounted]);
 
   const checkExistingAuth = async () => {
     try {
@@ -39,182 +34,218 @@ export default function AdminLoginPage() {
 
       if (response.ok) {
         const userData = await response.json();
-        console.log('Already authenticated:', userData);
-        // Redirect to dashboard if already logged in
-        router.push('/dashboard/admin');
+        console.log('✅ Already authenticated as admin:', userData);
+        // Force redirect if already logged in
+        window.location.href = '/dashboard/admin/categories';
+        return;
       }
     } catch (error) {
-      console.log('Not authenticated, showing login form');
+      console.log('🔐 Not authenticated, showing login form');
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
-      toast.error('Please enter both email and password');
+    if (!formData.email || !formData.password) {
+      toast.error('Please enter email and password');
       return;
     }
 
     setLoading(true);
 
     try {
-      console.log('Attempting login...');
+      console.log('🔐 Attempting admin login with:', formData.email);
+      
       const response = await fetch('/api/admin/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: formData.email.trim(),
+          password: formData.password
+        }),
       });
 
-      console.log('Login response status:', response.status);
+      console.log('📡 Login response status:', response.status);
 
       if (response.ok) {
-        const userData = await response.json();
-        console.log('Login successful:', userData);
+        const data = await response.json();
+        console.log('✅ Login successful:', data);
+        
         toast.success('Login successful! Redirecting...');
-        
-        // Multiple redirect strategies
+
+        // Multiple redirect strategies to ensure it works
         setTimeout(() => {
-          router.push('/dashboard/admin');
-        }, 100);
-        
+          console.log('🔄 Attempting router.push redirect');
+          router.push('/dashboard/admin/categories');
+        }, 500);
+
         setTimeout(() => {
-          if (window.location.pathname === '/admin/login') {
-            window.location.href = '/dashboard/admin';
-          }
+          console.log('🔄 Attempting window.location redirect');
+          window.location.href = '/dashboard/admin/categories';
         }, 1000);
-        
+
+        setTimeout(() => {
+          console.log('🔄 Force page reload if still here');
+          if (window.location.pathname === '/admin/login') {
+            window.location.reload();
+          }
+        }, 2000);
+
       } else {
-        const error = await response.json();
-        console.error('Login failed:', error);
-        toast.error(error.error || 'Invalid credentials');
+        const errorData = await response.json();
+        console.error('❌ Login failed:', errorData);
+        toast.error(errorData.error || 'Login failed');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
       toast.error('Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Quick test admin credentials
+  const handleTestLogin = () => {
+    setFormData({
+      email: 'admin@test.com',
+      password: 'admin123'
+    });
+    toast.info('Test credentials loaded. Click Sign In to test.');
+  };
+
   if (!mounted) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mb-4">
-            <Shield className="h-6 w-6 text-white" />
-          </div>
-          <CardTitle className="text-2xl">Admin Portal</CardTitle>
-          <p className="text-gray-600">Sign in to access admin dashboard</p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="admin@test.com"
-                disabled={loading}
-              />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <Card>
+          <CardHeader className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
+              <Shield className="h-6 w-6 text-blue-600" />
             </div>
-            
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
+            <CardTitle className="mt-4 text-2xl font-bold">Admin Login</CardTitle>
+            <p className="text-gray-600">Sign in to your admin account</p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="admin@example.com"
                   required
-                  placeholder="password"
                   disabled={loading}
+                  autoComplete="email"
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
+              </div>
+
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                    placeholder="Enter your password"
+                    required
+                    disabled={loading}
+                    autoComplete="current-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={loading}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-500" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-500" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading}
+              >
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+
+              {/* Test Button for Development */}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleTestLogin}
+                disabled={loading}
+              >
+                Load Test Credentials
+              </Button>
+            </form>
+
+            {/* Admin Account Setup Help */}
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Need an admin account?</h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <p className="mb-2">To create an admin user, run this SQL in your database:</p>
+                    <pre className="text-xs bg-blue-100 p-2 rounded overflow-x-auto whitespace-pre-wrap">
+{`-- Make existing user admin
+UPDATE users SET role = 'ADMIN' 
+WHERE email = 'your-email@example.com';
+
+-- Or create new admin user
+INSERT INTO users (id, email, firstName, lastName, password, role) 
+VALUES (
+  'admin-id', 
+  'admin@test.com', 
+  'Admin', 
+  'User', 
+  '$2a$12$hashedPasswordHere', 
+  'ADMIN'
+);`}
+                    </pre>
+                    <p className="mt-2 text-xs">
+                      Replace the hashed password with a bcrypt hash of your desired password.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </Button>
-          </form>
-          
-          <div className="mt-4 space-y-2">
-            <div className="text-center">
-              <p className="text-sm text-gray-600">
-                <strong>Test Credentials:</strong>
-              </p>
-              <p className="text-sm font-mono">
-                admin@test.com / password
-              </p>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button 
-                type="button"
-                variant="outline" 
-                size="sm"
-                className="flex-1"
-                onClick={() => window.open('/admin/test', '_blank')}
-              >
-                Test APIs
-              </Button>
-              
-              <Button 
-                type="button"
-                variant="outline" 
-                size="sm"
-                className="flex-1"
-                onClick={async () => {
-                  try {
-                    const response = await fetch('/api/admin/create-test-admin', {
-                      method: 'POST',
-                      credentials: 'include'
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                      toast.success('Test admin created/verified');
-                    } else {
-                      toast.error('Failed to create test admin');
-                    }
-                  } catch (error) {
-                    toast.error('Error creating test admin');
-                  }
-                }}
-              >
-                Create Test Admin
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            {/* Debug Info */}
+            <details className="mt-4">
+              <summary className="cursor-pointer text-sm text-gray-600">Debug Info</summary>
+              <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
+                <p>Current URL: {typeof window !== 'undefined' ? window.location.href : 'N/A'}</p>
+                <p>Login API: /api/admin/auth/login</p>
+                <p>Target Redirect: /dashboard/admin/categories</p>
+              </div>
+            </details>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

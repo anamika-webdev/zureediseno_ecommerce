@@ -226,7 +226,7 @@ function OrderSuccessContent() {
             </div>
           </CardContent>
         </Card>
-        // Add this section to the order success page
+        
 <Card>
   <CardContent className="p-6">
     <h3 className="font-semibold mb-4 flex items-center gap-2">

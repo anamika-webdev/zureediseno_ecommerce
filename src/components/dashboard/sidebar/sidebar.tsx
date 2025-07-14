@@ -1,4 +1,4 @@
-// src/components/dashboard/sidebar/sidebar.tsx
+// src/components/dashboard/sidebar/sidebar.tsx - Fixed Settings Route
 "use client";
 
 import Link from 'next/link';
@@ -15,7 +15,8 @@ import {
   Users, 
   CreditCard, 
   Settings,
-  LogOut
+  LogOut,
+  User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -57,7 +58,7 @@ const navigation = [
   },
   {
     name: 'Settings',
-    href: '/dashboard/settings',
+    href: '/dashboard/admin/settings', // FIXED: Changed from /dashboard/settings to /dashboard/admin/settings
     icon: Settings,
   },
 ];
@@ -68,7 +69,7 @@ interface SidebarProps {
 
 export default function Sidebar({ className = '' }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout } = useAdminAuth();
+  const { user, logout, loading } = useAdminAuth();
 
   const handleLogout = async () => {
     try {
@@ -77,6 +78,16 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       console.error('Logout error:', error);
     }
   };
+
+  if (loading) {
+    return (
+      <div className={cn('flex h-full w-64 flex-col bg-gray-900', className)}>
+        <div className="flex h-16 items-center justify-center border-b border-gray-800">
+          <h1 className="text-xl font-bold text-white">Loading...</h1>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn('flex h-full w-64 flex-col bg-gray-900', className)}>
@@ -108,7 +119,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </nav>
       
       {/* User Profile & Logout */}
-      {user && (
+      {user ? (
         <div className="border-t border-gray-800 p-4">
           <div className="flex items-center mb-3">
             <div className="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center">
@@ -119,10 +130,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                   className="h-10 w-10 rounded-full object-cover"
                 />
               ) : (
-                <span className="text-white text-sm font-medium">
-                  {user.firstName ? user.firstName[0].toUpperCase() : user.email[0].toUpperCase()}
-                  {user.lastName ? user.lastName[0].toUpperCase() : ''}
-                </span>
+                <User className="h-5 w-5 text-gray-300" />
               )}
             </div>
             <div className="ml-3 flex-1 min-w-0">
@@ -145,6 +153,12 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             <LogOut className="mr-2 h-4 w-4" />
             Sign Out
           </Button>
+        </div>
+      ) : (
+        <div className="border-t border-gray-800 p-4">
+          <div className="text-sm text-gray-400">
+            Not authenticated
+          </div>
         </div>
       )}
     </div>

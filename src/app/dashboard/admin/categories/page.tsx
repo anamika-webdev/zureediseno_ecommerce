@@ -1,49 +1,66 @@
-// src/app/admin/categories/page.tsx
+// src/app/dashboard/admin/categories/page.tsx - QUICK FIX
 'use client'
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from '@/components/ui/dialog'
-import { CategoryForm, SerializableCategory } from '@/components/CategoryForm'
-import { Trash2, Edit, Plus, Star, GripVertical, ArrowUp, ArrowDown } from 'lucide-react'
+import { Dialog, DialogTrigger } from '@/components/ui/dialog'
+import SimpleCategoryForm from '@/components/admin/SimpleCategoryForm'
+import { Trash2, Edit, Plus, Star } from 'lucide-react'
 import { toast } from 'sonner'
+import Image from 'next/image'
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  image?: string;
+  featured: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<SerializableCategory[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState<SerializableCategory | null>(null)
-  const [error, setError] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
 
   // Fetch categories
   const fetchCategories = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/admin/categories')
-      if (!response.ok) throw new Error('Failed to fetch categories')
+      
+      console.log('📥 Fetching categories from /api/admin/categories...'); // Debug log
+      
+      const response = await fetch('/api/admin/categories', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      console.log('📡 Categories API response status:', response.status); // Debug log
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Categories API error:', errorText); // Debug log
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
       
       const data = await response.json()
-      // Convert Date objects to strings for serialization
-      const serializedData: SerializableCategory[] = data.map((cat: any) => ({
-        id: cat.id,
-        name: cat.name,
-        slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
-        image: cat.image || '',
-        featured: cat.featured || false,
-        sortOrder: cat.sortOrder || 0,
-        createdAt: new Date(cat.createdAt).toISOString(),
-        updatedAt: new Date(cat.updatedAt).toISOString()
-      }))
-      setCategories(serializedData)
-      setError('')
+      console.log('📊 Categories data received:', data); // Debug log
+      
+      // ✅ FIXED: Ensure data is always an array
+      const categoriesArray = Array.isArray(data) ? data : []
+      console.log('📥 Categories processed:', categoriesArray.length, 'categories'); // Debug log
+      
+      setCategories(categoriesArray)
     } catch (err: any) {
-      setError(err.message)
+      console.error('❌ Error fetching categories:', err)
+      toast.error(err.message || 'Failed to fetch categories')
+      setCategories([]) // ✅ Set empty array on error
     } finally {
       setLoading(false)
     }
@@ -60,248 +77,228 @@ export default function CategoriesPage() {
     fetchCategories()
   }
 
-  // Handle form cancel
-  const handleFormCancel = () => {
-    setIsDialogOpen(false)
+  // Handle create new
+  const handleCreateNew = () => {
     setSelectedCategory(null)
+    setIsDialogOpen(true)
   }
 
   // Handle edit
-  const handleEdit = (category: SerializableCategory) => {
+  const handleEdit = (category: Category) => {
     setSelectedCategory(category)
     setIsDialogOpen(true)
   }
+
+  // Test delete function
+  const testDelete = async (categoryId: string) => {
+    try {
+      console.log('🧪 Testing delete for category:', categoryId);
+      
+      const response = await fetch('/api/admin/categories/test-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ categoryId }),
+      });
+
+      const result = await response.json();
+      console.log('🧪 Delete test result:', result);
+      
+      if (result.canDelete) {
+        toast.success(`✅ Safe to delete: ${result.reason}`);
+        // Proceed with actual delete
+        handleDelete(categoryId);
+      } else {
+        toast.error(`❌ Cannot delete: ${result.reason}`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Delete test error:', error);
+      toast.error('Delete test failed');
+    }
+  };
 
   // Handle delete
   const handleDelete = async (categoryId: string) => {
     if (!confirm('Are you sure you want to delete this category?')) return
 
     try {
-      const response = await fetch(`/api/admin/categories/${categoryId}`, {
-        method: 'DELETE'
-      })
+      console.log('🗑️ Starting delete process for category:', categoryId);
+      
+      const deleteUrl = `/api/admin/categories/${categoryId}`;
+      console.log('🔗 Delete URL:', deleteUrl);
+      
+      const response = await fetch(deleteUrl, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('📡 Delete response status:', response.status);
+      console.log('📡 Delete response headers:', Object.fromEntries(response.headers.entries()));
+
+      // Get response text first to avoid JSON parsing issues
+      const responseText = await response.text();
+      console.log('📥 Delete response text (raw):', responseText);
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to delete category')
+        console.error('❌ Delete request failed with status:', response.status);
+        
+        let errorMessage = `Delete failed (${response.status})`;
+        
+        if (responseText) {
+          try {
+            const errorData = JSON.parse(responseText);
+            console.error('❌ Delete error data:', errorData);
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch (parseError) {
+            console.error('❌ Could not parse error response:', parseError);
+            errorMessage = `${errorMessage}: ${responseText}`;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
-      toast.success('Category deleted successfully')
-      fetchCategories()
+      // Try to parse success response
+      let result = { success: true, message: 'Deleted successfully' };
+      if (responseText) {
+        try {
+          result = JSON.parse(responseText);
+          console.log('✅ Delete success response:', result);
+        } catch (parseError) {
+          console.log('⚠️ Could not parse success response, but delete succeeded');
+        }
+      }
+      
+      toast.success(result.message || 'Category deleted successfully');
+      fetchCategories();
+      
     } catch (err: any) {
-      toast.error(err.message || 'Failed to delete category')
-    }
-  }
-
-  // Handle move up/down
-  const moveCategoryUp = async (category: SerializableCategory, index: number) => {
-    if (index === 0) return
-
-    const newCategories = [...categories]
-    const currentCategory = newCategories[index]
-    const previousCategory = newCategories[index - 1]
-
-    // Swap sort orders
-    const tempSortOrder = currentCategory.sortOrder
-    currentCategory.sortOrder = previousCategory.sortOrder
-    previousCategory.sortOrder = tempSortOrder
-
-    // Update in database
-    try {
-      await Promise.all([
-        updateCategorySortOrder(currentCategory.id, currentCategory.sortOrder),
-        updateCategorySortOrder(previousCategory.id, previousCategory.sortOrder)
-      ])
-
-      // Swap in array
-      newCategories[index] = previousCategory
-      newCategories[index - 1] = currentCategory
+      console.error('❌ Delete operation failed:', err);
       
-      setCategories(newCategories)
-      toast.success('Category order updated')
-    } catch (error) {
-      toast.error('Failed to update category order')
-    }
-  }
-
-  const moveCategoryDown = async (category: SerializableCategory, index: number) => {
-    if (index === categories.length - 1) return
-
-    const newCategories = [...categories]
-    const currentCategory = newCategories[index]
-    const nextCategory = newCategories[index + 1]
-
-    // Swap sort orders
-    const tempSortOrder = currentCategory.sortOrder
-    currentCategory.sortOrder = nextCategory.sortOrder
-    nextCategory.sortOrder = tempSortOrder
-
-    // Update in database
-    try {
-      await Promise.all([
-        updateCategorySortOrder(currentCategory.id, currentCategory.sortOrder),
-        updateCategorySortOrder(nextCategory.id, nextCategory.sortOrder)
-      ])
-
-      // Swap in array
-      newCategories[index] = nextCategory
-      newCategories[index + 1] = currentCategory
+      let errorMessage = 'Failed to delete category';
       
-      setCategories(newCategories)
-      toast.success('Category order updated')
-    } catch (error) {
-      toast.error('Failed to update category order')
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err && typeof err === 'object') {
+        errorMessage = err.message || err.error || JSON.stringify(err);
+      }
+      
+      console.error('❌ Final error message:', errorMessage);
+      toast.error(errorMessage);
     }
-  }
-
-  const updateCategorySortOrder = async (categoryId: string, sortOrder: number) => {
-    const response = await fetch(`/api/admin/categories/${categoryId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ sortOrder }),
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to update sort order')
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="container mx-auto py-10">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Loading categories...</div>
-        </div>
-      </div>
-    )
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="flex justify-between items-center mb-8">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Category Management</h1>
-          <p className="text-gray-600 mt-2">Manage your product categories and their display order</p>
+          <h1 className="text-3xl font-bold">Categories</h1>
+          <p className="text-gray-600">Manage your product categories</p>
         </div>
-        
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setSelectedCategory(null)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Category
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>
-                {selectedCategory ? 'Edit Category' : 'Add New Category'}
-              </DialogTitle>
-            </DialogHeader>
-            <CategoryForm
-              category={selectedCategory}
-              onSuccess={handleFormSuccess}
-              onCancel={handleFormCancel}
-            />
-          </DialogContent>
-        </Dialog>
+        <Button onClick={handleCreateNew}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Category
+        </Button>
       </div>
 
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-md mb-6">
-          <p className="text-red-700">{error}</p>
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
+      ) : categories.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-500">No categories found. Create your first category!</p>
+          <Button onClick={handleCreateNew} className="mt-4">
+            <Plus className="w-4 h-4 mr-2" />
+            Create First Category
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {categories.map((category) => (
+            <div key={category.id} className="border rounded-lg p-4 space-y-4">
+              {/* Category Image */}
+              <div className="aspect-video relative bg-gray-100 rounded overflow-hidden">
+                {category.image ? (
+                  <Image
+                    src={category.image}
+                    alt={category.name}
+                    fill
+                    className="object-cover"
+                    onError={(e) => {
+                      // Hide broken images
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400">
+                    <span>No Image</span>
+                  </div>
+                )}
+                
+                {category.featured && (
+                  <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center">
+                    <Star className="w-3 h-3 mr-1" />
+                    Featured
+                  </div>
+                )}
+              </div>
+
+              {/* Category Info */}
+              <div>
+                <h3 className="font-semibold text-lg">{category.name}</h3>
+                <p className="text-sm text-gray-500">/{category.slug}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Order: {category.sortOrder}
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEdit(category)}
+                  className="flex-1"
+                >
+                  <Edit className="w-4 h-4 mr-1" />
+                  Edit
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => testDelete(category.id)}
+                >
+                  Test
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDelete(category.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {categories.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No categories found</p>
-          <p className="text-gray-400">Create your first category to get started</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow border overflow-hidden">
-          <div className="p-4 border-b bg-gray-50">
-            <h3 className="font-semibold text-lg">Categories (Ordered by Display Order)</h3>
-            <p className="text-sm text-gray-600">Categories are displayed in this order on your website</p>
-          </div>
-          
-          <div className="divide-y">
-            {categories.map((category, index) => (
-              <div key={category.id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex flex-col space-y-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => moveCategoryUp(category, index)}
-                        disabled={index === 0}
-                        className="p-1 h-6 w-6"
-                      >
-                        <ArrowUp className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => moveCategoryDown(category, index)}
-                        disabled={index === categories.length - 1}
-                        className="p-1 h-6 w-6"
-                      >
-                        <ArrowDown className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    
-                    <GripVertical className="w-5 h-5 text-gray-400" />
-                    
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-lg">{category.name}</h3>
-                        {category.featured && (
-                          <Star className="w-4 h-4 text-yellow-500" fill="currentColor" />
-                        )}
-                        <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                          Order: {category.sortOrder}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600">/{category.slug}</p>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Created: {new Date(category.createdAt).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {category.image && (
-                      <img
-                        src={category.image}
-                        alt={category.name}
-                        className="w-12 h-12 object-cover rounded-md"
-                      />
-                    )}
-                    
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleEdit(category)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(category.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Form Dialog */}
+      <SimpleCategoryForm
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        onSuccess={handleFormSuccess}
+        category={selectedCategory}
+      />
     </div>
   )
 }

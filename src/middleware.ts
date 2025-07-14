@@ -1,6 +1,7 @@
-// src/middleware.ts - Complete updated version
+// src/middleware.ts - Fixed Version
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth'
+import { verifyAdminSession } from '@/lib/adminAuth'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -35,32 +36,41 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // For all other routes, check authentication
+  // FIXED: Handle dashboard routes with admin session authentication
+  if (pathname.startsWith('/dashboard')) {
+    const adminSession = await verifyAdminSession()
+    
+    if (!adminSession) {
+      return NextResponse.redirect(new URL('/admin/login?redirect=' + encodeURIComponent(pathname), request.url))
+    }
+    
+    // Check if user is admin
+    if (adminSession.role !== 'ADMIN' && adminSession.role !== 'SUPER_ADMIN') {
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+    
+    return NextResponse.next()
+  }
+
+  // Protect admin routes (except login) with admin session
+  if (pathname.startsWith('/admin')) {
+    const adminSession = await verifyAdminSession()
+    
+    if (!adminSession) {
+      return NextResponse.redirect(new URL('/admin/login?redirect=' + encodeURIComponent(pathname), request.url))
+    }
+    
+    if (adminSession.role !== 'ADMIN' && adminSession.role !== 'SUPER_ADMIN') {
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+    
+    return NextResponse.next()
+  }
+
+  // For all other routes, use regular session authentication
   const session = await verifySession()
   const isAuthenticated = !!session
   const userRole = session?.role
-
-  // Protect dashboard routes
-  if (pathname.startsWith('/dashboard')) {
-    if (!isAuthenticated) {
-      return NextResponse.redirect(new URL('/auth/signin?redirect=' + encodeURIComponent(pathname), request.url))
-    }
-    
-    // Only allow ADMIN and SELLER roles to access dashboard
-    if (userRole === 'USER') {
-      return NextResponse.redirect(new URL('/', request.url))
-    }
-  }
-
-  // Protect admin routes (except login)
-  if (pathname.startsWith('/admin')) {
-    if (!isAuthenticated) {
-      return NextResponse.redirect(new URL('/admin/login?redirect=' + encodeURIComponent(pathname), request.url))
-    }
-    if (userRole !== 'ADMIN') {
-      return NextResponse.redirect(new URL('/admin/login', request.url))
-    }
-  }
 
   // Protect forum routes
   if (pathname.startsWith('/forum')) {

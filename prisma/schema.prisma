@@ -1,4 +1,4 @@
-// prisma/schema.prisma - Complete schema with all required models
+// prisma/schema.prisma - Complete Updated Schema
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,21 +8,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================================================
+// CORE MODELS
+// ============================================================================
+
+model User {
+  id            String                @id @default(cuid())
+  email         String                @unique @db.VarChar(255)
+  firstName     String?               @db.VarChar(100)
+  lastName      String?               @db.VarChar(100)
+  phone         String?               @db.VarChar(20)
+  imageUrl      String?               @db.VarChar(500)
+  role          String                @default("USER") @db.VarChar(20)
+  isActive      Boolean               @default(true)
+  lastLoginAt   DateTime?             @map("last_login_at")
+  password      String?               @db.VarChar(255)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  
+  // Relations
+  orders        Order[]
+  payments      Payment[]
+  adminLogs     AdminLog[]
+  notifications SystemNotification[]
+  connections   WebSocketConnection[]
+
+  @@index([role])
+  @@index([isActive])
+  @@index([email])
+  @@map("users")
+}
+
 model Category {
   id            String        @id @default(cuid())
   name          String        @db.VarChar(255)
   slug          String        @unique @db.VarChar(255)
   description   String?       @db.Text
   image         String?       @db.VarChar(500)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
   featured      Boolean       @default(false)
   sortOrder     Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  // Relations
   products      Product[]
   subcategories Subcategory[]
 
   @@index([sortOrder])
   @@index([featured])
+  @@index([slug])
   @@map("categories")
 }
 
@@ -31,17 +65,21 @@ model Subcategory {
   name        String    @db.VarChar(255)
   slug        String    @unique @db.VarChar(255)
   description String?   @db.Text
+  image       String?   @db.VarChar(500)
+  featured    Boolean   @default(false)
+  sortOrder   Int       @default(0)
   categoryId  String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  featured    Boolean   @default(false)
-  sortOrder   Int       @default(0)
+  
+  // Relations
   products    Product[]
   category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@index([categoryId])
   @@index([sortOrder])
   @@index([featured])
+  @@index([slug])
   @@map("subcategories")
 }
 
@@ -55,22 +93,25 @@ model Product {
   sku           String?          @unique @db.VarChar(255)
   inStock       Boolean          @default(true)
   featured      Boolean          @default(false)
+  sortOrder     Int              @default(0)
   categoryId    String
   subcategoryId String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
-  sortOrder     Int              @default(0)
-  orderItems    OrderItem[]
-  images        ProductImage[]
-  variants      ProductVariant[]
+  
+  // Relations
   category      Category         @relation(fields: [categoryId], references: [id])
   subcategory   Subcategory?     @relation(fields: [subcategoryId], references: [id])
+  images        ProductImage[]
+  variants      ProductVariant[]
+  orderItems    OrderItem[]
 
   @@index([categoryId])
   @@index([subcategoryId])
   @@index([featured])
   @@index([inStock])
   @@index([sortOrder])
+  @@index([slug])
   @@map("products")
 }
 
@@ -81,9 +122,12 @@ model ProductImage {
   isPrimary Boolean  @default(false)
   productId String
   createdAt DateTime @default(now())
+  
+  // Relations
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
+  @@index([isPrimary])
   @@map("product_images")
 }
 
@@ -97,55 +141,42 @@ model ProductVariant {
   sku        String?  @unique @db.VarChar(255)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  
+  // Relations
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, size, color, sleeveType])
   @@index([productId])
+  @@index([stock])
   @@map("product_variants")
 }
 
-// Enhanced User model with all required fields
-model User {
-  id            String                @id @default(cuid())
-  email         String                @unique @db.VarChar(255)
-  firstName     String?               @db.VarChar(100)
-  lastName      String?               @db.VarChar(100)
-  phone         String?               @db.VarChar(20)          // NEW: Phone number
-  imageUrl      String?               @db.VarChar(500)
-  role          String                @default("USER") @db.VarChar(20)
-  isActive      Boolean               @default(true)           // NEW: Account status
-  lastLoginAt   DateTime?             @map("last_login_at")    // NEW: Last login tracking
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  password      String?               @db.VarChar(255)
-  
-  // Relations
-  orders        Order[]
-  payments      Payment[]             // NEW: Payment relation
-  adminLogs     AdminLog[]            // NEW: Admin logs relation
-  notifications SystemNotification[]  // NEW: Notifications relation
-  connections   WebSocketConnection[] // NEW: WebSocket connections relation
+// ============================================================================
+// ORDER MODELS
+// ============================================================================
 
-  @@index([role])
-  @@index([isActive])
-  @@index([email])
-  @@map("users")
-}
-
-// Enhanced Order model
 model Order {
   id              String      @id @default(cuid())
   orderNumber     String      @unique @map("order_number")
   userId          String?     @map("user_id")
   guestOrder      Boolean     @default(false) @map("guest_order")
-  trackingNumber  String?     @map("tracking_number")
-  notes           String?     @db.Text
+  
+  // Financial
   totalAmount     Float       @map("total_amount")
+  subtotal        Float?
+  shippingCost    Float?      @map("shipping_cost") @default(0)
+  taxAmount       Float?      @map("tax_amount")
+  
+  // Status
   status          String      @default("pending") @db.VarChar(50)
   paymentStatus   String      @default("pending") @map("payment_status") @db.VarChar(50)
   paymentMethod   String      @default("cod") @map("payment_method") @db.VarChar(50)
+  
+  // Payment details
   transactionId   String?     @map("transaction_id") @db.VarChar(255)
   gatewayResponse Json?       @map("gateway_response")
+  
+  // Shipping information
   shippingName    String      @map("shipping_name") @db.VarChar(255)
   shippingEmail   String      @map("shipping_email") @db.VarChar(255)
   shippingPhone   String      @map("shipping_phone") @db.VarChar(20)
@@ -154,20 +185,26 @@ model Order {
   shippingState   String      @map("shipping_state") @db.VarChar(100)
   shippingPincode String      @map("shipping_pincode") @db.VarChar(10)
   shippingCountry String      @default("India") @map("shipping_country") @db.VarChar(100)
+  
+  // Tracking
+  trackingNumber  String?     @map("tracking_number")
+  notes           String?     @db.Text
+  
+  // Timestamps
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
   
   // Relations
-  user        User?       @relation(fields: [userId], references: [id])
-  orderItems  OrderItem[]
-  payments    Payment[]
+  user            User?       @relation(fields: [userId], references: [id])
+  items           OrderItem[]
+  payments        Payment[]
 
-  @@index([guestOrder, shippingEmail], map: "idx_orders_guest_email")
-  @@index([orderNumber], map: "idx_orders_order_number")
+  @@index([userId])
+  @@index([orderNumber])
   @@index([status])
   @@index([paymentStatus])
   @@index([createdAt])
-  @@index([userId])
+  @@index([guestOrder, shippingEmail], map: "idx_orders_guest_email")
   @@map("orders")
 }
 
@@ -184,37 +221,41 @@ model OrderItem {
   imageUrl    String?  @map("image_url") @db.VarChar(500)
   createdAt   DateTime @default(now()) @map("created_at")
   
-  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product? @relation(fields: [productId], references: [id])
+  // Relations
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id])
 
   @@index([orderId])
   @@index([productId])
   @@map("order_items")
 }
 
-// NEW: Dedicated Payment model
+// ============================================================================
+// PAYMENT MODELS
+// ============================================================================
+
 model Payment {
-  id              String   @id @default(cuid())
-  orderId         String   @map("order_id")
-  userId          String?  @map("user_id")
-  orderNumber     String   @map("order_number")
-  customerName    String   @map("customer_name") @db.VarChar(255)
-  customerEmail   String   @map("customer_email") @db.VarChar(255)
+  id              String    @id @default(cuid())
+  orderId         String    @map("order_id")
+  userId          String?   @map("user_id")
+  orderNumber     String    @map("order_number")
+  customerName    String    @map("customer_name") @db.VarChar(255)
+  customerEmail   String    @map("customer_email") @db.VarChar(255)
   amount          Float
-  paymentMethod   String   @map("payment_method") @db.VarChar(50)
-  status          String   @default("pending") @db.VarChar(50)
-  transactionId   String?  @map("transaction_id") @db.VarChar(255)
-  gatewayResponse Json?    @map("gateway_response")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  paymentMethod   String    @map("payment_method") @db.VarChar(50)
+  status          String    @default("pending") @db.VarChar(50)
+  transactionId   String?   @map("transaction_id") @db.VarChar(255)
+  gatewayResponse Json?     @map("gateway_response")
+  fees            Float?    @default(0)
+  refundAmount    Float?    @map("refund_amount")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
   completedAt     DateTime? @map("completed_at")
   refundedAt      DateTime? @map("refunded_at")
-  refundAmount    Float?   @map("refund_amount")
-  fees            Float?   @default(0)
   
   // Relations
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  user  User? @relation(fields: [userId], references: [id])
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user            User?     @relation(fields: [userId], references: [id])
 
   @@index([orderId])
   @@index([userId])
@@ -225,20 +266,24 @@ model Payment {
   @@map("payments")
 }
 
-// NEW: Admin action logging
+// ============================================================================
+// ADMIN & SYSTEM MODELS
+// ============================================================================
+
 model AdminLog {
-  id        String   @id @default(cuid())
-  adminId   String   @map("admin_id")
-  action    String   @db.VarChar(100)
-  entityType String  @map("entity_type") @db.VarChar(50)
-  entityId  String   @map("entity_id")
-  oldValues Json?    @map("old_values")
-  newValues Json?    @map("new_values")
-  ipAddress String?  @map("ip_address") @db.VarChar(45)
-  userAgent String?  @map("user_agent") @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
+  id         String   @id @default(cuid())
+  adminId    String   @map("admin_id")
+  action     String   @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String   @map("entity_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
   
-  admin User @relation(fields: [adminId], references: [id])
+  // Relations
+  admin      User     @relation(fields: [adminId], references: [id])
 
   @@index([adminId])
   @@index([action])
@@ -247,19 +292,19 @@ model AdminLog {
   @@map("admin_logs")
 }
 
-// NEW: System notifications
 model SystemNotification {
-  id        String   @id @default(cuid())
-  type      String   @db.VarChar(50)
-  title     String   @db.VarChar(255)
-  message   String   @db.Text
+  id        String    @id @default(cuid())
+  type      String    @db.VarChar(50)
+  title     String    @db.VarChar(255)
+  message   String    @db.Text
   data      Json?
-  isRead    Boolean  @default(false) @map("is_read")
-  userId    String?  @map("user_id")
-  createdAt DateTime @default(now()) @map("created_at")
+  isRead    Boolean   @default(false) @map("is_read")
+  userId    String?   @map("user_id")
+  createdAt DateTime  @default(now()) @map("created_at")
   readAt    DateTime? @map("read_at")
   
-  user User? @relation(fields: [userId], references: [id])
+  // Relations
+  user      User?     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([type])
@@ -268,35 +313,66 @@ model SystemNotification {
   @@map("system_notifications")
 }
 
-// NEW: Analytics cache
 model AnalyticsCache {
-  id          String   @id @default(cuid())
-  key         String   @unique @db.VarChar(100)
-  data        Json
-  expiresAt   DateTime @map("expires_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  key       String   @unique @db.VarChar(100)
+  data      Json
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([key])
   @@index([expiresAt])
   @@map("analytics_cache")
 }
 
-// NEW: WebSocket connections
 model WebSocketConnection {
   id          String   @id @default(cuid())
   userId      String?  @map("user_id")
   connectionId String  @unique @map("connection_id")
-  type        String   @db.VarChar(50)
-  isActive    Boolean  @default(true) @map("is_active")
-  lastPing    DateTime @default(now()) @map("last_ping")
+  type        String   @db.VarChar(50) // 'admin', 'customer', 'guest'
+  lastPing    DateTime @map("last_ping")
   createdAt   DateTime @default(now()) @map("created_at")
   
-  user User? @relation(fields: [userId], references: [id])
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([type])
-  @@index([isActive])
   @@index([lastPing])
   @@map("websocket_connections")
+}
+
+// ============================================================================
+// STORE SETTINGS MODELS
+// ============================================================================
+
+model StoreSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique @db.VarChar(100)
+  value     String   @db.Text
+  type      String   @default("string") @db.VarChar(20) // 'string', 'number', 'boolean', 'json'
+  category  String   @db.VarChar(50) // 'shipping', 'payment', 'general', 'email'
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([key])
+  @@index([category])
+  @@map("store_settings")
+}
+
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  name      String   @unique @db.VarChar(100)
+  subject   String   @db.VarChar(255)
+  body      String   @db.LongText
+  type      String   @db.VarChar(50) // 'order_confirmation', 'order_shipped', etc.
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([name])
+  @@index([type])
+  @@index([isActive])
+  @@map("email_templates")
 }

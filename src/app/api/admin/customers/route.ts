@@ -1,18 +1,17 @@
-// app/api/admin/customers/route.ts - Real-time database implementation
+// src/app/api/admin/customers/route.ts - Fixed version
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentAdmin } from '@/lib/adminAuth'; // FIXED: Use getCurrentAdmin
 import { prisma } from '@/lib/prisma';
-import { notifyCustomerUpdate, notifyNewCustomer } from '@/app/api/ws/admin/route';
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication
-    const user = await getCurrentUser();
+    // FIXED: Check admin authentication
+    const user = await getCurrentAdmin();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (user.role !== 'ADMIN') {
+    if (!user.isAdmin) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
@@ -22,7 +21,6 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
     const role = searchParams.get('role') || '';
-    const status = searchParams.get('status') || '';
 
     // Build where clause for filtering
     const where: any = {};
@@ -38,9 +36,6 @@ export async function GET(request: NextRequest) {
     if (role && role !== 'all') {
       where.role = role;
     }
-
-    // Note: isActive field doesn't exist in your schema, so we'll simulate it
-    // You may need to add this field to your User model if needed
 
     // Get total count for pagination
     const total = await prisma.user.count({ where });
@@ -65,33 +60,30 @@ export async function GET(request: NextRequest) {
       take: limit
     });
 
-    // Transform data with calculated statistics
+    // Transform customers to include computed fields
     const transformedCustomers = customers.map(customer => {
-      const orders = customer.orders || [];
-      const totalOrders = orders.length;
-      const totalSpent = orders.reduce((sum, order) => sum + order.totalAmount, 0);
-      const completedOrders = orders.filter(order => order.status === 'delivered');
-      
+      const orderCount = customer.orders.length;
+      const totalSpent = customer.orders.reduce((sum, order) => sum + order.totalAmount, 0);
+      const lastOrderDate = customer.orders.length > 0 
+        ? customer.orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
+        : null;
+
       return {
         id: customer.id,
-        name: `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email,
+        email: customer.email,
         firstName: customer.firstName,
         lastName: customer.lastName,
-        email: customer.email,
-        phone: null, // Add phone field to User model if needed
-        isActive: true, // Add isActive field to User model if needed
+        name: `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown',
         role: customer.role,
-        createdAt: customer.createdAt.toISOString(),
-        lastLoginAt: null, // Add lastLoginAt field to User model if needed
-        totalOrders,
+        imageUrl: customer.imageUrl,
+        createdAt: customer.createdAt,
+        updatedAt: customer.updatedAt,
+        orderCount,
         totalSpent,
-        averageOrderValue: totalOrders > 0 ? totalSpent / totalOrders : 0,
-        lastOrderDate: orders.length > 0 ? orders[0].createdAt.toISOString() : null,
-        imageUrl: customer.imageUrl
+        lastOrderDate,
+        isActive: true, // Default since field might not exist in schema
       };
     });
-
-    const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({
       success: true,
@@ -100,78 +92,18 @@ export async function GET(request: NextRequest) {
         page,
         limit,
         total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
+        totalPages: Math.ceil(total / limit)
       }
     });
 
   } catch (error) {
-    console.error('Error fetching customers:', error);
+    console.error('Error fetching admin customers:', error);
+    
     return NextResponse.json(
-      { error: 'Failed to fetch customers' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    // Check authentication
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
-
-    const customerData = await request.json();
-
-    // Create new customer
-    const newCustomer = await prisma.user.create({
-      data: {
-        email: customerData.email,
-        firstName: customerData.firstName,
-        lastName: customerData.lastName,
-        role: customerData.role || 'USER',
-        imageUrl: customerData.imageUrl
-      }
-    });
-
-    // Transform for response
-    const transformedCustomer = {
-      id: newCustomer.id,
-      name: `${newCustomer.firstName || ''} ${newCustomer.lastName || ''}`.trim() || newCustomer.email,
-      firstName: newCustomer.firstName,
-      lastName: newCustomer.lastName,
-      email: newCustomer.email,
-      phone: null,
-      isActive: true,
-      role: newCustomer.role,
-      createdAt: newCustomer.createdAt.toISOString(),
-      lastLoginAt: null,
-      totalOrders: 0,
-      totalSpent: 0,
-      averageOrderValue: 0,
-      lastOrderDate: null,
-      imageUrl: newCustomer.imageUrl
-    };
-
-    // Notify real-time subscribers about new customer
-    await notifyNewCustomer(transformedCustomer);
-
-    return NextResponse.json({
-      success: true,
-      customer: transformedCustomer,
-      message: 'Customer created successfully'
-    });
-
-  } catch (error) {
-    console.error('Error creating customer:', error);
-    return NextResponse.json(
-      { error: 'Failed to create customer' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

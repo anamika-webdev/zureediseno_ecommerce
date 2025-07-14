@@ -1,38 +1,35 @@
-// src/app/api/admin/products/route.ts - Fixed to use Prisma
+// src/app/api/admin/products/route.ts - Fixed version
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentAdmin } from '@/lib/adminAuth'; // FIXED: Use getCurrentAdmin instead of getCurrentUser
 import { prisma } from '@/lib/prisma';
+import { slugify } from '@/lib/utils';
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication and admin role
-    const user = await getCurrentUser();
-    
+    // FIXED: Check admin authentication
+    const user = await getCurrentAdmin();
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Forbidden - Admin access required' },
-        { status: 403 }
-      );
+    // FIXED: Admin check is built into getCurrentAdmin()
+    if (!user.isAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
+    // Get query parameters
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const search = searchParams.get('search');
-    const category = searchParams.get('category');
-
-    console.log('🔍 Admin fetching products with Prisma...');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    const categoryId = searchParams.get('categoryId') || '';
+    const subcategoryId = searchParams.get('subcategoryId') || '';
+    const featured = searchParams.get('featured');
+    const inStock = searchParams.get('inStock');
 
     // Build where clause for filtering
     const where: any = {};
-
+    
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -41,28 +38,38 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    if (category) {
-      where.categoryId = category;
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+
+    if (subcategoryId) {
+      where.subcategoryId = subcategoryId;
+    }
+
+    if (featured !== null && featured !== '') {
+      where.featured = featured === 'true';
+    }
+
+    if (inStock !== null && inStock !== '') {
+      where.inStock = inStock === 'true';
     }
 
     // Get total count for pagination
     const total = await prisma.product.count({ where });
 
-    // Fetch products with pagination
+    // Fetch products with related data
     const products = await prisma.product.findMany({
       where,
       include: {
         images: {
           orderBy: { isPrimary: 'desc' }
         },
-        variants: {
-          orderBy: [{ size: 'asc' }, { color: 'asc' }]
-        },
+        variants: true,
         category: {
-          select: { id: true, name: true, slug: true }
+          select: { id: true, name: true }
         },
         subcategory: {
-          select: { id: true, name: true, slug: true }
+          select: { id: true, name: true }
         }
       },
       orderBy: [
@@ -73,15 +80,14 @@ export async function GET(request: NextRequest) {
       take: limit
     });
 
-    console.log('📦 Found products for admin:', products.length);
-
-    // Transform data for frontend
+    // Transform the data to ensure proper types
     const transformedProducts = products.map(product => ({
       id: product.id,
       name: product.name,
       slug: product.slug,
       description: product.description,
-      price: typeof product.price === 'string' ? parseFloat(product.price) : Number(product.price),
+      price: typeof product.price === 'string' ? 
+        parseFloat(product.price) : Number(product.price),
       originalPrice: product.originalPrice ? 
         (typeof product.originalPrice === 'string' ? parseFloat(product.originalPrice) : Number(product.originalPrice)) 
         : null,
@@ -137,55 +143,46 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication and admin role
-    const user = await getCurrentUser();
-    
+    // FIXED: Check admin authentication
+    const user = await getCurrentAdmin();
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Forbidden - Admin access required' },
-        { status: 403 }
-      );
+    if (!user.isAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
     const productData = await request.json();
 
-    if (!productData.name || !productData.categoryId || !productData.price) {
+    // Generate slug from name
+    const slug = slugify(productData.name);
+
+    // Check if slug already exists
+    const existingProduct = await prisma.product.findUnique({
+      where: { slug }
+    });
+
+    if (existingProduct) {
       return NextResponse.json(
-        { error: 'Name, category, and price are required' },
+        { error: 'A product with this name already exists' },
         { status: 400 }
       );
     }
 
-    console.log('🆕 Admin creating product:', productData.name);
-
-    // Generate slug if not provided
-    const slug = productData.slug || productData.name
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
-
-    // Create product with all related data
+    // Create the product
     const product = await prisma.product.create({
       data: {
         name: productData.name,
-        slug: slug,
+        slug,
         description: productData.description || null,
-        price: productData.price,
-        originalPrice: productData.originalPrice || null,
+        price: parseFloat(productData.price),
+        originalPrice: productData.originalPrice ? parseFloat(productData.originalPrice) : null,
         sku: productData.sku || null,
         categoryId: productData.categoryId,
         subcategoryId: productData.subcategoryId || null,
-        inStock: productData.inStock !== false,
         featured: productData.featured || false,
+        inStock: productData.inStock !== undefined ? productData.inStock : true,
         sortOrder: productData.sortOrder || 0,
         
         // Create images

@@ -1,4 +1,4 @@
-// src/app/dashboard/admin/subcategories/page.tsx - Complete subcategory management
+// src/app/dashboard/admin/subcategories/page.tsx - Fixed version
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -80,18 +80,54 @@ export default function SubcategoriesPage() {
         fetch('/api/admin/categories')
       ]);
 
+      // Handle subcategories response
       if (subcategoriesResponse.ok) {
         const subcategoriesData = await subcategoriesResponse.json();
-        setSubcategories(subcategoriesData);
+        console.log('Subcategories API response:', subcategoriesData);
+        
+        // Handle different response formats
+        let subcategoriesArray: any[] = [];
+        if (subcategoriesData.success && Array.isArray(subcategoriesData.subcategories)) {
+          subcategoriesArray = subcategoriesData.subcategories;
+        } else if (Array.isArray(subcategoriesData)) {
+          subcategoriesArray = subcategoriesData;
+        } else {
+          console.error('Invalid subcategories response format:', subcategoriesData);
+          subcategoriesArray = [];
+        }
+        
+        setSubcategories(subcategoriesArray);
+      } else {
+        console.error('Failed to fetch subcategories:', subcategoriesResponse.status);
+        setSubcategories([]);
       }
 
+      // Handle categories response
       if (categoriesResponse.ok) {
         const categoriesData = await categoriesResponse.json();
-        setCategories(categoriesData);
+        console.log('Categories API response:', categoriesData);
+        
+        // Handle different response formats
+        let categoriesArray: any[] = [];
+        if (categoriesData.success && Array.isArray(categoriesData.categories)) {
+          categoriesArray = categoriesData.categories;
+        } else if (Array.isArray(categoriesData)) {
+          categoriesArray = categoriesData;
+        } else {
+          console.error('Invalid categories response format:', categoriesData);
+          categoriesArray = [];
+        }
+        
+        setCategories(categoriesArray);
+      } else {
+        console.error('Failed to fetch categories:', categoriesResponse.status);
+        setCategories([]);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load data');
+      setSubcategories([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -131,6 +167,65 @@ export default function SubcategoriesPage() {
     setSelectedSubcategory(null);
   };
 
+  // Handle form submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.name.trim()) {
+      toast.error('Subcategory name is required');
+      return;
+    }
+
+    if (!formData.categoryId) {
+      toast.error('Please select a category');
+      return;
+    }
+
+    setFormLoading(true);
+
+    try {
+      const slug = generateSlug(formData.name);
+      const payload = {
+        ...formData,
+        slug,
+        name: formData.name.trim(),
+        description: formData.description.trim() || null,
+      };
+
+      const url = selectedSubcategory 
+        ? `/api/admin/subcategories/${selectedSubcategory.id}`
+        : '/api/admin/subcategories';
+      
+      const method = selectedSubcategory ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast.success(
+          selectedSubcategory 
+            ? 'Subcategory updated successfully' 
+            : 'Subcategory created successfully'
+        );
+        handleFormSuccess();
+      } else {
+        toast.error(result.error || 'Failed to save subcategory');
+      }
+    } catch (error) {
+      console.error('Error saving subcategory:', error);
+      toast.error('Failed to save subcategory');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
   // Handle form success
   const handleFormSuccess = () => {
     setIsDialogOpen(false);
@@ -159,20 +254,19 @@ export default function SubcategoriesPage() {
 
   // Handle delete
   const handleDelete = async (subcategoryId: string) => {
-    if (!confirm('Are you sure you want to delete this subcategory?')) {
-      return;
-    }
+    if (!confirm('Are you sure you want to delete this subcategory?')) return;
 
     try {
       const response = await fetch(`/api/admin/subcategories/${subcategoryId}`, {
-        method: 'DELETE',
+        method: 'DELETE'
       });
 
       if (response.ok) {
-        toast.success('Subcategory deleted successfully!');
+        toast.success('Subcategory deleted successfully');
         fetchData();
       } else {
-        throw new Error('Failed to delete subcategory');
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Failed to delete subcategory');
       }
     } catch (error) {
       console.error('Error deleting subcategory:', error);
@@ -180,114 +274,69 @@ export default function SubcategoriesPage() {
     }
   };
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.name.trim()) {
-      toast.error('Please enter a subcategory name');
-      return;
-    }
-
-    if (!formData.categoryId) {
-      toast.error('Please select a category');
-      return;
-    }
-
-    setFormLoading(true);
-
-    try {
-      const slug = generateSlug(formData.name);
-      
-      const submitData = {
-        ...formData,
-        slug,
-      };
-
-      const url = selectedSubcategory?.id 
-        ? `/api/admin/subcategories/${selectedSubcategory.id}`
-        : '/api/admin/subcategories';
-      
-      const method = selectedSubcategory?.id ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      });
-
-      if (response.ok) {
-        toast.success(
-          selectedSubcategory?.id 
-            ? 'Subcategory updated successfully!' 
-            : 'Subcategory created successfully!'
-        );
-        handleFormSuccess();
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save subcategory');
-      }
-    } catch (error) {
-      console.error('Error saving subcategory:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to save subcategory');
-    } finally {
-      setFormLoading(false);
-    }
-  };
-
   if (loading) {
     return (
-      <div className="container mx-auto py-10">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin mr-2" />
-          <span className="text-lg">Loading subcategories...</span>
+      <div className="container mx-auto p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-64"></div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-48 bg-gray-200 rounded-lg"></div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="flex justify-between items-center mb-8">
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Subcategory Management</h1>
-          <p className="text-gray-600 mt-2">Manage your product subcategories</p>
+          <h1 className="text-3xl font-bold text-gray-900">Subcategory Management</h1>
+          <p className="text-gray-600">Manage your product subcategories</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => resetForm()}>
-              <Plus className="w-4 h-4 mr-2" />
+            <Button 
+              onClick={() => {
+                resetForm();
+                setIsDialogOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
               Add Subcategory
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
-                {selectedSubcategory ? 'Edit Subcategory' : 'Add New Subcategory'}
+                {selectedSubcategory ? 'Edit Subcategory' : 'Create New Subcategory'}
               </DialogTitle>
             </DialogHeader>
             
+            {/* Subcategory Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="name">Subcategory Name *</Label>
+                <Label htmlFor="name">Subcategory Name</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder="Enter subcategory name"
                   required
+                  disabled={formLoading}
                 />
               </div>
 
               <div>
-                <Label htmlFor="category">Category *</Label>
+                <Label htmlFor="categoryId">Category</Label>
                 <Select
                   value={formData.categoryId}
                   onValueChange={(value) => handleInputChange('categoryId', value)}
-                  required
+                  disabled={formLoading}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
@@ -303,13 +352,13 @@ export default function SubcategoriesPage() {
               </div>
 
               <div>
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">Description (Optional)</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   placeholder="Enter subcategory description"
-                  rows={3}
+                  disabled={formLoading}
                 />
               </div>
 
@@ -320,7 +369,7 @@ export default function SubcategoriesPage() {
                   type="number"
                   value={formData.sortOrder}
                   onChange={(e) => handleInputChange('sortOrder', parseInt(e.target.value) || 0)}
-                  placeholder="0"
+                  disabled={formLoading}
                 />
               </div>
 
@@ -329,19 +378,20 @@ export default function SubcategoriesPage() {
                   id="featured"
                   checked={formData.featured}
                   onCheckedChange={(checked) => handleInputChange('featured', checked)}
+                  disabled={formLoading}
                 />
                 <Label htmlFor="featured">Featured Subcategory</Label>
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <Button
-                  type="submit"
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  type="submit" 
                   disabled={formLoading}
                   className="flex-1"
                 >
                   {formLoading ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       {selectedSubcategory ? 'Updating...' : 'Creating...'}
                     </>
                   ) : (
@@ -364,6 +414,7 @@ export default function SubcategoriesPage() {
         </Dialog>
       </div>
 
+      {/* Subcategories List */}
       {subcategories.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">No subcategories found</p>

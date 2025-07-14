@@ -1,5 +1,5 @@
-// src/components/admin/CategoryFormModal.tsx
-"use client";
+// src/components/admin/CategoryFormModal.tsx - UPDATED with Product-Style Upload
+'use client';
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { CategoryImageUploadBox } from './CategoryImageUploadBox';
 import { toast } from 'sonner';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Save, X, Tag, Image as ImageIcon, Settings } from 'lucide-react';
 
 interface CategoryFormData {
   id?: string;
@@ -18,6 +20,7 @@ interface CategoryFormData {
   slug?: string;
   description?: string;
   image?: string;
+  images?: string[]; // Add support for multiple images
   featured: boolean;
   sortOrder: number;
 }
@@ -39,34 +42,43 @@ export default function CategoryFormModal({
     name: '',
     description: '',
     image: '',
+    images: [],
     featured: false,
     sortOrder: 0,
   });
 
   const [loading, setLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [slugEdited, setSlugEdited] = useState(false);
 
   // Update form data when category changes
   useEffect(() => {
     if (category) {
-      setFormData(category);
+      // Handle both single image and multiple images
+      const categoryImages = category.images || (category.image ? [category.image] : []);
+      
+      setFormData({
+        id: category.id,
+        name: category.name || '',
+        slug: category.slug || '',
+        description: category.description || '',
+        image: category.image || '',
+        images: categoryImages,
+        featured: category.featured || false,
+        sortOrder: category.sortOrder || 0,
+      });
+      setSlugEdited(!!category.slug);
     } else {
       setFormData({
         name: '',
         description: '',
         image: '',
+        images: [],
         featured: false,
         sortOrder: 0,
       });
+      setSlugEdited(false);
     }
-  }, [category]);
-
-  const handleInputChange = (field: keyof CategoryFormData, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  }, [category, isOpen]);
 
   const generateSlug = (name: string) => {
     return name
@@ -77,52 +89,36 @@ export default function CategoryFormModal({
       .trim();
   };
 
-  // Fixed image upload function with correct endpoint and response handling
-  const handleImageUpload = async (file: File) => {
-    if (!file) return;
-
-    setUploadingImage(true);
-    try {
-      const formDataUpload = new FormData();
-      formDataUpload.append('image', file);
-
-      // Use the correct API endpoint (/api/images)
-      const response = await fetch('/api/images', {
-        method: 'POST',
-        body: formDataUpload,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Use the correct response property (imageUrl)
-        setFormData(prev => ({
-          ...prev,
-          image: data.imageUrl
-        }));
-        toast.success('Image uploaded successfully');
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to upload image');
+  const handleInputChange = (field: keyof CategoryFormData, value: any) => {
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-generate slug from name if not manually edited
+      if (field === 'name' && !slugEdited) {
+        updated.slug = generateSlug(value);
       }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to upload image');
-    } finally {
-      setUploadingImage(false);
-    }
+      
+      return updated;
+    });
   };
 
-  const handleImageRemove = () => {
-    setFormData(prev => ({
-      ...prev,
-      image: ''
+  const handleSlugChange = (value: string) => {
+    setSlugEdited(true);
+    setFormData(prev => ({ ...prev, slug: value }));
+  };
+
+  const handleImagesChange = (images: string[]) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      images: images,
+      image: images[0] || '' // Set first image as primary
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name) {
+    if (!formData.name.trim()) {
       toast.error('Please enter a category name');
       return;
     }
@@ -133,9 +129,15 @@ export default function CategoryFormModal({
       const slug = formData.slug || generateSlug(formData.name);
       
       const submitData = {
-        ...formData,
-        slug,
+        name: formData.name.trim(),
+        slug: slug.trim(),
+        description: formData.description?.trim() || null,
+        image: formData.images?.[0] || formData.image || null, // Use first image as primary
+        featured: formData.featured,
+        sortOrder: formData.sortOrder || 0,
       };
+
+      console.log('Submitting category data:', submitData); // Debug log
 
       const url = category?.id 
         ? `/api/admin/categories/${category.id}`
@@ -152,11 +154,14 @@ export default function CategoryFormModal({
       });
 
       if (response.ok) {
-        toast.success(category?.id ? 'Category updated successfully' : 'Category created successfully');
+        const responseData = await response.json();
+        console.log('Category saved successfully:', responseData); // Debug log
+        toast.success(category?.id ? 'Category updated successfully!' : 'Category created successfully!');
         onSuccess();
         onClose();
       } else {
         const errorData = await response.json().catch(() => ({}));
+        console.error('Error response:', errorData); // Debug log
         throw new Error(errorData.error || 'Failed to save category');
       }
     } catch (error) {
@@ -167,150 +172,178 @@ export default function CategoryFormModal({
     }
   };
 
+  const handleClose = () => {
+    if (!loading) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {category?.id ? 'Edit Category' : 'Add New Category'}
+          <DialogTitle className="flex items-center gap-2">
+            <Tag className="w-5 h-5" />
+            {category?.id ? 'Edit Category' : 'Create New Category'}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Category Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    placeholder="Enter category name"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="sortOrder">Display Order</Label>
-                  <Input
-                    id="sortOrder"
-                    type="number"
-                    min="0"
-                    value={formData.sortOrder}
-                    onChange={(e) => handleInputChange('sortOrder', parseInt(e.target.value) || 0)}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2 mt-4">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description || ''}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Enter category description"
-                  rows={3}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Category Image */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Category Image</h3>
-              
-              <div className="space-y-4">
-                {formData.image ? (
-                  <div className="relative">
-                    <div className="aspect-video relative border rounded-lg overflow-hidden max-w-md">
-                      <img
-                        src={formData.image}
-                        alt={formData.name}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-2 right-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          onClick={handleImageRemove}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - Basic Information */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Tag className="w-4 h-4" />
+                    Basic Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Category Name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-sm font-medium">
+                      Category Name *
+                    </Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      placeholder="Enter category name"
+                      disabled={loading}
+                      required
+                    />
                   </div>
-                ) : (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-                    <div className="text-center">
-                      <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
-                      <div className="mt-4">
-                        <label htmlFor="image-upload" className="cursor-pointer">
-                          <span className="mt-2 block text-sm font-medium text-gray-900">
-                            Upload category image
-                          </span>
-                          <span className="mt-1 block text-sm text-gray-500">
-                            PNG, JPG, GIF up to 5MB
-                          </span>
-                        </label>
-                        <input
-                          id="image-upload"
-                          type="file"
-                          className="hidden"
-                          accept="image/*"
-                          onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
-                          disabled={uploadingImage}
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="mt-3"
-                        onClick={() => document.getElementById('image-upload')?.click()}
-                        disabled={uploadingImage}
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        {uploadingImage ? 'Uploading...' : 'Choose Image'}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Settings */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Settings</h3>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="featured">Featured Category</Label>
-                  <p className="text-sm text-gray-500">Display this category prominently on the homepage</p>
-                </div>
-                <Switch
-                  id="featured"
-                  checked={formData.featured}
-                  onCheckedChange={(checked) => handleInputChange('featured', checked)}
-                />
-              </div>
-            </CardContent>
-          </Card>
+                  {/* URL Slug */}
+                  <div className="space-y-2">
+                    <Label htmlFor="slug" className="text-sm font-medium">
+                      URL Slug
+                    </Label>
+                    <Input
+                      id="slug"
+                      value={formData.slug || ''}
+                      onChange={(e) => handleSlugChange(e.target.value)}
+                      placeholder="category-url-slug"
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-gray-500">
+                      Auto-generated from name. Used in URLs: /category/{formData.slug || 'category-name'}
+                    </p>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-2">
+                    <Label htmlFor="description" className="text-sm font-medium">
+                      Description
+                    </Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description || ''}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      placeholder="Enter category description (optional)"
+                      rows={4}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  {/* Sort Order */}
+                  <div className="space-y-2">
+                    <Label htmlFor="sortOrder" className="text-sm font-medium">
+                      Sort Order
+                    </Label>
+                    <Input
+                      id="sortOrder"
+                      type="number"
+                      value={formData.sortOrder}
+                      onChange={(e) => handleInputChange('sortOrder', parseInt(e.target.value) || 0)}
+                      placeholder="0"
+                      disabled={loading}
+                      min="0"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Lower numbers appear first in category listings
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    Category Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="featured" className="text-sm font-medium">
+                        Featured Category
+                      </Label>
+                      <p className="text-xs text-gray-500">
+                        Display this category prominently on the homepage and in navigation
+                      </p>
+                    </div>
+                    <Switch
+                      id="featured"
+                      checked={formData.featured}
+                      onCheckedChange={(checked) => handleInputChange('featured', checked)}
+                      disabled={loading}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Column - Image Upload */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4" />
+                    Category Images
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CategoryImageUploadBox
+                    images={formData.images || []}
+                    onChange={handleImagesChange}
+                    disabled={loading}
+                    maxImages={3} // Limit to 3 images for categories
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <Separator />
 
           {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-6 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleClose}
+              disabled={loading}
+            >
+              <X className="w-4 h-4 mr-2" />
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || uploadingImage}>
-              {loading ? 'Saving...' : (category?.id ? 'Update Category' : 'Create Category')}
+            <Button 
+              type="submit" 
+              disabled={loading || !formData.name.trim()}
+              className="min-w-[120px]"
+            >
+              {loading ? (
+                'Saving...'
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  {category?.id ? 'Update Category' : 'Create Category'}
+                </>
+              )}
             </Button>
           </div>
         </form>

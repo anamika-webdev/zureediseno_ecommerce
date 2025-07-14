@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
@@ -92,6 +93,18 @@ export const calculateCartTotal = (items: Array<{ price: any; quantity: number }
   }, 0);
 };
 
+// Add the missing slugify function
+export function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')           // Replace spaces with -
+    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+    .replace(/^-+/, '')             // Trim - from start of text
+    .replace(/-+$/, '');            // Trim - from end of text
+}
 // Calculate tax (GST in India is typically 18%)
 export const calculateTax = (amount: any, taxRate: number = 0.18): number => {
   const baseAmount = safeNumber(amount);

@@ -1,325 +1,404 @@
-// src/components/order/OrderTracking.tsx
+// src/components/order/OrderTracking.tsx - Customer Order Tracking Component
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
-  Package, 
   Search, 
-  Mail, 
-  Phone, 
-  MapPin, 
+  Package, 
+  Truck, 
+  CheckCircle, 
+  XCircle, 
+  Clock,
+  MapPin,
+  Phone,
+  Mail,
   Calendar,
   CreditCard,
-  Truck,
-  CheckCircle,
-  Clock,
-  AlertCircle
+  RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface OrderDetails {
+interface TrackingData {
+  id: string;
   orderNumber: string;
-  email: string;
-  orderDate: string;
-  totalAmount: number;
-  paymentMethod: string;
   status: string;
-  items?: Array<{
+  paymentStatus: string;
+  paymentMethod: string;
+  totalAmount: number;
+  trackingNumber?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  shipping: {
     name: string;
-    quantity: number;
-    price: number;
-    size?: string;
-    color?: string;
-  }>;
-  shippingAddress?: {
-    fullName: string;
+    email: string;
+    phone: string;
     address: string;
     city: string;
     state: string;
     pincode: string;
+    country: string;
+  };
+  items: Array<{
+    id: string;
+    productName: string;
+    quantity: number;
+    price: number;
+    size?: string;
+    color?: string;
+    imageUrl?: string;
+    total: number;
+  }>;
+  customer: {
+    name: string;
+    email: string;
+  };
+  timeline: Array<{
+    status: string;
+    label: string;
+    description: string;
+    date: string;
+    completed: boolean;
+    icon: string;
+  }>;
+  estimatedDelivery: string;
+  statusDisplay: {
+    order: {
+      label: string;
+      color: string;
+      description: string;
+    };
+    payment: {
+      label: string;
+      color: string;
+    };
   };
 }
 
 export function OrderTracking() {
-  const [orderNumber, setOrderNumber] = useState('');
-  const [email, setEmail] = useState('');
+  const [formData, setFormData] = useState({
+    orderNumber: '',
+    email: ''
+  });
   const [loading, setLoading] = useState(false);
-  const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
-  const [error, setError] = useState('');
+  const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleTrackOrder = async () => {
-    if (!orderNumber.trim() || !email.trim()) {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.orderNumber.trim() || !formData.email.trim()) {
       toast.error('Please enter both order number and email address');
       return;
     }
 
-    setLoading(true);
-    setError('');
-
     try {
-      // First, check localStorage for guest orders
-      if (typeof window !== 'undefined') {
-        const guestOrders = JSON.parse(localStorage.getItem('guestOrders') || '[]');
-        const foundOrder = guestOrders.find((order: any) => 
-          order.orderNumber === orderNumber && order.email.toLowerCase() === email.toLowerCase()
-        );
+      setLoading(true);
+      setError(null);
+      setTrackingData(null);
 
-        if (foundOrder) {
-          setOrderDetails(foundOrder);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // If not found in localStorage, try API call
-      const response = await fetch(`/api/orders/track`, {
+      const response = await fetch('/api/track-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ orderNumber, email }),
+        body: JSON.stringify({
+          orderNumber: formData.orderNumber.trim(),
+          email: formData.email.trim().toLowerCase()
+        }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Order not found. Please check your order number and email address.');
-        }
-        throw new Error('Failed to fetch order details');
+        throw new Error(data.error || 'Failed to track order');
       }
 
-      const data = await response.json();
-      setOrderDetails(data.order);
+      setTrackingData(data.order);
+      toast.success('Order found successfully!');
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error tracking order:', error);
-      setError(error.message || 'Failed to track order');
-      toast.error(error.message || 'Failed to track order');
+      setError(error instanceof Error ? error.message : 'Failed to track order');
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return <Clock className="h-5 w-5 text-yellow-500" />;
-      case 'confirmed':
-      case 'processing':
-        return <Package className="h-5 w-5 text-blue-500" />;
-      case 'shipped':
-        return <Truck className="h-5 w-5 text-purple-500" />;
-      case 'delivered':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'cancelled':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
-      default:
-        return <Package className="h-5 w-5 text-gray-500" />;
-    }
+  const getStatusIcon = (iconString: string) => {
+    const iconMap: Record<string, any> = {
+      '📋': Clock,
+      '📦': Package,
+      '🚚': Truck,
+      '✅': CheckCircle,
+      '❌': XCircle,
+      '↩️': RotateCcw
+    };
+    return iconMap[iconString] || Clock;
   };
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'delivered':
-        return 'default';
-      case 'shipped':
-        return 'default';
-      case 'confirmed':
-      case 'processing':
-        return 'secondary';
-      case 'pending':
-        return 'outline';
-      case 'cancelled':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const getStatusColor = (color: string) => {
+    const colorMap: Record<string, string> = {
+      blue: 'bg-blue-100 text-blue-800 border-blue-200',
+      yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      purple: 'bg-purple-100 text-purple-800 border-purple-200',
+      green: 'bg-green-100 text-green-800 border-green-200',
+      red: 'bg-red-100 text-red-800 border-red-200',
+      gray: 'bg-gray-100 text-gray-800 border-gray-200'
+    };
+    return colorMap[color] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="space-y-8">
+      {/* Search Form */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
+            <Search className="w-5 h-5" />
             Track Your Order
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="orderNumber">Order Number</Label>
-              <Input
-                id="orderNumber"
-                placeholder="e.g., ORD-1234567890"
-                value={orderNumber}
-                onChange={(e) => setOrderNumber(e.target.value)}
-              />
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="orderNumber">Order Number</Label>
+                <Input
+                  id="orderNumber"
+                  type="text"
+                  placeholder="e.g., ORD-2024-001234"
+                  value={formData.orderNumber}
+                  onChange={(e) => setFormData({...formData, orderNumber: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email address"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  required
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-          </div>
-          
-          <Button 
-            onClick={handleTrackOrder} 
-            disabled={loading}
-            className="w-full"
-          >
-            {loading ? 'Tracking...' : 'Track Order'}
-          </Button>
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-              {error}
-            </div>
-          )}
+            <Button type="submit" disabled={loading} className="w-full md:w-auto">
+              {loading ? 'Tracking...' : 'Track Order'}
+            </Button>
+          </form>
         </CardContent>
       </Card>
 
-      {orderDetails && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Order Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Order Header */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h3 className="font-semibold text-lg">{orderDetails.orderNumber}</h3>
-                <p className="text-gray-600">Placed on {formatDate(orderDetails.orderDate)}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {getStatusIcon(orderDetails.status)}
-                <Badge variant={getStatusBadgeVariant(orderDetails.status)}>
-                  {orderDetails.status}
-                </Badge>
-              </div>
-            </div>
+      {/* Error Display */}
+      {error && (
+        <Alert variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-            <Separator />
-
-            {/* Order Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <CreditCard className="h-4 w-4 text-gray-500" />
-                  <span className="font-medium">Payment Method:</span>
-                  <span className="capitalize">{orderDetails.paymentMethod}</span>
+      {/* Tracking Results */}
+      {trackingData && (
+        <div className="space-y-6">
+          {/* Order Header */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-xl">Order {trackingData.orderNumber}</CardTitle>
+                  <p className="text-gray-600">
+                    Placed on {new Date(trackingData.createdAt).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </p>
                 </div>
-                
-                <div className="flex items-center gap-2 text-sm">
-                  <Package className="h-4 w-4 text-gray-500" />
-                  <span className="font-medium">Total Amount:</span>
-                  <span className="font-semibold">₹{orderDetails.totalAmount.toFixed(2)}</span>
+                <div className="flex gap-2 flex-wrap">
+                  <Badge className={getStatusColor(trackingData.statusDisplay.order.color)}>
+                    {trackingData.statusDisplay.order.label}
+                  </Badge>
+                  <Badge className={getStatusColor(trackingData.statusDisplay.payment.color)}>
+                    {trackingData.statusDisplay.payment.label}
+                  </Badge>
                 </div>
-
-                <div className="flex items-start gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-gray-500 mt-0.5" />
-                  <div>
-                    <span className="font-medium">Email:</span>
-                    <br />
-                    <span>{orderDetails.email}</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <span>
+                    <strong>Estimated Delivery:</strong> {trackingData.estimatedDelivery}
+                  </span>
+                </div>
+                {trackingData.trackingNumber && (
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-gray-500" />
+                    <span>
+                      <strong>Tracking:</strong> {trackingData.trackingNumber}
+                    </span>
                   </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-gray-500" />
+                  <span>
+                    <strong>Total:</strong> ₹{trackingData.totalAmount.toFixed(2)}
+                  </span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              {orderDetails.shippingAddress && (
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                    <div>
-                      <span className="font-medium">Shipping Address:</span>
-                      <br />
-                      <span>{orderDetails.shippingAddress.fullName}</span>
-                      <br />
-                      <span>{orderDetails.shippingAddress.address}</span>
-                      <br />
-                      <span>
-                        {orderDetails.shippingAddress.city}, {orderDetails.shippingAddress.state} - {orderDetails.shippingAddress.pincode}
-                      </span>
+          {/* Timeline */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Order Timeline</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {trackingData.timeline.map((step, index) => {
+                  const Icon = getStatusIcon(step.icon);
+                  const isLast = index === trackingData.timeline.length - 1;
+                  
+                  return (
+                    <div key={step.status} className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className={`
+                          w-10 h-10 rounded-full flex items-center justify-center border-2
+                          ${step.completed 
+                            ? 'bg-green-100 border-green-300 text-green-600' 
+                            : 'bg-gray-100 border-gray-300 text-gray-400'
+                          }
+                        `}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        {!isLast && (
+                          <div className={`
+                            w-px h-8 mt-2
+                            ${step.completed ? 'bg-green-300' : 'bg-gray-300'}
+                          `} />
+                        )}
+                      </div>
+                      <div className="flex-1 pb-8">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <h4 className={`font-medium ${step.completed ? 'text-green-600' : 'text-gray-500'}`}>
+                              {step.label}
+                            </h4>
+                            <p className="text-sm text-gray-600 mt-1">{step.description}</p>
+                          </div>
+                          {step.date && (
+                            <div className="text-xs text-gray-500 mt-2 md:mt-0">
+                              {new Date(step.date).toLocaleString('en-IN')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Order Items */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Order Items</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {trackingData.items.map((item) => (
+                    <div key={item.id} className="flex gap-3 p-3 border rounded-lg">
+                      {item.imageUrl && (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.productName}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <h5 className="font-medium text-sm">{item.productName}</h5>
+                        <div className="text-xs text-gray-600 mt-1">
+                          {item.size && <span>Size: {item.size}</span>}
+                          {item.size && item.color && <span> • </span>}
+                          {item.color && <span>Color: {item.color}</span>}
+                        </div>
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="text-sm">Qty: {item.quantity}</span>
+                          <span className="font-medium">₹{item.total.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Shipping Address */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Shipping Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h5 className="font-medium text-sm mb-2">Delivery Address</h5>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 mt-0.5 text-gray-400" />
+                      <div>
+                        <div className="font-medium text-gray-900">{trackingData.shipping.name}</div>
+                        <div>{trackingData.shipping.address}</div>
+                        <div>{trackingData.shipping.city}, {trackingData.shipping.state} {trackingData.shipping.pincode}</div>
+                        <div>{trackingData.shipping.country}</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Order Items */}
-            {orderDetails.items && orderDetails.items.length > 0 && (
-              <>
+                
                 <Separator />
+                
                 <div>
-                  <h4 className="font-medium mb-3">Order Items</h4>
-                  <div className="space-y-3">
-                    {orderDetails.items.map((item, index) => (
-                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <h5 className="font-medium">{item.name}</h5>
-                          <div className="text-sm text-gray-600">
-                            {item.size && <span>Size: {item.size}</span>}
-                            {item.size && item.color && <span> • </span>}
-                            {item.color && <span>Color: {item.color}</span>}
-                            <br />
-                            <span>Quantity: {item.quantity}</span>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</p>
-                          <p className="text-sm text-gray-600">₹{item.price.toFixed(2)} each</p>
-                        </div>
-                      </div>
-                    ))}
+                  <h5 className="font-medium text-sm mb-2">Contact Information</h5>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-gray-400" />
+                      <span>{trackingData.shipping.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-gray-400" />
+                      <span>{trackingData.shipping.phone}</span>
+                    </div>
                   </div>
                 </div>
-              </>
-            )}
+              </CardContent>
+            </Card>
+          </div>
 
-            {/* Status Timeline */}
-            <Separator />
-            <div>
-              <h4 className="font-medium mb-3">Order Status</h4>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-blue-700">
-                  {getStatusIcon(orderDetails.status)}
-                  <span className="font-medium">Current Status: {orderDetails.status}</span>
-                </div>
-                <p className="text-sm text-blue-600 mt-1">
-                  {orderDetails.status === 'pending' && 'Your order has been received and is being processed.'}
-                  {orderDetails.status === 'confirmed' && 'Your order has been confirmed and is being prepared.'}
-                  {orderDetails.status === 'processing' && 'Your order is currently being processed.'}
-                  {orderDetails.status === 'shipped' && 'Your order has been shipped and is on its way.'}
-                  {orderDetails.status === 'delivered' && 'Your order has been delivered successfully.'}
-                  {orderDetails.status === 'cancelled' && 'Your order has been cancelled.'}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          {/* Order Notes */}
+          {trackingData.notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Order Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600">{trackingData.notes}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );

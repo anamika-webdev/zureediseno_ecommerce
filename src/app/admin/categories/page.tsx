@@ -114,7 +114,7 @@ export default function CategoriesPage() {
               Add Category
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
                 {selectedCategory ? 'Edit Category' : 'Add New Category'}

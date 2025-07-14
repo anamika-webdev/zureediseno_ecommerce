@@ -1,4 +1,4 @@
-// src/context/AdminAuthContext.tsx - Separate Admin Authentication
+// src/context/AdminAuthContext.tsx - Final Fixed Version
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
@@ -37,11 +37,11 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Check if current path is admin route
-  const isAdminRoute = pathname?.startsWith('/dashboard/admin') || pathname?.startsWith('/admin');
+  // FIXED: Check all dashboard routes, not just /dashboard/admin
+  const isAdminRoute = pathname?.startsWith('/dashboard') || pathname?.startsWith('/admin');
 
   useEffect(() => {
-    // Only initialize admin auth on admin routes
+    // Initialize admin auth on dashboard/admin routes
     if (isAdminRoute) {
       checkAdminAuth();
     } else {
@@ -63,9 +63,9 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
         setUser(userData);
       } else {
         setUser(null);
-        // Only redirect if we're on an admin route and not already on login
-        if (isAdminRoute && !pathname?.includes('/admin/login')) {
-          router.push('/admin/login');
+        // FIXED: Don't redirect if already on login page
+        if (isAdminRoute && !pathname?.includes('/login')) {
+          router.push('/admin/login?redirect=' + encodeURIComponent(pathname || '/dashboard'));
         }
       }
     } catch (error) {
@@ -78,7 +78,6 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      console.log('Making login request...');
       const response = await fetch('/api/admin/auth/login', {
         method: 'POST',
         headers: {
@@ -88,16 +87,12 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
         body: JSON.stringify({ email, password }),
       });
 
-      console.log('Login response status:', response.status);
-
       if (response.ok) {
         const userData = await response.json();
-        console.log('Login successful, user data:', userData);
         setUser(userData);
         return true;
       } else {
         const error = await response.json();
-        console.error('Login failed:', error);
         throw new Error(error.message || 'Login failed');
       }
     } catch (error) {
