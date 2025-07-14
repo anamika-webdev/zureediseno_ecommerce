@@ -1,4 +1,4 @@
-// src/app/admin/login/page.tsx - FIXED Admin Login with Proper Redirect
+// src/app/admin/login/page.tsx - FIXED Admin Login with Proper Redirect (Blue box removed)
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Shield, Eye, EyeOff } from 'lucide-react';
+import { Shield, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AdminLoginPage() {
@@ -202,47 +202,8 @@ export default function AdminLoginPage() {
               </Button>
             </form>
 
-            {/* Admin Account Setup Help */}
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-blue-800">Need an admin account?</h3>
-                  <div className="mt-2 text-sm text-blue-700">
-                    <p className="mb-2">To create an admin user, run this SQL in your database:</p>
-                    <pre className="text-xs bg-blue-100 p-2 rounded overflow-x-auto whitespace-pre-wrap">
-{`-- Make existing user admin
-UPDATE users SET role = 'ADMIN' 
-WHERE email = 'your-email@example.com';
-
--- Or create new admin user
-INSERT INTO users (id, email, firstName, lastName, password, role) 
-VALUES (
-  'admin-id', 
-  'admin@test.com', 
-  'Admin', 
-  'User', 
-  '$2a$12$hashedPasswordHere', 
-  'ADMIN'
-);`}
-                    </pre>
-                    <p className="mt-2 text-xs">
-                      Replace the hashed password with a bcrypt hash of your desired password.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Debug Info */}
-            <details className="mt-4">
-              <summary className="cursor-pointer text-sm text-gray-600">Debug Info</summary>
-              <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
-                <p>Current URL: {typeof window !== 'undefined' ? window.location.href : 'N/A'}</p>
-                <p>Login API: /api/admin/auth/login</p>
-                <p>Target Redirect: /dashboard/admin/categories</p>
-              </div>
-            </details>
+            {/* REMOVED: Blue info box with SQL commands was here */}
+            
           </CardContent>
         </Card>
       </div>
