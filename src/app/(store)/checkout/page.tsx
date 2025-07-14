@@ -1,6 +1,6 @@
 // src/app/(store)/checkout/page.tsx - Complete updated version
 'use client';
-
+export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';

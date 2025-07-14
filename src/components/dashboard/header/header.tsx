@@ -1,6 +1,6 @@
 // src/components/dashboard/header/header.tsx - Updated with NextAuth
 'use client'
-
+export const dynamic = 'force-dynamic'
 import { useAuth } from "@/context/AuthContext";
 import ThemeToggle from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";

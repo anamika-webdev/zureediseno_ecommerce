@@ -1,6 +1,6 @@
 // src/app/(store)/orders/page.tsx - Fixed Customer Orders Page
 'use client';
-
+export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';

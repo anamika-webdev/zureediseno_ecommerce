@@ -1,6 +1,6 @@
 // src/context/AuthContext.tsx - Updated with proper admin redirect
 'use client'
-
+export const dynamic = 'force-dynamic'
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 

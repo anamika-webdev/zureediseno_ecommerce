@@ -101,11 +101,28 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     // Enable server components with serializable props only
+    serverComponentsExternalPackages: ['bcryptjs'],
     serverComponentsExternalPackages: ['nodemailer'],
   },
   // Disable strict mode for development if needed
   reactStrictMode: true,
-  
+   async rewrites() {
+    return []
+  },
+  // Disable static optimization for auth pages
+  async headers() {
+    return [
+      {
+        source: '/auth/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+    ]
+  },
   // Environment variables
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,

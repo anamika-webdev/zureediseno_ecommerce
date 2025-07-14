@@ -1,6 +1,5 @@
 'use client'
 
-// Add this line to force dynamic rendering
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'

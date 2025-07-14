@@ -1,5 +1,5 @@
 "use client";
-
+export const dynamic = 'force-dynamic'
 import Link from "next/link";
 import { ShoppingBag, User, Search, Menu, LogOut, ChevronDown, Scissors, Package } from "lucide-react";
 
