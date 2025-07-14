@@ -89,36 +89,6 @@ export default function CategoriesPage() {
     setIsDialogOpen(true)
   }
 
-  // Test delete function
-  const testDelete = async (categoryId: string) => {
-    try {
-      console.log('🧪 Testing delete for category:', categoryId);
-      
-      const response = await fetch('/api/admin/categories/test-delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ categoryId }),
-      });
-
-      const result = await response.json();
-      console.log('🧪 Delete test result:', result);
-      
-      if (result.canDelete) {
-        toast.success(`✅ Safe to delete: ${result.reason}`);
-        // Proceed with actual delete
-        handleDelete(categoryId);
-      } else {
-        toast.error(`❌ Cannot delete: ${result.reason}`);
-      }
-      
-    } catch (error) {
-      console.error('❌ Delete test error:', error);
-      toast.error('Delete test failed');
-    }
-  };
 
   // Handle delete
   const handleDelete = async (categoryId: string) => {
@@ -271,13 +241,6 @@ export default function CategoriesPage() {
                 >
                   <Edit className="w-4 h-4 mr-1" />
                   Edit
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => testDelete(category.id)}
-                >
-                  Test
                 </Button>
                 <Button
                   variant="destructive"
