@@ -1,4 +1,5 @@
 // src/app/api/auth/login/route.ts
+export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSession, verifyPassword } from '@/lib/auth'
