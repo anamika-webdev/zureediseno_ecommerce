@@ -1,23 +1,16 @@
-// src/app/(store)/tailoredoutfit/page.tsx - Universal Version for Logged Users + Guests
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import {
   Form,
   FormControl,
@@ -25,54 +18,57 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from '@/components/ui/form';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { 
-  Phone, 
-  ImageIcon, 
-  Ruler, 
+  Upload, 
+  X, 
   Palette, 
-  Upload,
-  CheckCircle,
+  Ruler, 
+  UserCheck, 
+  UserX,
+  Loader2,
+  Phone,
   Mail,
-  User,
-  Plus,
-  X,
-  UserCheck,
-  UserX
-} from "lucide-react";
+  User
+} from 'lucide-react';
 
-// Existing image and color palette data
+// Tailoring hero image
 const tailoringImage = {
-  src: "/assets/img/2.jpg",
-  alt: "Expert tailoring process",
+  src: '/assets/img/1.jpg',
+  alt: 'Custom tailoring process'
 };
 
-const colorPalette = [
+// Predefined color options
+const predefinedColors = [
   // Blues
   { name: "Navy Blue", hex: "#1e3a8a" },
-  { name: "Royal Blue", hex: "#1e40af" },
+  { name: "Royal Blue", hex: "#1d4ed8" },
   { name: "Sky Blue", hex: "#0ea5e9" },
   { name: "Light Blue", hex: "#7dd3fc" },
   
   // Grays
   { name: "Charcoal", hex: "#374151" },
-  { name: "Dark Gray", hex: "#4b5563" },
-  { name: "Medium Gray", hex: "#6b7280" },
-  { name: "Light Gray", hex: "#d1d5db" },
+  { name: "Light Gray", hex: "#9ca3af" },
+  { name: "Silver", hex: "#e5e7eb" },
   
   // Reds
-  { name: "Burgundy", hex: "#7c2d12" },
-  { name: "Wine Red", hex: "#991b1b" },
+  { name: "Maroon", hex: "#7f1d1d" },
   { name: "Crimson", hex: "#dc2626" },
-  { name: "Rose", hex: "#f43f5e" },
+  { name: "Wine Red", hex: "#991b1b" },
   
   // Greens
-  { name: "Forest Green", hex: "#166534" },
+  { name: "Forest Green", hex: "#065f46" },
   { name: "Emerald", hex: "#059669" },
-  { name: "Sage Green", hex: "#84cc16" },
-  { name: "Mint", hex: "#10b981" },
+  { name: "Olive", hex: "#65a30d" },
   
-  // Earth Tones
+  // Earth tones
   { name: "Brown", hex: "#92400e" },
   { name: "Tan", hex: "#d97706" },
   { name: "Beige", hex: "#fbbf24" },
@@ -149,7 +145,6 @@ type TailorFormValues = z.infer<typeof tailorFormSchema>;
 
 export default function TailoredOutfitPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [showMeasurements, setShowMeasurements] = useState(false);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
@@ -184,81 +179,90 @@ export default function TailoredOutfitPage() {
     };
 
     checkUser();
-    window.scrollTo(0, 0);
   }, []);
 
   const form = useForm<TailorFormValues>({
     resolver: zodResolver(tailorFormSchema),
     defaultValues: {
-      customerName: "",
-      customerEmail: "",
-      phoneNumber: "",
-      designDescription: "",
-      colorDescription: "",
+      customerName: '',
+      customerEmail: '',
+      phoneNumber: '',
+      designDescription: '',
+      colorDescription: '',
+      fabricPreference: '',
       measurements: {
         providedByCustomer: false,
-        chest: "",
-        waist: "",
-        hips: "",
-        shoulders: "",
-        inseam: "",
-        sleeves: "",
+        chest: '',
+        waist: '',
+        hips: '',
+        shoulders: '',
+        inseam: '',
+        sleeves: '',
       },
-      fabricPreference: "",
     },
   });
 
-  // Pre-fill user data if logged in
+  // Pre-fill form for logged-in users
   useEffect(() => {
-    if (!userLoading && currentUser) {
-      // Auto-fill logged user's data
+    if (currentUser && !userLoading) {
       const userName = currentUser.name || 
                       `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() ||
                       currentUser.fullName || '';
       
-      if (userName) {
-        form.setValue("customerName", userName);
-      }
-      
-      if (currentUser.email) {
-        form.setValue("customerEmail", currentUser.email);
-      }
-      
-      if (currentUser.phone) {
-        form.setValue("phoneNumber", currentUser.phone);
-      }
-      
-      console.log('📝 Pre-filled form with user data');
+      if (userName) form.setValue("customerName", userName);
+      if (currentUser.email) form.setValue("customerEmail", currentUser.email);
+      if (currentUser.phone) form.setValue("phoneNumber", currentUser.phone);
     }
-  }, [userLoading, currentUser, form]);
+  }, [currentUser, userLoading, form]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      form.setValue("image", files);
-      
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select a JPEG, PNG, WebP, or GIF image.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file size (5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 5MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onloadend = () => {
         setPreviewImage(reader.result as string);
       };
       reader.readAsDataURL(file);
+      
+      // Update form
+      form.setValue("image", event.target.files);
     }
   };
 
-  const handleMeasurementCheck = (checked: boolean) => {
-    form.setValue("measurements.providedByCustomer", checked);
-    setShowMeasurements(!checked);
+  const removeImage = () => {
+    setPreviewImage(null);
+    form.setValue("image", undefined);
+    // Reset the file input
+    const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
   };
 
-  const handleColorSelect = (hex: string, name?: string) => {
-    const colorName = name || colorPalette.find(color => color.hex === hex)?.name || hex;
-    
-    if (selectedColors.includes(hex)) {
-      const newColors = selectedColors.filter(color => color !== hex);
-      setSelectedColors(newColors);
-      updateColorDescription(newColors);
-    } else {
+  const addColor = (hex: string) => {
+    if (!selectedColors.includes(hex) && selectedColors.length < 5) {
       const newColors = [...selectedColors, hex];
       setSelectedColors(newColors);
       updateColorDescription(newColors);
@@ -267,7 +271,7 @@ export default function TailoredOutfitPage() {
 
   const updateColorDescription = (colors: string[]) => {
     const colorDescriptions = colors.map(hex => {
-      const colorData = colorPalette.find(color => color.hex === hex);
+      const colorData = predefinedColors.find(c => c.hex.toLowerCase() === hex.toLowerCase());
       return colorData ? `${colorData.name} (${hex})` : `Custom (${hex})`;
     });
     
@@ -283,6 +287,19 @@ export default function TailoredOutfitPage() {
   const clearAllColors = () => {
     setSelectedColors([]);
     form.setValue("colorDescription", "");
+  };
+
+  const handleMeasurementCheck = (checked: boolean) => {
+    form.setValue("measurements.providedByCustomer", checked);
+    // Clear measurement values when customer will provide separately
+    if (checked) {
+      form.setValue("measurements.chest", "");
+      form.setValue("measurements.waist", "");
+      form.setValue("measurements.hips", "");
+      form.setValue("measurements.shoulders", "");
+      form.setValue("measurements.inseam", "");
+      form.setValue("measurements.sleeves", "");
+    }
   };
 
   const onSubmit = async (data: TailorFormValues) => {
@@ -337,7 +354,6 @@ export default function TailoredOutfitPage() {
         // Reset form
         form.reset();
         setPreviewImage(null);
-        setShowMeasurements(false);
         setSelectedColors([]);
         
         // Re-fill user data if logged in
@@ -389,8 +405,8 @@ export default function TailoredOutfitPage() {
             Experience our custom tailoring service where you can create bespoke garments tailored to your exact measurements and style preferences.
           </p>
           
-          {/* User Status Indicator */}
-          <div className="mt-6 flex justify-center">
+         {/* User Status Indicator */}
+         {/*  <div className="mt-6 flex justify-center">
             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border ${
               currentUser 
                 ? 'bg-green-50 border-green-200 text-green-800' 
@@ -409,14 +425,14 @@ export default function TailoredOutfitPage() {
                   <UserX className="h-4 w-4" />
                   <span className="text-sm font-medium">
                     Submitting as guest. You can also 
-                    <a href="/login" className="ml-1 underline hover:no-underline">
+                    <a href="/auth/signin" className="ml-1 underline hover:no-underline">
                       log in
                     </a> for faster checkout.
                   </span>
                 </>
               )}
             </div>
-          </div>
+          </div>*/}
         </div>
         
         <div className="bg-gray-100 rounded-lg overflow-hidden mb-16">
@@ -436,7 +452,7 @@ export default function TailoredOutfitPage() {
               </p>
               
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   
                   {/* Customer Information */}
                   <div className={`p-4 rounded-lg border ${
@@ -448,9 +464,9 @@ export default function TailoredOutfitPage() {
                       <User className="h-5 w-5" />
                       Contact Information
                       {currentUser && (
-                        <span className="text-sm font-normal text-green-600 bg-green-100 px-2 py-1 rounded">
-                          Auto-filled from account
-                        </span>
+                        <Badge className="bg-green-100 text-green-800">
+                          Pre-filled from account
+                        </Badge>
                       )}
                     </h3>
                     
@@ -462,11 +478,7 @@ export default function TailoredOutfitPage() {
                           <FormItem>
                             <FormLabel>Full Name *</FormLabel>
                             <FormControl>
-                              <Input 
-                                placeholder="Your full name" 
-                                {...field}
-                                className={currentUser ? 'bg-green-50' : ''}
-                              />
+                              <Input placeholder="Enter your full name" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -475,20 +487,12 @@ export default function TailoredOutfitPage() {
 
                       <FormField
                         control={form.control}
-                        name="customerEmail"
+                        name="phoneNumber"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="flex items-center gap-2">
-                              <Mail className="h-4 w-4" />
-                              Email Address *
-                            </FormLabel>
+                            <FormLabel>Phone Number *</FormLabel>
                             <FormControl>
-                              <Input 
-                                type="email" 
-                                placeholder="your.email@example.com" 
-                                {...field}
-                                className={currentUser ? 'bg-green-50' : ''}
-                              />
+                              <Input placeholder="Enter your phone number" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -498,19 +502,12 @@ export default function TailoredOutfitPage() {
 
                     <FormField
                       control={form.control}
-                      name="phoneNumber"
+                      name="customerEmail"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-2">
-                            <Phone className="h-4 w-4" />
-                            Phone Number *
-                          </FormLabel>
+                        <FormItem className="mt-4">
+                          <FormLabel>Email Address *</FormLabel>
                           <FormControl>
-                            <Input 
-                              placeholder="+91 98765 43210" 
-                              {...field}
-                              className={currentUser && currentUser.phone ? 'bg-green-50' : ''}
-                            />
+                            <Input placeholder="Enter your email address" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -527,7 +524,7 @@ export default function TailoredOutfitPage() {
                         <FormLabel>Design Description *</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Describe your desired outfit, style, occasion, specific requirements, etc. Be as detailed as possible."
+                            placeholder="Describe your desired outfit in detail. Include style, occasion, any specific requirements..."
                             className="h-24"
                             {...field}
                           />
@@ -537,121 +534,68 @@ export default function TailoredOutfitPage() {
                     )}
                   />
 
-                  {/* Image Upload */}
-                  <div className="space-y-2">
-                    <Label htmlFor="image" className="flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4" />
-                      Upload Design Reference (optional)
-                    </Label>
-                    <Input 
-                      id="image" 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={handleImageChange}
-                    />
-                    
-                    {previewImage && (
-                      <div className="mt-3 p-2 border border-gray-200 rounded-lg">
-                        <img 
-                          src={previewImage} 
-                          alt="Design reference preview" 
-                          className="max-w-full h-48 object-contain mx-auto rounded"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Enhanced Color Selection */}
+                  {/* Color Selection */}
                   <div className="space-y-4">
                     <Label className="flex items-center gap-2">
                       <Palette className="h-4 w-4" />
-                      Color Preferences (optional)
+                      Color Preferences
                     </Label>
                     
-                    {/* Preset Color Palette */}
+                    {/* Predefined Colors */}
                     <div>
-                      <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                        Quick Select Colors:
-                      </Label>
-                      <div className="grid grid-cols-6 md:grid-cols-8 gap-2">
-                        {colorPalette.map((color) => (
+                      <Label className="text-sm font-medium mb-2 block">Popular Colors:</Label>
+                      <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+                        {predefinedColors.map((color) => (
                           <button
                             key={color.hex}
                             type="button"
-                            onClick={() => handleColorSelect(color.hex, color.name)}
-                            className={`w-10 h-10 rounded-lg border-2 transition-all duration-200 hover:scale-110 ${
-                              selectedColors.includes(color.hex) 
-                                ? 'border-black ring-2 ring-black ring-offset-2' 
+                            onClick={() => addColor(color.hex)}
+                            disabled={selectedColors.includes(color.hex) || selectedColors.length >= 5}
+                            className={`w-full h-12 rounded border-2 transition-all relative group ${
+                              selectedColors.includes(color.hex)
+                                ? 'border-gray-900 scale-95'
                                 : 'border-gray-300 hover:border-gray-500'
-                            }`}
+                            } ${selectedColors.length >= 5 && !selectedColors.includes(color.hex) ? 'opacity-50 cursor-not-allowed' : ''}`}
                             style={{ backgroundColor: color.hex }}
-                            title={color.name}
-                          />
+                          >
+                            <span className="absolute inset-x-0 bottom-0 bg-black bg-opacity-75 text-white text-xs py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {color.name}
+                            </span>
+                          </button>
                         ))}
                       </div>
                     </div>
 
                     {/* Custom Color Picker */}
                     <div>
-                      <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                        Custom Color Picker:
-                      </Label>
-                      
                       <Dialog open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
                         <DialogTrigger asChild>
-                          <Button type="button" variant="outline" className="w-full">
-                            <Plus className="h-4 w-4 mr-2" />
-                            Open Color Palette
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            disabled={selectedColors.length >= 5}
+                            className="w-full"
+                          >
+                            Add Custom Color
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
+                        <DialogContent className="max-w-md">
                           <DialogHeader>
-                            <DialogTitle>Choose Custom Colors</DialogTitle>
+                            <DialogTitle>Choose Custom Color</DialogTitle>
                           </DialogHeader>
-                          
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-10 gap-1">
-                              {extendedColorPalette.map((color, index) => (
-                                <button
-                                  key={index}
-                                  type="button"
-                                  onClick={() => handleColorSelect(color)}
-                                  className={`w-8 h-8 rounded border transition-all duration-200 hover:scale-110 ${
-                                    selectedColors.includes(color) 
-                                      ? 'ring-2 ring-black ring-offset-1' 
-                                      : 'border-gray-300'
-                                  }`}
-                                  style={{ backgroundColor: color }}
-                                  title={color}
-                                />
-                              ))}
-                            </div>
-                            
-                            {/* HTML5 Color Picker */}
-                            <div className="border-t pt-4">
-                              <Label className="text-sm font-medium mb-2 block">
-                                Or pick any color:
-                              </Label>
-                              <div className="flex gap-2 items-center">
-                                <input
-                                  type="color"
-                                  onChange={(e) => handleColorSelect(e.target.value)}
-                                  className="w-12 h-12 rounded border border-gray-300 cursor-pointer"
-                                />
-                                <span className="text-sm text-gray-600">
-                                  Click to open your system color picker
-                                </span>
-                              </div>
-                            </div>
-                            
-                            <div className="flex justify-end">
-                              <Button 
-                                type="button" 
-                                onClick={() => setIsColorPickerOpen(false)}
-                              >
-                                Done
-                              </Button>
-                            </div>
+                          <div className="grid grid-cols-10 gap-1 p-4">
+                            {extendedColorPalette.map((hex) => (
+                              <button
+                                key={hex}
+                                type="button"
+                                onClick={() => {
+                                  addColor(hex);
+                                  setIsColorPickerOpen(false);
+                                }}
+                                className="w-8 h-8 rounded border border-gray-300 hover:scale-110 transition-transform"
+                                style={{ backgroundColor: hex }}
+                              />
+                            ))}
                           </div>
                         </DialogContent>
                       </Dialog>
@@ -659,34 +603,34 @@ export default function TailoredOutfitPage() {
 
                     {/* Selected Colors Display */}
                     {selectedColors.length > 0 && (
-                      <div className="bg-gray-50 p-4 rounded-lg border">
+                      <div className="p-3 bg-gray-50 rounded border">
                         <div className="flex items-center justify-between mb-2">
-                          <Label className="text-sm font-medium text-gray-700">
-                            Selected Colors ({selectedColors.length}):
+                          <Label className="text-sm font-medium">
+                            Selected Colors ({selectedColors.length}/5):
                           </Label>
                           <Button
                             type="button"
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={clearAllColors}
+                            className="text-red-600 hover:text-red-800"
                           >
                             Clear All
                           </Button>
                         </div>
-                        
                         <div className="flex flex-wrap gap-2">
-                          {selectedColors.map((color, index) => {
-                            const colorData = colorPalette.find(c => c.hex === color);
+                          {selectedColors.map((color) => {
+                            const colorData = predefinedColors.find(c => c.hex.toLowerCase() === color.toLowerCase());
                             return (
                               <div
-                                key={index}
-                                className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border"
+                                key={color}
+                                className="flex items-center gap-2 bg-white border rounded px-2 py-1"
                               >
                                 <div
-                                  className="w-6 h-6 rounded border border-gray-300"
+                                  className="w-4 h-4 rounded border"
                                   style={{ backgroundColor: color }}
                                 />
-                                <span className="text-sm">
+                                <span className="text-xs">
                                   {colorData?.name || color}
                                 </span>
                                 <button
@@ -717,6 +661,7 @@ export default function TailoredOutfitPage() {
                               {...field}
                             />
                           </FormControl>
+                          <FormMessage />
                         </FormItem>
                       )}
                     />
@@ -735,29 +680,78 @@ export default function TailoredOutfitPage() {
                             {...field}
                           />
                         </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  {/* Measurements Section */}
+                  {/* Image Upload */}
                   <div className="space-y-3">
-                    <Label className="flex items-center gap-2">
-                      <Ruler className="h-4 w-4" />
+                    <Label>Reference Image (optional)</Label>
+                    
+                    {!previewImage ? (
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <Upload className="mx-auto h-5 w-12 text-gray-400 mb-4" />
+                        <div>
+                          <label htmlFor="image-upload" className="cursor-pointer">
+                            <span className="text-blue-600 hover:text-blue-800 font-medium">
+                              Click to upload an image
+                            </span>
+                            <input
+                              id="image-upload"
+                              type="file"
+                              accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                              className="hidden"
+                              onChange={handleImageUpload}
+                            />
+                          </label>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          JPEG, PNG, WebP, GIF up to 5MB
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <img
+                          src={previewImage}
+                          alt="Design reference"
+                          className="w-full max-w-xs h-48 object-cover rounded border"
+                        />
+                        <button
+                          type="button"
+                          onClick={removeImage}
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Measurements Section - Always Visible */}
+                  <div className="space-y-4">
+                    <Label className="flex items-center gap-2 text-lg font-semibold">
+                      <Ruler className="h-5 w-5" />
                       Measurements
                     </Label>
                     
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="providedByCustomer"
-                        checked={form.watch("measurements.providedByCustomer")}
-                        onCheckedChange={handleMeasurementCheck}
-                      />
-                      <Label htmlFor="providedByCustomer">
-                        I will provide measurements separately (via phone/visit)
-                      </Label>
-                    </div>
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800 mb-3">
+                        ✨ You can either provide measurements now or indicate that you'll provide them later via phone/visit.
+                      </p>
+                      
+                      <div className="flex items-center space-x-2 mb-4">
+                        <Checkbox
+                          id="providedByCustomer"
+                          checked={form.watch("measurements.providedByCustomer")}
+                          onCheckedChange={handleMeasurementCheck}
+                        />
+                        <Label htmlFor="providedByCustomer" className="font-medium">
+                          I will provide measurements separately (via phone/visit)
+                        </Label>
+                      </div>
 
-                    {showMeasurements && (
+                      {/* Measurement fields - Always visible but disabled when checkbox is checked */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
                         <FormField
                           control={form.control}
@@ -766,8 +760,14 @@ export default function TailoredOutfitPage() {
                             <FormItem>
                               <FormLabel>Chest (inches)</FormLabel>
                               <FormControl>
-                                <Input placeholder="e.g., 42" {...field} />
+                                <Input 
+                                  placeholder="e.g., 42" 
+                                  {...field} 
+                                  disabled={form.watch("measurements.providedByCustomer")}
+                                  className={form.watch("measurements.providedByCustomer") ? "bg-gray-200" : ""}
+                                />
                               </FormControl>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
@@ -779,8 +779,14 @@ export default function TailoredOutfitPage() {
                             <FormItem>
                               <FormLabel>Waist (inches)</FormLabel>
                               <FormControl>
-                                <Input placeholder="e.g., 34" {...field} />
+                                <Input 
+                                  placeholder="e.g., 34" 
+                                  {...field} 
+                                  disabled={form.watch("measurements.providedByCustomer")}
+                                  className={form.watch("measurements.providedByCustomer") ? "bg-gray-200" : ""}
+                                />
                               </FormControl>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
@@ -792,8 +798,14 @@ export default function TailoredOutfitPage() {
                             <FormItem>
                               <FormLabel>Hips (inches)</FormLabel>
                               <FormControl>
-                                <Input placeholder="e.g., 40" {...field} />
+                                <Input 
+                                  placeholder="e.g., 40" 
+                                  {...field} 
+                                  disabled={form.watch("measurements.providedByCustomer")}
+                                  className={form.watch("measurements.providedByCustomer") ? "bg-gray-200" : ""}
+                                />
                               </FormControl>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
@@ -805,8 +817,14 @@ export default function TailoredOutfitPage() {
                             <FormItem>
                               <FormLabel>Shoulders (inches)</FormLabel>
                               <FormControl>
-                                <Input placeholder="e.g., 18" {...field} />
+                                <Input 
+                                  placeholder="e.g., 18" 
+                                  {...field} 
+                                  disabled={form.watch("measurements.providedByCustomer")}
+                                  className={form.watch("measurements.providedByCustomer") ? "bg-gray-200" : ""}
+                                />
                               </FormControl>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
@@ -818,8 +836,14 @@ export default function TailoredOutfitPage() {
                             <FormItem>
                               <FormLabel>Inseam (inches)</FormLabel>
                               <FormControl>
-                                <Input placeholder="e.g., 32" {...field} />
+                                <Input 
+                                  placeholder="e.g., 32" 
+                                  {...field} 
+                                  disabled={form.watch("measurements.providedByCustomer")}
+                                  className={form.watch("measurements.providedByCustomer") ? "bg-gray-200" : ""}
+                                />
                               </FormControl>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
@@ -831,13 +855,27 @@ export default function TailoredOutfitPage() {
                             <FormItem>
                               <FormLabel>Sleeves (inches)</FormLabel>
                               <FormControl>
-                                <Input placeholder="e.g., 25" {...field} />
+                                <Input 
+                                  placeholder="e.g., 25" 
+                                  {...field} 
+                                  disabled={form.watch("measurements.providedByCustomer")}
+                                  className={form.watch("measurements.providedByCustomer") ? "bg-gray-200" : ""}
+                                />
                               </FormControl>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
                       </div>
-                    )}
+
+                      {form.watch("measurements.providedByCustomer") && (
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                          <p className="text-sm text-yellow-800">
+                            📞 You've chosen to provide measurements separately. Our team will contact you after form submission to collect your measurements.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Submit Button */}
@@ -847,91 +885,22 @@ export default function TailoredOutfitPage() {
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (
-                      <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Submitting Request...
-                      </div>
+                      </>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <Upload className="h-4 w-4" />
-                        Submit Custom Design Request
-                        {currentUser && (
-                          <span className="text-xs bg-green-600 px-2 py-1 rounded">
-                            As logged user
-                          </span>
-                        )}
-                        {!currentUser && (
-                          <span className="text-xs bg-blue-600 px-2 py-1 rounded">
-                            As guest
-                          </span>
-                        )}
-                      </div>
+                      'Submit Custom Design Request'
                     )}
                   </Button>
-
-                  {/* Help Text */}
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                    <div className="flex items-start gap-2">
-                      <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                      <div className="text-sm text-green-800">
-                        <strong>What happens next?</strong>
-                        <ul className="mt-2 space-y-1">
-                          <li>• Our design team reviews your request within 24 hours</li>
-                          <li>• We'll call you to discuss details and provide a quote</li>
-                          <li>• Once confirmed, we start creating your custom piece</li>
-                          <li>• Typical completion time: 7-14 business days</li>
-                          {currentUser && (
-                            <li className="text-green-700 font-medium">
-                              • ✅ Your request will be linked to your account for easy tracking
-                            </li>
-                          )}
-                          {!currentUser && (
-                            <li className="text-blue-700 font-medium">
-                              • 💡 Create an account for easier tracking and faster future orders
-                            </li>
-                          )}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Guest User Benefits */}
-                  {!currentUser && (
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                      <div className="flex items-start gap-2">
-                        <UserX className="h-5 w-5 text-blue-600 mt-0.5" />
-                        <div className="text-sm text-blue-800">
-                          <strong>Submitting as Guest</strong>
-                          <p className="mt-1">
-                            We welcome guest submissions! However, creating an account offers benefits:
-                          </p>
-                          <ul className="mt-2 space-y-1 text-xs">
-                            <li>• Track your custom design requests</li>
-                            <li>• Faster checkout for future orders</li>
-                            <li>• Saved measurements and preferences</li>
-                            <li>• Order history and status updates</li>
-                          </ul>
-                          <div className="mt-3">
-                            <a 
-                              href="/register" 
-                              className="text-blue-700 underline hover:no-underline text-sm font-medium"
-                            >
-                              Create Account →
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </form>
-              </Form>
+              </Form> 
             </div>
           </div>
         </div>
-
         {/* Additional Information Section */}
-        <div className="bg-white rounded-lg shadow-sm border p-8 mb-8">
-          <h2 className="text-2xl font-bold mb-6">Custom Design Process</h2>
+        <div className="bg-stone-100 rounded-lg shadow-sm border p-8 mb-8">
+          <h2 className="text-2xl font-bold mb-6 text-center">Custom Design Process</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
               <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -963,95 +932,6 @@ export default function TailoredOutfitPage() {
                 We craft your custom piece with your chosen colors and attention to every detail
               </p>
             </div>
-          </div>
-        </div>
-
-        {/* User Account Benefits */}
-        <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-8 mb-8">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4">
-              {currentUser ? "Account Benefits" : "Why Create an Account?"}
-            </h2>
-            
-            {currentUser ? (
-              <div className="max-w-2xl mx-auto">
-                <div className="bg-white p-6 rounded-lg shadow-sm border border-green-200">
-                  <div className="flex items-center justify-center gap-2 mb-4">
-                    <UserCheck className="h-6 w-6 text-green-600" />
-                    <span className="text-lg font-semibold text-green-800">
-                      Welcome back, {currentUser.name || currentUser.firstName || 'User'}!
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span>Auto-filled contact information</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span>Request tracking and history</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span>Faster future submissions</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span>Saved preferences and measurements</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="max-w-2xl mx-auto">
-                <p className="text-gray-600 mb-6">
-                  While you can submit custom design requests as a guest, creating an account provides additional benefits and a better experience.
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div className="bg-white p-4 rounded-lg shadow-sm border">
-                    <div className="flex items-center gap-2 mb-2">
-                      <UserCheck className="h-5 w-5 text-blue-600" />
-                      <span className="font-semibold">For Logged Users</span>
-                    </div>
-                    <ul className="text-sm text-gray-600 space-y-1">
-                      <li>• Auto-filled contact information</li>
-                      <li>• Request tracking dashboard</li>
-                      <li>• Saved measurements and preferences</li>
-                      <li>• Order history and status updates</li>
-                      <li>• Faster future submissions</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="bg-white p-4 rounded-lg shadow-sm border">
-                    <div className="flex items-center gap-2 mb-2">
-                      <UserX className="h-5 w-5 text-gray-600" />
-                      <span className="font-semibold">For Guests</span>
-                    </div>
-                    <ul className="text-sm text-gray-600 space-y-1">
-                      <li>• Manual information entry required</li>
-                      <li>• Email notifications only</li>
-                      <li>• No request tracking dashboard</li>
-                      <li>• Contact us for order status</li>
-                      <li>• Full form required each time</li>
-                    </ul>
-                  </div>
-                </div>
-                
-                <div className="flex gap-3 justify-center">
-                  <a href="/register">
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                      Create Account
-                    </Button>
-                  </a>
-                  <a href="/login">
-                    <Button variant="outline">
-                      Sign In
-                    </Button>
-                  </a>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </main>

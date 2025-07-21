@@ -1,18 +1,13 @@
-// src/app/dashboard/admin/custom-designs/page.tsx - Enhanced Universal Version
 "use client";
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 import {
   Select,
   SelectContent,
@@ -20,56 +15,54 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
 import {
-  Search,
-  Eye,
-  Phone,
-  Mail,
-  User,
-  Calendar,
-  Image as ImageIcon,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { 
+  Eye, 
+  Phone, 
+  Calendar, 
+  Users, 
+  Palette, 
+  ImageIcon, 
   Ruler,
-  Palette,
-  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Settings,
   Clock,
-  CheckCircle,
-  AlertCircle,
-  RefreshCw,
-  Download,
-  Edit,
+  Mail,
   UserCheck,
   UserX,
-  Users,
-  Filter,
+  Loader2
 } from 'lucide-react';
 
+// Types
 interface CustomDesignRequest {
   id: string;
-  customerName: string | null;
-  customerEmail: string | null;
+  customerName?: string;
+  customerEmail?: string;
+  customerDisplayName?: string;
+  customerDisplayEmail?: string;
   phoneNumber: string;
   designDescription: string;
-  colorDescription: string | null;
-  fabricPreference: string | null;
-  imageUrl: string | null;
-  imageName: string | null;
-  measurementData: any;
+  colorDescription?: string;
+  fabricPreference?: string;
+  imageUrl?: string;
+  imageName?: string;
+  measurementData?: any;
   status: string;
   priority: string;
-  estimatedPrice: number | null;
-  notes: string | null;
-  adminNotes: string | null;
-  followUpSent: boolean;
-  followUpSentAt: string | null;
-  contactedAt: string | null;
+  estimatedPrice?: number;
+  adminNotes?: string;
+  notes?: string;
+  userType: 'logged' | 'guest';
   createdAt: string;
   updatedAt: string;
-  userType: 'logged' | 'guest';
-  customerDisplayName: string;
-  customerDisplayEmail: string;
   user?: {
     id: string;
     firstName: string | null;
@@ -126,30 +119,20 @@ export default function CustomDesignsPage() {
   const [requests, setRequests] = useState<CustomDesignRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<CustomDesignRequest | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  
+  // Filters
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [userTypeFilter, setUserTypeFilter] = useState('all');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { toast } = useToast();
 
-  // Enhanced stats
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    contacted: 0,
-    inProgress: 0,
-    completed: 0,
-    loggedUsers: 0,
-    guests: 0,
-    loggedUsersTotal: 0,
-    guestsTotal: 0,
-  });
-
+  // Fetch requests
   const fetchRequests = async () => {
     try {
       setLoading(true);
@@ -157,104 +140,124 @@ export default function CustomDesignsPage() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '10',
-        ...(statusFilter !== 'all' && { status: statusFilter }),
-        ...(priorityFilter !== 'all' && { priority: priorityFilter }),
-        ...(userTypeFilter !== 'all' && { userType: userTypeFilter }),
-        ...(searchTerm && { search: searchTerm }),
+        status: statusFilter,
+        priority: priorityFilter,
+        userType: userTypeFilter,
+        search: searchQuery,
       });
 
-      console.log('🔍 Fetching requests with params:', params.toString());
+      // Try admin endpoint first, fallback to main endpoint
+      let response = await fetch(`/api/admin/custom-designs?${params}`);
       
-      const response = await fetch(`/api/custom-design?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch requests');
+      if (!response.ok) {
+        console.log('Admin endpoint not available, trying main endpoint...');
+        // Fallback to main custom-design endpoint
+        response = await fetch(`/api/custom-design?${params}`);
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch requests: ${response.status} ${errorText}`);
+      }
 
       const data = await response.json();
-      setRequests(data.requests || []);
-      setTotalPages(data.pagination?.pages || 1);
-
-      // Enhanced stats with user type breakdown
-      const total = data.pagination?.total || 0;
-      const pending = (data.requests || []).filter((r: any) => r.status === 'pending').length;
-      const contacted = (data.requests || []).filter((r: any) => r.status === 'contacted').length;
-      const inProgress = (data.requests || []).filter((r: any) => r.status === 'in_progress').length;
-      const completed = (data.requests || []).filter((r: any) => r.status === 'completed').length;
-
-      setStats({
-        total,
-        pending,
-        contacted,
-        inProgress,
-        completed,
-        loggedUsers: data.statistics?.loggedUsers || 0,
-        guests: data.statistics?.guests || 0,
-        loggedUsersTotal: data.statistics?.loggedUsersTotal || 0,
-        guestsTotal: data.statistics?.guestsTotal || 0,
-      });
-
-      console.log('✅ Requests fetched successfully:', {
-        total: data.requests?.length,
-        loggedUsers: data.statistics?.loggedUsers,
-        guests: data.statistics?.guests
-      });
-
+      
+      // Handle different response structures
+      if (data.success === false) {
+        throw new Error(data.error || 'Failed to fetch requests');
+      }
+      
+      const requests = data.requests || data.data || [];
+      const totalCount = data.totalCount || data.total || requests.length;
+      const totalPages = data.totalPages || Math.ceil(totalCount / 10);
+      
+      setRequests(requests);
+      setTotalPages(totalPages);
+      setTotalCount(totalCount);
+      
     } catch (error) {
-      console.error('❌ Error fetching requests:', error);
+      console.error('Error fetching requests:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to fetch custom design requests',
-        variant: 'destructive',
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch custom design requests. Please check if the API endpoint exists.",
+        variant: "destructive",
       });
+      
+      // Set empty state on error
+      setRequests([]);
+      setTotalPages(1);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchRequests();
-  }, [page, statusFilter, priorityFilter, userTypeFilter, searchTerm]);
-
+  // Update request status
   const updateRequestStatus = async (
-    requestId: string,
-    status: string,
-    priority?: string,
-    estimatedPrice?: number,
-    adminNotes?: string
+    id: string, 
+    status: string, 
+    priority?: string, 
+    price?: number, 
+    notes?: string
   ) => {
     try {
       setIsUpdating(true);
-      const response = await fetch(`/api/custom-design/${requestId}`, {
+      
+      const response = await fetch(`/api/custom-design/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           status,
           priority,
-          estimatedPrice,
-          adminNotes,
-          contactedAt: status === 'contacted' ? new Date().toISOString() : undefined,
+          estimatedPrice: price,
+          adminNotes: notes,
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to update request');
+      if (!response.ok) {
+        throw new Error('Failed to update request');
+      }
+
+      const updatedRequest = await response.json();
+      
+      // Update the requests list
+      setRequests(prev => prev.map(req => 
+        req.id === id ? { ...req, ...updatedRequest.request } : req
+      ));
+
+      // Update selected request if it's the same one
+      if (selectedRequest?.id === id) {
+        setSelectedRequest({ ...selectedRequest, ...updatedRequest.request });
+      }
 
       toast({
-        title: 'Success',
-        description: 'Request updated successfully',
+        title: "Success",
+        description: "Request updated successfully",
       });
 
+      // Refresh the list
       fetchRequests();
-      setIsDialogOpen(false);
+      
     } catch (error) {
       console.error('Error updating request:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to update request',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to update request",
+        variant: "destructive",
       });
     } finally {
       setIsUpdating(false);
     }
   };
 
+  // Effects
+  useEffect(() => {
+    fetchRequests();
+  }, [page, statusFilter, priorityFilter, userTypeFilter, searchQuery]);
+
+  // Format date
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
       year: 'numeric',
@@ -265,264 +268,127 @@ export default function CustomDesignsPage() {
     });
   };
 
-  const exportRequests = () => {
-    const csvData = requests.map(request => ({
-      'Request ID': request.id,
-      'Customer Name': request.customerDisplayName,
-      'Email': request.customerDisplayEmail,
-      'Phone': request.phoneNumber,
-      'User Type': request.userType === 'logged' ? 'Logged User' : 'Guest',
-      'Status': request.status,
-      'Priority': request.priority,
-      'Created At': formatDate(request.createdAt),
-      'Design Description': request.designDescription.replace(/,/g, ';'),
-    }));
-
-    const csvContent = [
-      Object.keys(csvData[0]).join(','),
-      ...csvData.map(row => Object.values(row).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `custom-design-requests-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  };
-
-  if (loading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-64"></div>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-24 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-          <div className="space-y-3">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-20 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Custom Design Requests</h1>
-          <p className="text-gray-600">Manage requests from both logged users and guests</p>
+          <h1 className="text-3xl font-bold">Custom Design Requests</h1>
+          <p className="text-gray-600 mt-1">
+            Manage and track custom design requests from customers
+          </p>
         </div>
-
-        <div className="flex gap-2">
-          <Button onClick={exportRequests} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
-          <Button onClick={fetchRequests} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
+        <div className="text-right">
+          <p className="text-sm text-gray-600">Total Requests</p>
+          <p className="text-2xl font-bold">{totalCount}</p>
         </div>
       </div>
 
-      {/* Enhanced Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">All time: {stats.loggedUsersTotal + stats.guestsTotal}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Logged Users</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.loggedUsers}</div>
-            <p className="text-xs text-muted-foreground">Total: {stats.loggedUsersTotal}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Guest Users</CardTitle>
-            <UserX className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.guests}</div>
-            <p className="text-xs text-muted-foreground">Total: {stats.guestsTotal}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <AlertCircle className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{stats.inProgress}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Enhanced Filters */}
+      {/* Filters */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4 items-center">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search by name, email, phone, or description..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filters & Search
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <Label>Search</Label>
+              <Input
+                placeholder="Search by name, email, phone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <Label>Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <Select value={userTypeFilter} onValueChange={setUserTypeFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="User type" />
-              </SelectTrigger>
-              <SelectContent>
-                {userTypeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div>
+              <Label>Priority</Label>
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorityOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {statusOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                {priorityOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div>
+              <Label>User Type</Label>
+              <Select value={userTypeFilter} onValueChange={setUserTypeFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {userTypeOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Requests List */}
       <div className="space-y-4">
-        {requests.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="ml-2">Loading requests...</span>
+          </div>
+        ) : requests.length === 0 ? (
           <Card>
-            <CardContent className="p-8 text-center">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No requests found</h3>
-              <p className="text-gray-600">
-                {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' || userTypeFilter !== 'all'
-                  ? 'Try adjusting your filters'
-                  : 'No custom design requests have been submitted yet.'}
-              </p>
-              <div className="mt-4">
-                <Button 
-                  onClick={() => window.open('/tailoredoutfit', '_blank')}
-                  variant="outline"
-                >
-                  Test Custom Design Form
-                </Button>
-              </div>
+            <CardContent className="text-center py-12">
+              <p className="text-gray-600">No custom design requests found</p>
             </CardContent>
           </Card>
         ) : (
           requests.map((request) => (
             <Card key={request.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
-                <div className="flex items-start justify-between">
+                <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold">
-                        {request.customerDisplayName}
+                        {request.customerDisplayName || request.customerName || 'Unknown Customer'}
                       </h3>
-                      
-                      {/* User Type Badge */}
-                      {request.userType === 'logged' ? (
-                        <Badge className="bg-green-100 text-green-800">
-                          <UserCheck className="h-3 w-3 mr-1" />
-                          Logged User
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-blue-100 text-blue-800">
-                          <UserX className="h-3 w-3 mr-1" />
-                          Guest
-                        </Badge>
-                      )}
-                      
-                      <Badge className={statusColors[request.status]}>
-                        {request.status.replace('_', ' ')}
+                      <Badge className={statusColors[request.status] || 'bg-gray-100 text-gray-800'}>
+                        {request.status.replace('_', ' ').toUpperCase()}
                       </Badge>
-                      <Badge className={priorityColors[request.priority]}>
-                        {request.priority}
+                      <Badge className={priorityColors[request.priority] || 'bg-gray-100 text-gray-800'}>
+                        {request.priority.toUpperCase()}
                       </Badge>
-                      {!request.followUpSent && (
-                        <Badge variant="outline" className="text-orange-600 border-orange-600">
-                          No Follow-up
-                        </Badge>
-                      )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                      <div className="flex items-center gap-1">
                         <Phone className="h-4 w-4" />
                         {request.phoneNumber}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        {request.customerDisplayEmail}
                       </div>
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
@@ -683,11 +549,17 @@ function RequestDetailsDialog({
     });
   };
 
+  // Parse measurements data
+  const measurements = request.measurementData ? 
+    (typeof request.measurementData === 'string' ? 
+      JSON.parse(request.measurementData) : 
+      request.measurementData) : null;
+
   return (
     <div className="space-y-6">
       {/* Customer Information with User Type */}
       <div className={`p-4 rounded-lg ${
-        request.userType === 'logged' ? 'bg-green-50' : 'bg-blue-50'
+        request.userType === 'logged' ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'
       }`}>
         <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
           {request.userType === 'logged' ? (
@@ -705,32 +577,46 @@ function RequestDetailsDialog({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
             <Label className="font-medium">Name:</Label>
-            <p>{request.customerDisplayName}</p>
+            <p className="mt-1 p-2 bg-white rounded border">
+              {request.customerDisplayName || request.customerName || 'Not provided'}
+            </p>
           </div>
           <div>
             <Label className="font-medium">Email:</Label>
-            <p>{request.customerDisplayEmail}</p>
+            <p className="mt-1 p-2 bg-white rounded border">
+              {request.customerDisplayEmail || request.customerEmail || 'Not provided'}
+            </p>
           </div>
           <div>
             <Label className="font-medium">Phone:</Label>
-            <p>{request.phoneNumber}</p>
+            <p className="mt-1 p-2 bg-white rounded border flex items-center gap-2">
+              {request.phoneNumber}
+              <button
+                onClick={() => window.open(`tel:${request.phoneNumber}`)}
+                className="text-blue-600 hover:text-blue-800"
+              >
+                <Phone className="h-4 w-4" />
+              </button>
+            </p>
           </div>
           <div>
             <Label className="font-medium">Submitted:</Label>
-            <p>{formatDate(request.createdAt)}</p>
+            <p className="mt-1 p-2 bg-white rounded border">{formatDate(request.createdAt)}</p>
           </div>
           {request.user && (
             <div className="md:col-span-2">
               <Label className="font-medium">Account Details:</Label>
-              <p className="text-green-700">
+              <p className="mt-1 p-2 bg-white rounded border text-green-700">
                 ✅ Linked to user account (ID: {request.user.id})
+                <br />
+                User: {request.user.firstName} {request.user.lastName} ({request.user.email})
               </p>
             </div>
           )}
           {!request.user && request.userType === 'guest' && (
             <div className="md:col-span-2">
               <Label className="font-medium">Account Status:</Label>
-              <p className="text-blue-700">
+              <p className="mt-1 p-2 bg-white rounded border text-blue-700">
                 👤 Guest submission - No account linked
               </p>
             </div>
@@ -747,42 +633,105 @@ function RequestDetailsDialog({
         
         <div>
           <Label className="font-medium">Design Description:</Label>
-          <p className="mt-1 p-3 bg-gray-50 rounded border text-sm">
+          <div className="mt-1 p-3 bg-gray-50 rounded border text-sm max-h-40 overflow-y-auto">
             {request.designDescription}
-          </p>
+          </div>
         </div>
 
         {request.colorDescription && (
           <div>
             <Label className="font-medium">Color Preferences:</Label>
-            <p className="mt-1 p-3 bg-gray-50 rounded border text-sm">
+            <div className="mt-1 p-3 bg-purple-50 rounded border text-sm">
               {request.colorDescription}
-            </p>
+            </div>
           </div>
         )}
 
         {request.fabricPreference && (
           <div>
             <Label className="font-medium">Fabric Preference:</Label>
-            <p className="mt-1 p-3 bg-gray-50 rounded border text-sm">
+            <div className="mt-1 p-3 bg-green-50 rounded border text-sm">
               {request.fabricPreference}
-            </p>
+            </div>
+          </div>
+        )}
+
+        {request.imageUrl && (
+          <div>
+            <Label className="font-medium">Reference Image:</Label>
+            <div className="mt-1">
+              <img 
+                src={request.imageUrl} 
+                alt="Design reference" 
+                className="max-w-xs max-h-48 object-contain rounded border shadow-sm"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {request.imageName && `Original filename: ${request.imageName}`}
+              </p>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Admin Controls */}
-      <div className="bg-yellow-50 p-4 rounded-lg space-y-4">
+      {/* Measurements Section */}
+      <div className="space-y-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Edit className="h-5 w-5" />
-          Admin Controls
+          <Ruler className="h-5 w-5" />
+          Measurements
+        </h3>
+        
+        {measurements ? (
+          <div className="space-y-3">
+            {measurements.providedByCustomer ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Phone className="h-4 w-4 text-yellow-600" />
+                  <span className="font-medium text-yellow-800">Customer will provide measurements separately</span>
+                </div>
+                <p className="text-sm text-yellow-700">
+                  📞 Customer has indicated they will provide measurements via phone call or visit.
+                  Contact them using the phone number above.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                {[
+                  { label: 'Chest', value: measurements.chest },
+                  { label: 'Waist', value: measurements.waist },
+                  { label: 'Hips', value: measurements.hips },
+                  { label: 'Shoulders', value: measurements.shoulders },
+                  { label: 'Inseam', value: measurements.inseam },
+                  { label: 'Sleeves', value: measurements.sleeves }
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-white p-3 rounded border">
+                    <Label className="text-xs font-medium text-gray-600">{label}:</Label>
+                    <p className="text-sm font-semibold">
+                      {value ? `${value}"` : 'Not provided'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <p className="text-gray-600">No measurement data provided</p>
+          </div>
+        )}
+      </div>
+
+      {/* Request Status and Management */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Settings className="h-5 w-5" />
+          Request Management
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="status">Status</Label>
+            <Label className="font-medium">Status:</Label>
             <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger>
+              <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -796,9 +745,9 @@ function RequestDetailsDialog({
           </div>
 
           <div>
-            <Label htmlFor="priority">Priority</Label>
+            <Label className="font-medium">Priority:</Label>
             <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger>
+              <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -811,70 +760,109 @@ function RequestDetailsDialog({
           </div>
 
           <div>
-            <Label htmlFor="price">Estimated Price (₹)</Label>
+            <Label className="font-medium">Estimated Price (₹):</Label>
             <Input
-              id="price"
               type="number"
-              placeholder="0"
+              placeholder="e.g., 2500"
               value={estimatedPrice}
               onChange={(e) => setEstimatedPrice(e.target.value)}
+              className="mt-1"
             />
+          </div>
+
+          <div>
+            <Label className="font-medium">Request ID:</Label>
+            <p className="mt-1 p-2 bg-gray-100 rounded border text-sm font-mono">
+              {request.id}
+            </p>
           </div>
         </div>
 
         <div>
-          <Label htmlFor="adminNotes">Admin Notes</Label>
+          <Label className="font-medium">Admin Notes:</Label>
           <Textarea
-            id="adminNotes"
             placeholder="Add internal notes about this request..."
             value={adminNotes}
             onChange={(e) => setAdminNotes(e.target.value)}
-            rows={4}
+            className="mt-1 h-24"
           />
+        </div>
+
+        {/* Existing admin notes */}
+        {request.adminNotes && request.adminNotes !== adminNotes && (
+          <div>
+            <Label className="font-medium">Previous Notes:</Label>
+            <div className="mt-1 p-3 bg-gray-50 border rounded text-sm">
+              {request.adminNotes}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Timeline/Activity */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Clock className="h-5 w-5" />
+          Activity Timeline
+        </h3>
+        
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded border">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            <div className="flex-1">
+              <p className="text-sm font-medium">Request Submitted</p>
+              <p className="text-xs text-gray-600">{formatDate(request.createdAt)}</p>
+            </div>
+          </div>
+          
+          {request.updatedAt !== request.createdAt && (
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded border">
+              <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Last Updated</p>
+                <p className="text-xs text-gray-600">{formatDate(request.updatedAt)}</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Action Buttons */}
-      <div className="flex justify-between pt-4 border-t">
-        <div className="flex gap-2">
+      <div className="flex gap-3 pt-4 border-t">
+        <Button
+          onClick={handleUpdate}
+          disabled={isUpdating}
+          className="flex-1"
+        >
+          {isUpdating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Updating...
+            </>
+          ) : (
+            'Update Request'
+          )}
+        </Button>
+        
+        <Button
+          variant="outline"
+          onClick={() => window.open(`tel:${request.phoneNumber}`)}
+          className="flex items-center gap-2"
+        >
+          <Phone className="h-4 w-4" />
+          Call Customer
+        </Button>
+        
+        {(request.customerDisplayEmail || request.customerEmail) && (
           <Button
             variant="outline"
-            onClick={() => window.open(`tel:${request.phoneNumber}`)}
+            onClick={() => window.open(`mailto:${request.customerDisplayEmail || request.customerEmail}`)}
+            className="flex items-center gap-2"
           >
-            <Phone className="h-4 w-4 mr-2" />
-            Call Customer
+            <Mail className="h-4 w-4" />
+            Email
           </Button>
-          
-          {request.customerDisplayEmail !== 'No email provided' && (
-            <Button
-              variant="outline"
-              onClick={() => window.open(`mailto:${request.customerDisplayEmail}`)}
-            >
-              <Mail className="h-4 w-4 mr-2" />
-              Send Email
-            </Button>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleUpdate}
-            disabled={isUpdating}
-            className="bg-black hover:bg-gray-800 text-white"
-          >
-            {isUpdating ? (
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Updating...
-              </div>
-            ) : (
-              <>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Update Request
-              </>
-            )}
-          </Button>
-        </div>
+        )}
       </div>
     </div>
   );
