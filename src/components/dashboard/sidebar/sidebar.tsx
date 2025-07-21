@@ -16,6 +16,7 @@ import {
   CreditCard, 
   Settings,
   LogOut,
+  Palette,
   User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,12 @@ const navigation = [
     name: 'Payments',
     href: '/dashboard/admin/payments',
     icon: CreditCard,
+  },
+  {
+    name: 'Custom Designs',
+    href: '/dashboard/admin/custom-designs',
+    icon: Palette,
+    badge: true, // Show badge for new requests
   },
   {
     name: 'Settings',

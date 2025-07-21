@@ -1,47 +1,43 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Add these lines to your .gitignore file to handle uploads properly
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# Uploaded files (keep structure but ignore content)
+/public/uploads/*
+!/public/uploads/.gitkeep
 
-# testing
-/coverage
+# Or if you want to track uploads in development
+# /public/uploads/custom-designs/*
+# !/public/uploads/custom-designs/.gitkeep
 
-# next.js
-/.next/
-/out/
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# production
-/build
+# Next.js build output
+.next/
+out/
 
-# misc
-.DS_Store
-*.pem
+# Dependencies
+node_modules/
 
-# debug
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
 
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# clerk configuration (can include secrets)
-/.clerk/
-
-
-.vercel
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
