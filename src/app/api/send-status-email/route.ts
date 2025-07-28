@@ -2,14 +2,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
-// Create transporter
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+// Create transporter with GoDaddy SMTP support
+const createTransporter = () => {
+  if (process.env.MAIL_HOST && process.env.EMAIL_PORT) {
+    // Custom SMTP configuration (GoDaddy)
+    return nodemailer.createTransport({
+      host: process.env.MAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT),
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
+      },
+      connectionTimeout: 60000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000
+    });
+  } else {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
   }
-});
+};
+
+// Create the transporter instance
+const transporter = createTransporter();
 
 export async function POST(request: NextRequest) {
   try {
@@ -93,14 +118,14 @@ Or use tracking number: ${trackingNumber}
 ` : ''}
 
 If you have any questions or concerns, please don't hesitate to contact us:
-Email: support@zureediseno.com
+Email: ${process.env.ADMIN_EMAIL || 'support@zureeglobal.com'}
 Phone: +91 9876543210
 Website: ${process.env.NEXT_PUBLIC_APP_URL}
 
-Thank you for choosing Zuree Diseno!
+Thank you for choosing Zuree Global!
 
 Best regards,
-The Zuree Diseno Team
+The Zuree Global Team
     `;
 
     // Send email
@@ -111,7 +136,7 @@ The Zuree Diseno Team
       text: emailContent,
     });
 
-    console.log(`Status email sent to ${customerEmail} for order ${orderNumber} - Status: ${status}`);
+    console.log(`✅ Status email sent to ${customerEmail} for order ${orderNumber} - Status: ${status}`);
 
     return NextResponse.json({ 
       success: true, 
@@ -119,7 +144,7 @@ The Zuree Diseno Team
     });
 
   } catch (error) {
-    console.error('Status email API error:', error);
+    console.error('❌ Status email API error:', error);
     return NextResponse.json(
       { error: 'Failed to send status email' },
       { status: 500 }

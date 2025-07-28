@@ -226,20 +226,19 @@ const Footer = () => {
                         <ul className="list-disc list-inside space-y-1 text-gray-700 ml-4 mb-4">
                           <li><strong>Before Shipment:</strong> You may cancel your order (standard or custom-designed) before it is dispatched by contacting us at contact@zureeglobal.com. A full refund will be processed within 7 business days to your original payment method.</li>
                           <li><strong>After Shipment:</strong> Once an order is dispatched, cancellation is not possible. However, you may request a return or refund as per the conditions below.</li>
-                          <li><strong>Custom Design Orders:</strong> Cancellation for custom orders is only allowed before production begins. Once production starts, cancellations are not permitted due to the personalized nature of the product.</li>
+                          <li><strong>Custom Design Orders:</strong>Cancellation for custom orders is only allowed before production begins. Once production starts, cancellations are not permitted due to the personalized nature of the product.</li>
                         </ul>
 
                         <h3 className="text-lg font-semibold mb-3">Replacement Policy</h3>
                         <ul className="list-disc list-inside space-y-1 text-gray-700 ml-4 mb-4">
-                          <li><strong>Defective or Incorrect Products:</strong> If a product is defective, damaged, or not as described, we will issue replacement within 7 business days of receiving the returned item.</li>
+                          <li><strong>Defective or Incorrect Products:</strong> If a product is defective, damaged, or not as described within 1day of receipt of material, we will issue a replacement within 7 business days of receiving the returned item.</li>
                           <li><strong>Custom Design Issues:</strong> If a custom-designed product does not match the agreed specifications due to our error, we will offer a replacement. Refunds for custom products are not available if the error is due to incorrect customer-provided measurements or specifications.</li>
-                          <li><strong>Non-Returnable Items:</strong> Custom-designed products (unless defective), discounted or clearance items, and items marked as non-returnable are not eligible for refunds.</li>
+                          <li><strong>Non-Returnable Items:</strong>Custom-designed products (unless defective), discounted or clearance items, and items marked as non-returnable are not eligible for refunds.</li>
                         </ul>
 
                         <h3 className="text-lg font-semibold mb-3">Non-Delivery</h3>
                         <p className="text-gray-700 leading-relaxed">
-                          If your order is not delivered within the estimated delivery time due to our error or the logistics partner's failure, you may request a full refund. Please contact us within 15 days of the expected delivery date.
-                        </p>
+                         If your order is not delivered within the estimated delivery time (3 to 7 business days) due to our error or the logistics partner's failure, you may request a full refund. Please contact us within 15 days of the expected delivery date.</p>
                       </section>
 
                       {/* Contact Information */}

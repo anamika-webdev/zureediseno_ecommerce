@@ -7,7 +7,25 @@ import { join } from 'path';
 
 // Create email transporter
 const createTransporter = () => {
-  if (process.env.EMAIL_SERVICE === 'outlook') {
+  if (process.env.MAIL_HOST && process.env.EMAIL_PORT) {
+    // Custom SMTP configuration (GoDaddy)
+    return nodemailer.createTransport({
+      host: process.env.MAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT),
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
+      },
+      connectionTimeout: 60000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000
+    });
+  } else if (process.env.EMAIL_SERVICE === 'outlook') {
     return nodemailer.createTransport({
       service: 'hotmail',
       auth: {
@@ -25,6 +43,7 @@ const createTransporter = () => {
     });
   }
 };
+
 
 // Define user type interface
 interface CurrentUser {

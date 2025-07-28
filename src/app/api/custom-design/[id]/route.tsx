@@ -4,9 +4,27 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import nodemailer from 'nodemailer';
 
-// Create email transporter - FIXED: Use createTransport instead of createTransporter
+// Create email transporter - Updated for custom SMTP
 const createTransporter = () => {
-  if (process.env.EMAIL_SERVICE === 'outlook') {
+  if (process.env.MAIL_HOST && process.env.EMAIL_PORT) {
+    // Custom SMTP configuration (GoDaddy)
+    return nodemailer.createTransport({
+      host: process.env.MAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT),
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
+      },
+      connectionTimeout: 60000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000
+    });
+  } else if (process.env.EMAIL_SERVICE === 'outlook') {
     return nodemailer.createTransport({
       service: 'hotmail',
       auth: {
@@ -24,7 +42,6 @@ const createTransporter = () => {
     });
   }
 };
-
 // PATCH - Update custom design request
 export async function PATCH(
   req: NextRequest,

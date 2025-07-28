@@ -1,6 +1,4 @@
-// FILE 2: src/app/api/send-order-email/route.ts - FIXED
-// ============================================================================
-
+// src/app/api/send-order-email/route.ts - COMPLETE UPDATED VERSION
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { prisma } from '@/lib/prisma';
@@ -25,8 +23,6 @@ export async function POST(req: NextRequest) {
           orderNumber: orderNumber,
           userId: orderData.userId || null,
           totalAmount: orderData.totalAmount,
-          // ✅ REMOVED: These fields don't exist in current schema
-          // subtotal: orderData.subtotal || orderData.totalAmount * 0.847,
           shippingCost: orderData.shipping || 0,
           taxAmount: orderData.tax || orderData.totalAmount * 0.153,
           status: 'pending',
@@ -71,26 +67,100 @@ export async function POST(req: NextRequest) {
       // Continue with email sending even if DB save fails
     }
     
-    // ✅ FIXED: Use correct nodemailer method name
-    let transporter;
+    // ✅ UPDATED: Custom SMTP configuration with fallbacks
+   // Updated email transporter configuration for GoDaddy SMTP
+// Replace the transporter section in your send-order-email/route.ts
+
+let transporter;
+
+if (process.env.MAIL_HOST && process.env.EMAIL_PORT) {
+  console.log('✅ Custom SMTP detected - using GoDaddy configuration');
+  
+  // GoDaddy-specific SMTP configuration
+  transporter = nodemailer.createTransport({
+    host: process.env.MAIL_HOST, // smtpout.secureserver.net
+    port: parseInt(process.env.EMAIL_PORT), // 465
+    secure: true, // Always true for port 465
+    auth: {
+      user: process.env.EMAIL_USER, // info@zureeglobal.com
+      pass: process.env.EMAIL_PASS, // Your email password
+    },
+    // GoDaddy-specific configurations
+    tls: {
+      rejectUnauthorized: false,
+      ciphers: 'SSLv3'
+    },
+    // Additional options for GoDaddy compatibility
+    connectionTimeout: 60000, // 60 seconds
+    greetingTimeout: 30000, // 30 seconds
+    socketTimeout: 60000, // 60 seconds
+    debug: true, // Enable debug logs
+    logger: true // Enable logger
+  });
+  
+  console.log('📧 Using GoDaddy SMTP configuration:', process.env.MAIL_HOST);
+  
+  // Test the connection
+  try {
+    await transporter.verify();
+    console.log('✅ SMTP connection verified successfully');
+  } catch (verifyError) {
+    console.error('❌ SMTP connection verification failed:', verifyError);
     
-    if (process.env.EMAIL_SERVICE === 'outlook') {
-      transporter = nodemailer.createTransport({  // ✅ FIXED: createTransport not createTransporter
-        service: 'hotmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
-    } else {
-      transporter = nodemailer.createTransport({  // ✅ FIXED: createTransport not createTransporter
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
+    // Try alternative GoDaddy SMTP settings
+    console.log('🔄 Trying alternative GoDaddy SMTP configuration...');
+    transporter = nodemailer.createTransport({
+      host: process.env.MAIL_HOST,
+      port: 587, // Try port 587 with STARTTLS
+      secure: false, // false for port 587
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
+      },
+      requireTLS: true,
+      connectionTimeout: 60000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000,
+      debug: true,
+      logger: true
+    });
+    
+    try {
+      await transporter.verify();
+      console.log('✅ Alternative SMTP connection verified successfully');
+    } catch (altError) {
+      console.error('❌ Alternative SMTP connection also failed:', altError);
     }
+  }
+  
+} else {
+  // Fallback configurations remain the same
+  console.log('❌ Custom SMTP not detected - falling back to Gmail/Outlook');
+  
+  if (process.env.EMAIL_SERVICE === 'outlook') {
+    transporter = nodemailer.createTransport({
+      service: 'hotmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+    console.log('📧 Using Outlook SMTP configuration');
+  } else {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+    console.log('📧 Using Gmail SMTP configuration');
+  }
+}
     
     // Prepare email content
     const itemsList = orderData.items.map((item: any) => 
@@ -106,60 +176,70 @@ export async function POST(req: NextRequest) {
 🛒 NEW ORDER RECEIVED!
 
 Order Number: ${orderNumber}
-Order Date: ${new Date().toLocaleString()}
-
-📦 ITEMS ORDERED:
-${itemsList}
-
-💰 PAYMENT DETAILS:
-Subtotal: ₹${orderData.subtotal?.toFixed(2) || (orderData.totalAmount * 0.847).toFixed(2)}
-Shipping: ₹0.00 (FREE SHIPPING)
-Tax (GST 18%): ₹${orderData.tax?.toFixed(2) || (orderData.totalAmount * 0.153).toFixed(2)}
-Total Amount: ₹${orderData.totalAmount.toFixed(2)}
+Order Date: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
 Payment Method: ${paymentMethodText}
+Total Amount: ₹${orderData.totalAmount.toFixed(2)}
 
-📍 SHIPPING ADDRESS:
-${orderData.shippingAddress.fullName}
-${orderData.shippingAddress.email}
-${orderData.shippingAddress.phone}
+CUSTOMER DETAILS:
+Name: ${orderData.shippingAddress.fullName}
+Email: ${orderData.shippingAddress.email}
+Phone: ${orderData.shippingAddress.phone}
+
+SHIPPING ADDRESS:
 ${orderData.shippingAddress.address}
-${orderData.shippingAddress.city}, ${orderData.shippingAddress.state} - ${orderData.shippingAddress.pincode}
-
-${orderData.paymentMethod === 'cod' 
-  ? '💵 CASH ON DELIVERY: Customer will pay ₹' + orderData.totalAmount.toFixed(2) + ' upon delivery.' 
-  : '💳 ONLINE PAYMENT: Payment will be processed online.'
-}
-
-View order in admin dashboard: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/admin/orders
-    `;
-
-    // Customer email content
-    const customerEmailContent = `
-Dear ${orderData.shippingAddress.fullName},
-
-Thank you for your order! We're excited to fulfill your purchase.
-
-ORDER SUMMARY:
-Order Number: ${orderNumber}
-Order Date: ${new Date().toLocaleString()}
+${orderData.shippingAddress.city}, ${orderData.shippingAddress.state} ${orderData.shippingAddress.pincode}
+${orderData.shippingAddress.country}
 
 ITEMS ORDERED:
 ${itemsList}
 
-PAYMENT DETAILS:
-Subtotal: ₹${orderData.subtotal?.toFixed(2) || (orderData.totalAmount * 0.847).toFixed(2)}
-Shipping: ₹0.00 (FREE SHIPPING!) 🎉
-Tax (GST 18%): ₹${orderData.tax?.toFixed(2) || (orderData.totalAmount * 0.153).toFixed(2)}
+PRICING BREAKDOWN:
+Subtotal: ₹${orderData.subtotal || orderData.totalAmount}
+Shipping: ₹${orderData.shipping || 0}
+Tax: ₹${orderData.tax || 0}
+Total: ₹${orderData.totalAmount.toFixed(2)}
+
+${orderData.paymentMethod === 'cod' ? 
+  'PAYMENT: Cash on Delivery (COD)' : 
+  'PAYMENT: Online Payment - Processing'
+}
+
+Please process this order immediately.
+
+---
+Admin Dashboard: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard/admin/orders
+    `;
+
+    // Customer email content
+    const customerEmailContent = `
+🎉 ORDER CONFIRMATION
+
+Hello ${orderData.shippingAddress.fullName},
+
+Thank you for your order! Your order has been successfully placed and we'll start processing it right away.
+
+ORDER DETAILS:
+Order Number: ${orderNumber}
+Order Date: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
 Total Amount: ₹${orderData.totalAmount.toFixed(2)}
-Payment Method: ${paymentMethodText}
+
+ITEMS ORDERED:
+${itemsList}
 
 SHIPPING ADDRESS:
 ${orderData.shippingAddress.fullName}
 ${orderData.shippingAddress.address}
-${orderData.shippingAddress.city}, ${orderData.shippingAddress.state} - ${orderData.shippingAddress.pincode}
+${orderData.shippingAddress.city}, ${orderData.shippingAddress.state} ${orderData.shippingAddress.pincode}
+${orderData.shippingAddress.country}
 
-${orderData.paymentMethod === 'cod' 
-  ? `PAYMENT INSTRUCTIONS:
+PRICING BREAKDOWN:
+Subtotal: ₹${orderData.subtotal || orderData.totalAmount}
+Shipping: ₹${orderData.shipping || 0} (FREE SHIPPING!)
+Tax: ₹${orderData.tax || 0}
+Total: ₹${orderData.totalAmount.toFixed(2)}
+
+${orderData.paymentMethod === 'cod' ? 
+  `PAYMENT INSTRUCTIONS:
 You have selected Cash on Delivery (COD). Please keep ₹${orderData.totalAmount.toFixed(2)} ready when our delivery person arrives.`
   : `PAYMENT STATUS:
 Your payment will be processed securely.`
@@ -172,13 +252,13 @@ WHAT'S NEXT:
 4. Delivery: Estimated delivery in 3-5 business days
 
 If you have any questions, contact us at:
-Email: support@zureediseno.com
+Email: ${process.env.ADMIN_EMAIL || 'support@zureeglobal.com'}
 Phone: +91 9876543210
 
-Thank you for choosing Zuree Diseno!
+Thank you for choosing Zuree Global!
 
 Best regards,
-The Zuree Diseno Team
+The Zuree Global Team
     `;
 
     // Send emails
