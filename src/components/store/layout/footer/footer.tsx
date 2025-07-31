@@ -28,17 +28,19 @@ const Footer = () => {
               A clothing brand that celebrates the artistry of design, 
               combining modern style with timeless elegance.
             </p>
+           {/* <p className="text-gray-600 text-sm mb-4">Social pages are still in the wardrobe, Coming soon....</p>
             <div className="flex space-x-4">
-              <a href="#" aria-label="Instagram" className="text-[#E1306C] hover:text-zuree-red transition-colors">
+          
+             <span aria-label="Instagram" className="disabled-icon text-gray-600" title="Coming Soon">
                 <Instagram size={18} />
-              </a>
-              <a href="#" aria-label="Facebook" className="text-[#3B5998] hover:text-zuree-red transition-colors">
+              </span>
+              <span aria-label="Facebook" className="disabled-icon text-gray-600" title="Coming Soon">
                 <Facebook size={18} />
-              </a>
-              <a href="#" aria-label="Twitter" className="text-[#1DA1F2] hover:text-zuree-red transition-colors">
+              </span>
+              <span aria-label="Twitter" className="disabled-icon text-gray-600" title="Coming Soon">
                 <Twitter size={18} />
-              </a>
-            </div>
+              </span>
+            </div>*/}
           </div>
           
           <div>
@@ -55,11 +57,8 @@ const Footer = () => {
           <div>
             <h3 className="font-medium uppercase text-sm mb-4">Help</h3>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/contact" className="text-gray-600 hover:text-zuree-red transition-colors">Customer Service</Link></li>
+              <li><Link href="/contact" className="text-gray-600 hover:text-zuree-red transition-colors">Customer Service/Get in Touch</Link></li>
               <li><Link href="/about" className="text-gray-600 hover:text-zuree-red transition-colors">About Us</Link></li>
-              <li><Link href="/contact" className="text-gray-600 hover:text-zuree-red transition-colors">Find a Store</Link></li>
-              <li><Link href="/contact" className="text-gray-600 hover:text-zuree-red transition-colors">Size Guide</Link></li>
-              <li><Link href="/contact" className="text-gray-600 hover:text-zuree-red transition-colors">Contact Us</Link></li>
             </ul>
           </div>
           
@@ -167,6 +166,9 @@ const Footer = () => {
                           <li>Payments must be made through approved payment methods (e.g., credit/debit cards, UPI, net banking).</li>
                           <li>All prices are inclusive of applicable taxes unless otherwise stated.</li>
                           <li>For custom designs, you must provide accurate measurements and specifications. We are not responsible for errors in customer-provided data.</li>
+                          <li>Once your order is confirmed, you will receive updates regarding your order status via email from our team at info@zureeglobal.com.
+                          Products will typically be delivered within 3–7 business days from the date of dispatch. 
+Delivery timelines may vary based on your location and availability of the product.</li>
                         </ul>
                       </section>
 
