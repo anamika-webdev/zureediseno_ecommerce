@@ -2,13 +2,13 @@
 export const dynamic = 'force-dynamic'
 import Link from "next/link";
 import { ShoppingBag, User, Search, Menu, LogOut, ChevronDown, Scissors, Package } from "lucide-react";
-
 import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { CartDrawer } from "../../CartDrawer";
+import { ModeToggle } from "@/components/mode-toggle";
 import { 
   Dialog,
   DialogContent,
@@ -713,7 +713,9 @@ const Header = () => {
     >
       <Package className="h-5 w-5" />
     </Button>
-  </Link>
+      </Link>
+  {/*  Theme Toggle Button */}
+          <ModeToggle />
         </div>
       </div>
     </header>

@@ -1,4 +1,4 @@
-// src/app/dashboard/admin/settings/page.tsx - Basic Settings Page
+// src/app/dashboard/admin/settings/page.tsx - Complete Enhanced Settings Page with Password Reset
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { 
   Settings, 
@@ -30,7 +31,11 @@ import {
   CheckCircle,
   User,
   Mail,
-  Phone
+  Phone,
+  Lock,
+  Eye,
+  EyeOff,
+  KeyRound
 } from 'lucide-react';
 
 // Types
@@ -53,6 +58,12 @@ interface NotificationSettings {
   systemAlerts: boolean;
 }
 
+interface PasswordResetForm {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export default function SettingsPage() {
   const { user, loading: authLoading, isAuthenticated, isAdmin } = useAdminAuth();
   const router = useRouter();
@@ -60,6 +71,13 @@ export default function SettingsPage() {
   // State
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
+  
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
     siteName: 'Zuree Diseno',
     siteDescription: 'Premium E-commerce Platform',
@@ -79,26 +97,32 @@ export default function SettingsPage() {
     systemAlerts: true
   });
 
+  const [passwordForm, setPasswordForm] = useState<PasswordResetForm>({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
   // Check authentication
   useEffect(() => {
     if (!authLoading) {
       if (!isAuthenticated) {
-        router.push('/auth/signin?redirect=/dashboard/admin/settings');
+        router.push('/admin/login?redirect=/dashboard/admin/settings');
         return;
       }
       
       if (!isAdmin) {
-        router.push('/');
+        router.push('/admin/login');
         return;
       }
     }
   }, [authLoading, isAuthenticated, isAdmin, router]);
 
-  // Save settings
+  // Save general settings
   const handleSaveSettings = async () => {
     setLoading(true);
     try {
-      // Simulate API call
+      // Simulate API call - Replace with actual API endpoint
       await new Promise(resolve => setTimeout(resolve, 1000));
       toast.success('Settings saved successfully!');
     } catch (error) {
@@ -107,6 +131,81 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle password reset
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Client-side validation
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('New password and confirmation do not match');
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters long');
+      return;
+    }
+
+    if (passwordForm.newPassword === passwordForm.currentPassword) {
+      toast.error('New password must be different from current password');
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      const response = await fetch('/api/admin/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(passwordForm),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Password updated successfully!');
+        
+        // Clear form
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+        
+        // Hide passwords
+        setShowPasswords({
+          current: false,
+          new: false,
+          confirm: false
+        });
+        
+      } else {
+        toast.error(data.error || 'Failed to update password');
+      }
+    } catch (error) {
+      console.error('Password reset error:', error);
+      toast.error('Failed to update password. Please try again.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Toggle password visibility
+  const togglePasswordVisibility = (field: keyof typeof showPasswords) => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
   };
 
   if (authLoading) {
@@ -197,6 +296,7 @@ export default function SettingsPage() {
                   id="siteDescription"
                   value={siteSettings.siteDescription}
                   onChange={(e) => setSiteSettings(prev => ({ ...prev, siteDescription: e.target.value }))}
+                  rows={3}
                 />
               </div>
 
@@ -221,44 +321,37 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <Label htmlFor="address">Business Address</Label>
+                <Label htmlFor="address">Address</Label>
                 <Textarea
                   id="address"
                   value={siteSettings.address}
                   onChange={(e) => setSiteSettings(prev => ({ ...prev, address: e.target.value }))}
+                  rows={2}
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="currency">Currency</Label>
-                  <Select 
-                    value={siteSettings.currency}
-                    onValueChange={(value) => setSiteSettings(prev => ({ ...prev, currency: value }))}
-                  >
+                  <Select value={siteSettings.currency} onValueChange={(value) => setSiteSettings(prev => ({ ...prev, currency: value }))}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="INR">Indian Rupee (₹)</SelectItem>
-                      <SelectItem value="USD">US Dollar ($)</SelectItem>
-                      <SelectItem value="EUR">Euro (€)</SelectItem>
-                      <SelectItem value="GBP">British Pound (£)</SelectItem>
+                      <SelectItem value="INR">INR (₹)</SelectItem>
+                      <SelectItem value="USD">USD ($)</SelectItem>
+                      <SelectItem value="EUR">EUR (€)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label htmlFor="timezone">Timezone</Label>
-                  <Select 
-                    value={siteSettings.timezone}
-                    onValueChange={(value) => setSiteSettings(prev => ({ ...prev, timezone: value }))}
-                  >
+                  <Select value={siteSettings.timezone} onValueChange={(value) => setSiteSettings(prev => ({ ...prev, timezone: value }))}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Asia/Kolkata">Asia/Kolkata</SelectItem>
-                      <SelectItem value="UTC">UTC</SelectItem>
                       <SelectItem value="America/New_York">America/New_York</SelectItem>
                       <SelectItem value="Europe/London">Europe/London</SelectItem>
                     </SelectContent>
@@ -269,111 +362,244 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Notification Settings */}
+        {/* Notifications Settings */}
         <TabsContent value="notifications" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Email Notifications</CardTitle>
+              <CardTitle>Notification Preferences</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Email Notifications</div>
-                  <div className="text-sm text-gray-500">Receive email notifications for important events</div>
+              {Object.entries(notificationSettings).map(([key, value]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor={key} className="text-sm font-medium capitalize">
+                      {key.replace(/([A-Z])/g, ' $1').trim()}
+                    </Label>
+                    <p className="text-sm text-gray-500">
+                      {key === 'emailNotifications' && 'Receive email notifications for important events'}
+                      {key === 'orderNotifications' && 'Get notified about new orders and status changes'}
+                      {key === 'paymentNotifications' && 'Receive payment success and failure notifications'}
+                      {key === 'lowStockAlerts' && 'Alert when product inventory is running low'}
+                      {key === 'systemAlerts' && 'System maintenance and security notifications'}
+                    </p>
+                  </div>
+                  <Switch
+                    id={key}
+                    checked={value}
+                    onCheckedChange={(checked) => 
+                      setNotificationSettings(prev => ({ ...prev, [key]: checked }))
+                    }
+                  />
                 </div>
-                <Switch
-                  checked={notificationSettings.emailNotifications}
-                  onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, emailNotifications: checked }))}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Order Notifications</div>
-                  <div className="text-sm text-gray-500">Get notified about new orders</div>
-                </div>
-                <Switch
-                  checked={notificationSettings.orderNotifications}
-                  onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, orderNotifications: checked }))}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Payment Notifications</div>
-                  <div className="text-sm text-gray-500">Get notified about payment updates</div>
-                </div>
-                <Switch
-                  checked={notificationSettings.paymentNotifications}
-                  onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, paymentNotifications: checked }))}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Low Stock Alerts</div>
-                  <div className="text-sm text-gray-500">Get notified when products are low in stock</div>
-                </div>
-                <Switch
-                  checked={notificationSettings.lowStockAlerts}
-                  onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, lowStockAlerts: checked }))}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">System Alerts</div>
-                  <div className="text-sm text-gray-500">Get notified about system issues and updates</div>
-                </div>
-                <Switch
-                  checked={notificationSettings.systemAlerts}
-                  onCheckedChange={(checked) => setNotificationSettings(prev => ({ ...prev, systemAlerts: checked }))}
-                />
-              </div>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Security Settings */}
+        {/* Security Settings - PASSWORD RESET SECTION */}
         <TabsContent value="security" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Security Settings</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                Change Admin Password
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Alert className="mb-6">
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  For security reasons, you need to enter your current password to set a new one. 
+                  Choose a strong password with at least 6 characters.
+                </AlertDescription>
+              </Alert>
+
+              <form onSubmit={handlePasswordReset} className="space-y-4">
+                <div>
+                  <Label htmlFor="currentPassword">Current Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="currentPassword"
+                      type={showPasswords.current ? "text" : "password"}
+                      value={passwordForm.currentPassword}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      placeholder="Enter your current password"
+                      required
+                      disabled={passwordLoading}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => togglePasswordVisibility('current')}
+                      disabled={passwordLoading}
+                    >
+                      {showPasswords.current ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="newPassword"
+                      type={showPasswords.new ? "text" : "password"}
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                      placeholder="Enter your new password"
+                      required
+                      disabled={passwordLoading}
+                      className="pr-10"
+                      minLength={6}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => togglePasswordVisibility('new')}
+                      disabled={passwordLoading}
+                    >
+                      {showPasswords.new ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  {passwordForm.newPassword && passwordForm.newPassword.length < 6 && (
+                    <p className="text-sm text-red-600 mt-1">
+                      Password must be at least 6 characters long
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showPasswords.confirm ? "text" : "password"}
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      placeholder="Confirm your new password"
+                      required
+                      disabled={passwordLoading}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => togglePasswordVisibility('confirm')}
+                      disabled={passwordLoading}
+                    >
+                      {showPasswords.confirm ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  {passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword && (
+                    <p className="text-sm text-red-600 mt-1">
+                      Passwords do not match
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button 
+                    type="submit" 
+                    disabled={passwordLoading || !passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}
+                    className="flex items-center"
+                  >
+                    {passwordLoading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Updating Password...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4 mr-2" />
+                        Update Password
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setPasswordForm({
+                        currentPassword: '',
+                        newPassword: '',
+                        confirmPassword: ''
+                      });
+                      setShowPasswords({
+                        current: false,
+                        new: false,
+                        confirm: false
+                      });
+                    }}
+                    disabled={passwordLoading}
+                  >
+                    Clear Form
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Additional Security Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Security & Access
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
-                  <div className="text-sm text-yellow-800">
-                    <strong>Security Features Coming Soon</strong>
-                    <p>Two-factor authentication, password policies, and session management will be available in the next update.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <Label>Current Security Status</Label>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center">
-                        <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                        <span className="text-sm text-green-800">Password Protected</span>
-                      </div>
-                      <Badge className="bg-green-100 text-green-800 border-0">Active</Badge>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                      <div className="flex items-center">
-                        <AlertTriangle className="h-5 w-5 text-gray-600 mr-2" />
-                        <span className="text-sm text-gray-800">Two-Factor Authentication</span>
-                      </div>
-                      <Badge className="bg-gray-100 text-gray-800 border-0">Coming Soon</Badge>
-                    </div>
-                  </div>
+                  <Label className="text-sm font-medium">Two-Factor Authentication</Label>
+                  <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
                 </div>
+                <Button variant="outline" disabled>
+                  Coming Soon
+                </Button>
+              </div>
+              
+              <Separator />
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">Session Management</Label>
+                  <p className="text-sm text-gray-500">Manage active login sessions</p>
+                </div>
+                <Button variant="outline" disabled>
+                  Coming Soon
+                </Button>
+              </div>
+              
+              <Separator />
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">Login History</Label>
+                  <p className="text-sm text-gray-500">View recent login activity</p>
+                </div>
+                <Button variant="outline" disabled>
+                  Coming Soon
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -385,11 +611,11 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Admin Profile</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               {user && (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="flex items-center space-x-4">
-                    <div className="h-16 w-16 rounded-full bg-gray-700 flex items-center justify-center">
+                    <div className="bg-gray-100 rounded-full p-4 flex items-center justify-center">
                       {user.imageUrl ? (
                         <img 
                           src={user.imageUrl} 

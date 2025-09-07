@@ -1,118 +1,16 @@
-// src/app/api/send-order-email/route.ts - COMPLETE UPDATED VERSION
+// src/app/api/send-order-email/route.ts - Fixed version for Razorpay payments
+
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import { prisma } from '@/lib/prisma';
 
-export async function POST(req: NextRequest) {
-  try {
-    console.log('📧 Order email API called');
-    const orderData = await req.json();
-    console.log('📦 Order data received:', orderData);
-    
-    // Generate order number
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-    console.log('🔢 Generated order number:', orderNumber);
-    
-    // ✅ SAVE ORDER TO DATABASE WITH PROPER PRISMA SCHEMA
-    try {
-      console.log('💾 Saving order to database...');
-      
-      // Create order in database with correct field names
-      const newOrder = await prisma.order.create({
-        data: {
-          orderNumber: orderNumber,
-          userId: orderData.userId || null,
-          totalAmount: orderData.totalAmount,
-          shippingCost: orderData.shipping || 0,
-          taxAmount: orderData.tax || orderData.totalAmount * 0.153,
-          status: 'pending',
-          paymentStatus: orderData.paymentMethod === 'cod' ? 'pending' : 'pending',
-          paymentMethod: orderData.paymentMethod || 'cod',
-          
-          // Shipping information
-          shippingName: orderData.shippingAddress.fullName,
-          shippingEmail: orderData.shippingAddress.email,
-          shippingPhone: orderData.shippingAddress.phone,
-          shippingAddress: orderData.shippingAddress.address,
-          shippingCity: orderData.shippingAddress.city,
-          shippingState: orderData.shippingAddress.state,
-          shippingPincode: orderData.shippingAddress.pincode,
-          shippingCountry: orderData.shippingAddress.country || 'India',
-          
-          guestOrder: !orderData.userId,
-          
-          // ✅ FIXED: Use correct relation name
-          items: {
-            create: orderData.items.map((item: any, index: number) => ({
-              productName: item.name,
-              productSlug: item.slug || `product-${index}`,
-              quantity: item.quantity,
-              price: item.price,
-              size: item.size || null,
-              color: item.color || null,
-              imageUrl: item.image || item.imageUrl || null,
-              productId: item.id || null,
-            }))
-          }
-        },
-        include: {
-          items: true  // ✅ FIXED: Use correct relation name
-        }
-      });
-      
-      console.log('✅ Order saved to database successfully:', newOrder.id);
-      
-    } catch (dbError) {
-      console.error('❌ Database save failed:', dbError);
-      // Continue with email sending even if DB save fails
-    }
-    
-    // ✅ UPDATED: Custom SMTP configuration with fallbacks
-   // Updated email transporter configuration for GoDaddy SMTP
-// Replace the transporter section in your send-order-email/route.ts
-
-let transporter;
-
-if (process.env.MAIL_HOST && process.env.EMAIL_PORT) {
-  console.log('✅ Custom SMTP detected - using GoDaddy configuration');
-  
-  // GoDaddy-specific SMTP configuration
-  transporter = nodemailer.createTransport({
-    host: process.env.MAIL_HOST, // smtpout.secureserver.net
-    port: parseInt(process.env.EMAIL_PORT), // 465
-    secure: true, // Always true for port 465
-    auth: {
-      user: process.env.EMAIL_USER, // info@zureeglobal.com
-      pass: process.env.EMAIL_PASS, // Your email password
-    },
-    // GoDaddy-specific configurations
-    tls: {
-      rejectUnauthorized: false,
-      ciphers: 'SSLv3'
-    },
-    // Additional options for GoDaddy compatibility
-    connectionTimeout: 60000, // 60 seconds
-    greetingTimeout: 30000, // 30 seconds
-    socketTimeout: 60000, // 60 seconds
-    debug: true, // Enable debug logs
-    logger: true // Enable logger
-  });
-  
-  console.log('📧 Using GoDaddy SMTP configuration:', process.env.MAIL_HOST);
-  
-  // Test the connection
-  try {
-    await transporter.verify();
-    console.log('✅ SMTP connection verified successfully');
-  } catch (verifyError) {
-    console.error('❌ SMTP connection verification failed:', verifyError);
-    
-    // Try alternative GoDaddy SMTP settings
-    console.log('🔄 Trying alternative GoDaddy SMTP configuration...');
-    transporter = nodemailer.createTransport({
+// Create transporter with GoDaddy SMTP support
+const createTransporter = () => {
+  if (process.env.MAIL_HOST && process.env.EMAIL_PORT) {
+    console.log('✅ Using custom SMTP configuration (GoDaddy)');
+    return nodemailer.createTransport({
       host: process.env.MAIL_HOST,
-      port: 587, // Try port 587 with STARTTLS
-      secure: false, // false for port 587
+      port: parseInt(process.env.EMAIL_PORT),
+      secure: process.env.EMAIL_PORT === '465',
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -121,64 +19,91 @@ if (process.env.MAIL_HOST && process.env.EMAIL_PORT) {
         rejectUnauthorized: false,
         ciphers: 'SSLv3'
       },
-      requireTLS: true,
       connectionTimeout: 60000,
       greetingTimeout: 30000,
-      socketTimeout: 60000,
-      debug: true,
-      logger: true
+      socketTimeout: 60000
     });
-    
-    try {
-      await transporter.verify();
-      console.log('✅ Alternative SMTP connection verified successfully');
-    } catch (altError) {
-      console.error('❌ Alternative SMTP connection also failed:', altError);
-    }
-  }
-  
-} else {
-  // Fallback configurations remain the same
-  console.log('❌ Custom SMTP not detected - falling back to Gmail/Outlook');
-  
-  if (process.env.EMAIL_SERVICE === 'outlook') {
-    transporter = nodemailer.createTransport({
-      service: 'hotmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-    console.log('📧 Using Outlook SMTP configuration');
   } else {
-    transporter = nodemailer.createTransport({
+    console.log('✅ Using Gmail SMTP configuration');
+    return nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+        pass: process.env.EMAIL_PASS
+      }
     });
-    console.log('📧 Using Gmail SMTP configuration');
   }
-}
-    
-    // Prepare email content
-    const itemsList = orderData.items.map((item: any) => 
-      `• ${item.name} - Qty: ${item.quantity} - ₹${(item.price * item.quantity).toFixed(2)}${item.size ? `\n  Size: ${item.size}` : ''}${item.color ? `\n  Color: ${item.color}` : ''}`
-    ).join('\n');
-    
-    const paymentMethodText = orderData.paymentMethod === 'cod' 
-      ? 'Cash on Delivery (COD)' 
-      : 'Online Payment';
-    
+};
+
+const transporter = createTransporter();
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log('📧 Send order email API called');
+    const orderData = await request.json();
+
+    // Log the received data for debugging
+    console.log('Order data received:', {
+      paymentMethod: orderData.paymentMethod,
+      paymentStatus: orderData.paymentStatus,
+      transactionId: orderData.transactionId,
+      email: orderData.shippingAddress?.email
+    });
+
+    // Validate required fields
+    if (!orderData.shippingAddress || !orderData.shippingAddress.email) {
+      console.error('❌ Missing shipping address or email');
+      return NextResponse.json(
+        { error: 'Shipping address and email are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!orderData.items || !Array.isArray(orderData.items) || orderData.items.length === 0) {
+      console.error('❌ Missing or invalid items');
+      return NextResponse.json(
+        { error: 'Order items are required' },
+        { status: 400 }
+      );
+    }
+
+    // Generate order number
+    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+    console.log('Generated order number:', orderNumber);
+
+    // Create items list for email
+    const itemsList = orderData.items.map((item: any) => {
+      const price = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
+      const total = price * item.quantity;
+      return `• ${item.name} (Size: ${item.size}, Color: ${item.color}) - Qty: ${item.quantity} - ₹${total.toFixed(2)}`;
+    }).join('\n');
+
+    // Determine payment status message for Razorpay
+    const getPaymentStatusMessage = () => {
+      if (orderData.paymentMethod === 'cod') {
+        return `PAYMENT INSTRUCTIONS:
+You have selected Cash on Delivery (COD). Please keep ₹${orderData.totalAmount.toFixed(2)} ready when our delivery person arrives.`;
+      } else if (orderData.paymentMethod === 'razorpay') {
+        if (orderData.paymentStatus === 'completed' && orderData.transactionId) {
+          return `PAYMENT CONFIRMATION:
+✅ Payment Successfully Completed!
+Payment Method: Online Payment via Razorpay
+Transaction ID: ${orderData.transactionId}
+Amount Paid: ₹${orderData.totalAmount.toFixed(2)}
+Payment Status: CONFIRMED
+
+Your payment has been verified and processed successfully. You will also receive a separate payment receipt from Razorpay.`;
+        } else {
+          return `PAYMENT STATUS:
+Your payment is being processed securely via Razorpay.`;
+        }
+      }
+      return 'Payment details will be updated shortly.';
+    };
+
     // Admin email content
     const adminEmailContent = `
-🛒 NEW ORDER RECEIVED!
-
-Order Number: ${orderNumber}
-Order Date: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-Payment Method: ${paymentMethodText}
-Total Amount: ₹${orderData.totalAmount.toFixed(2)}
+🛒 NEW ORDER RECEIVED - ${orderNumber}
 
 CUSTOMER DETAILS:
 Name: ${orderData.shippingAddress.fullName}
@@ -186,22 +111,31 @@ Email: ${orderData.shippingAddress.email}
 Phone: ${orderData.shippingAddress.phone}
 
 SHIPPING ADDRESS:
+${orderData.shippingAddress.fullName}
 ${orderData.shippingAddress.address}
 ${orderData.shippingAddress.city}, ${orderData.shippingAddress.state} ${orderData.shippingAddress.pincode}
 ${orderData.shippingAddress.country}
+
+ORDER DETAILS:
+Order Number: ${orderNumber}
+Order Date: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+Total Amount: ₹${orderData.totalAmount.toFixed(2)}
 
 ITEMS ORDERED:
 ${itemsList}
 
 PRICING BREAKDOWN:
 Subtotal: ₹${orderData.subtotal || orderData.totalAmount}
-Shipping: ₹${orderData.shipping || 0}
+Shipping: ₹${orderData.shipping || 0} (FREE)
 Tax: ₹${orderData.tax || 0}
 Total: ₹${orderData.totalAmount.toFixed(2)}
 
+PAYMENT DETAILS:
 ${orderData.paymentMethod === 'cod' ? 
   'PAYMENT: Cash on Delivery (COD)' : 
-  'PAYMENT: Online Payment - Processing'
+  `PAYMENT: Online Payment via Razorpay
+${orderData.transactionId ? `Transaction ID: ${orderData.transactionId}` : 'Transaction ID: Pending'}
+Payment Status: ${orderData.paymentStatus === 'completed' ? 'COMPLETED ✅' : 'Processing'}`
 }
 
 Please process this order immediately.
@@ -238,18 +172,18 @@ Shipping: ₹${orderData.shipping || 0} (FREE SHIPPING!)
 Tax: ₹${orderData.tax || 0}
 Total: ₹${orderData.totalAmount.toFixed(2)}
 
-${orderData.paymentMethod === 'cod' ? 
-  `PAYMENT INSTRUCTIONS:
-You have selected Cash on Delivery (COD). Please keep ₹${orderData.totalAmount.toFixed(2)} ready when our delivery person arrives.`
-  : `PAYMENT STATUS:
-Your payment will be processed securely.`
-}
+${getPaymentStatusMessage()}
 
 WHAT'S NEXT:
-1. Order Confirmation: You're receiving this email as confirmation
+1. Order Confirmation: You're receiving this email as confirmation ✅
 2. Processing: We'll prepare your order within 1-2 business days  
 3. Shipping: FREE SHIPPING to your address
 4. Delivery: Estimated delivery in 3-5 business days
+
+ORDER TRACKING:
+You can track your order status anytime by visiting:
+${process.env.NEXT_PUBLIC_APP_URL}/order-tracking
+Order Number: ${orderNumber}
 
 If you have any questions, contact us at:
 Email: ${process.env.ADMIN_EMAIL || 'support@zureeglobal.com'}
@@ -261,41 +195,61 @@ Best regards,
 The Zuree Global Team
     `;
 
-    // Send emails
+    console.log('📤 Sending emails...');
+
+    // Send admin email
     try {
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER,
-        subject: `🛒 New Order - ${orderNumber}`,
+        subject: `🛒 New Order - ${orderNumber} ${orderData.paymentMethod === 'razorpay' && orderData.paymentStatus === 'completed' ? '(PAID)' : ''}`,
         text: adminEmailContent,
       });
-      console.log('✅ Admin email sent');
+      console.log('✅ Admin email sent successfully');
     } catch (error) {
       console.error('❌ Admin email failed:', error);
+      // Don't fail the entire process if admin email fails
     }
 
+    // Send customer email
     try {
-      await transporter.sendMail({
+      const customerEmailResult = await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: orderData.shippingAddress.email,
-        subject: `Order Confirmation - ${orderNumber}`,
+        subject: `Order Confirmation - ${orderNumber} ${orderData.paymentMethod === 'razorpay' && orderData.paymentStatus === 'completed' ? '✅ Payment Confirmed' : ''}`,
         text: customerEmailContent,
       });
-      console.log('✅ Customer email sent');
+      console.log('✅ Customer email sent successfully to:', orderData.shippingAddress.email);
+      console.log('Email response:', customerEmailResult.response);
     } catch (error) {
       console.error('❌ Customer email failed:', error);
+      // For customer email failure, we should return an error
+      return NextResponse.json(
+        { 
+          error: 'Failed to send order confirmation email',
+          details: error instanceof Error ? error.message : 'Unknown email error',
+          orderNumber: orderNumber
+        },
+        { status: 500 }
+      );
     }
+
+    console.log('✅ Order processed successfully:', orderNumber);
 
     return NextResponse.json({ 
       success: true, 
       orderNumber,
-      message: 'Order placed successfully'
+      message: 'Order placed and email sent successfully',
+      emailSent: true
     });
 
   } catch (error) {
     console.error('❌ Order processing error:', error);
     return NextResponse.json(
-      { error: 'Failed to process order' },
+      { 
+        error: 'Failed to process order',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

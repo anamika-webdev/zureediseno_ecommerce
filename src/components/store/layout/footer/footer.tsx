@@ -28,19 +28,30 @@ const Footer = () => {
               A clothing brand that celebrates the artistry of design, 
               combining modern style with timeless elegance.
             </p>
-           {/* <p className="text-gray-600 text-sm mb-4">Social pages are still in the wardrobe, Coming soon....</p>
-            <div className="flex space-x-4">
-          
-             <span aria-label="Instagram" className="disabled-icon text-gray-600" title="Coming Soon">
-                <Instagram size={18} />
-              </span>
-              <span aria-label="Facebook" className="disabled-icon text-gray-600" title="Coming Soon">
-                <Facebook size={18} />
-              </span>
-              <span aria-label="Twitter" className="disabled-icon text-gray-600" title="Coming Soon">
-                <Twitter size={18} />
-              </span>
-            </div>*/}
+           <p className="text-gray-600 text-sm mb-4">See more styles here:</p>
+<div className="flex space-x-4">
+  {/* Instagram active */}
+  <a
+    href="https://www.instagram.com/disenozuree/?utm_source=qr&r=nametag"
+    aria-label="Instagram"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-blue-600 hover:text-pink-500 transition-colors"
+  >
+    <Instagram size={18} />
+  </a>
+
+  {/* Facebook disabled */}
+  {/*<span aria-label="Facebook" className="disabled-icon text-gray-600" title="Coming Soon">
+    <Facebook size={18} />
+  </span>
+
+  Twitter disabled 
+  <span aria-label="Twitter" className="disabled-icon text-gray-600" title="Coming Soon">
+    <Twitter size={18} />
+  </span>*/}
+</div>
+
           </div>
           
           <div>

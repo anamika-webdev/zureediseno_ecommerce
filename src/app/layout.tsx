@@ -2,7 +2,9 @@
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { ClientAuthProviders } from '@/components/ClientAuthProviders';
-import { Toaster } from 'react-hot-toast';
+import { ThemeProvider } from '@/components/theme-provider';
+//import { Toaster } from 'react-hot-toast';
+import { Toaster } from 'sonner';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -18,11 +20,26 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className} suppressHydrationWarning>
+      <body >
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem={true}
+          disableTransitionOnChange={false}
+          storageKey="zuree-theme"
+        >
         <ClientAuthProviders>
+          {/* UPDATED: Use Sonner with proper admin portal detection */}
+         
           {children}
-          <Toaster position="top-right" />
+          <Toaster position="top-right"
+           richColors
+            closeButton
+            expand={true}
+            duration={4000}
+            visibleToasts={5} />
         </ClientAuthProviders>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,4 +1,5 @@
-// src/components/payment/RazorpayPayment.tsx - Updated for guest checkout
+// src/components/payment/RazorpayPayment.tsx - Updated with better error handling
+
 'use client';
 
 import { useState, useCallback } from 'react';
@@ -120,9 +121,19 @@ export function RazorpayPayment({
         description: 'Purchase from Zuree Diseno',
         image: '/logo.png',
         order_id: orderData.orderId,
+        prefill: guestInfo ? {
+          name: guestInfo.name,
+          email: guestInfo.email,
+          contact: guestInfo.phone || '',
+        } : {},
         handler: async (response: any) => {
           try {
             console.log('Payment response received:', response);
+
+            // Store payment details for later use
+            if (typeof window !== 'undefined') {
+              window.sessionStorage.setItem('razorpay_payment_details', JSON.stringify(response));
+            }
 
             // Verify payment on backend
             const verifyResponse = await fetch('/api/payment/verify-guest', {
@@ -138,85 +149,84 @@ export function RazorpayPayment({
             });
 
             if (verifyResponse.ok) {
+              const verifyData = await verifyResponse.json();
+              console.log('Payment verified successfully:', verifyData);
               toast.success('Payment successful!');
+              setLoading(false);
               
-              // Store payment details in sessionStorage for the parent component
-              if (typeof window !== 'undefined') {
-                window.sessionStorage.setItem('razorpay_payment_details', JSON.stringify({
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_signature: response.razorpay_signature,
-                }));
-              }
-              
+              // Call success handler - this will trigger order email
               handleSuccess();
             } else {
               const errorData = await verifyResponse.json();
+              console.error('Payment verification failed:', errorData);
               throw new Error(errorData.error || 'Payment verification failed');
             }
           } catch (error) {
             console.error('Payment verification error:', error);
-            toast.error('Payment verification failed. Please contact support.');
-            handleError();
-          } finally {
             setLoading(false);
+            const errorMessage = error instanceof Error ? error.message : 'Payment verification failed';
+            setError(`Payment verification failed: ${errorMessage}`);
+            toast.error('Payment verification failed');
+            handleError();
           }
-        },
-        prefill: {
-          name: guestInfo?.name || '',
-          email: guestInfo?.email || '',
-          contact: guestInfo?.phone || '',
-        },
-        notes: {
-          guest_checkout: 'true',
-          order_source: 'website',
-        },
-        theme: {
-          color: '#000000',
         },
         modal: {
           ondismiss: () => {
+            console.log('Payment modal dismissed by user');
             setLoading(false);
             toast.info('Payment cancelled');
+            // Don't call handleError() here as user intentionally cancelled
           },
         },
-        retry: {
-          enabled: true,
-          max_count: 3,
+        theme: {
+          color: '#3B82F6',
         },
-        timeout: 300,
-        remember_customer: false,
       };
 
-      console.log('Opening Razorpay with options:', {
-        ...options,
-        key: options.key ? `${options.key.substring(0, 8)}...` : 'Not set'
-      });
-
+      console.log('Opening Razorpay checkout with options:', options);
       const razorpay = new window.Razorpay(options);
       
+      // Handle payment failures
       razorpay.on('payment.failed', (response: any) => {
         console.error('Payment failed:', response.error);
-        const errorMsg = response.error?.description || response.error?.reason || 'Payment failed';
-        toast.error(`Payment failed: ${errorMsg}`);
-        setError(errorMsg);
         setLoading(false);
+        setError(`Payment failed: ${response.error.description || 'Unknown error'}`);
+        toast.error('Payment failed');
         handleError();
       });
 
       razorpay.open();
-    } catch (error: any) {
-      console.error('Payment initialization error:', error);
-      const errorMessage = error.message || 'Payment initialization failed';
-      setError(errorMessage);
+
+    } catch (error) {
       setLoading(false);
-      toast.error(errorMessage);
+      console.error('Payment creation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(`Failed to create payment order: ${errorMessage}`);
+      toast.error('Failed to create payment order');
       handleError();
     }
   };
 
   return (
-    <div className="w-full">
+    <div className="space-y-4">
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          <span className="text-sm">{error}</span>
+        </div>
+      )}
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Shield className="h-4 w-4 text-blue-600" />
+          <span className="text-sm font-medium text-blue-800">Secure Payment</span>
+        </div>
+        <p className="text-xs text-blue-700">
+          Your payment is secured by Razorpay with 256-bit SSL encryption.
+          No order confirmation will be sent until payment is successfully completed.
+        </p>
+      </div>
+
       <Button
         onClick={handlePayment}
         disabled={disabled || loading}
@@ -225,28 +235,20 @@ export function RazorpayPayment({
       >
         {loading ? (
           <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Processing Payment...
           </>
         ) : (
           <>
-            <CreditCard className="h-4 w-4 mr-2" />
-            Pay ₹{amount.toFixed(2)} with Razorpay
+            <CreditCard className="mr-2 h-4 w-4" />
+            Pay ₹{amount.toFixed(2)} Securely
           </>
         )}
       </Button>
-      
-      {error && (
-        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md flex items-center gap-2 text-red-600 text-sm">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          {error}
-        </div>
-      )}
-      
-      <div className="mt-2 flex items-center justify-center gap-2 text-xs text-gray-500">
-        <Shield className="h-3 w-3" />
-        Secured by Razorpay
-      </div>
+
+      <p className="text-xs text-gray-500 text-center">
+        Order confirmation email will be sent only after successful payment verification
+      </p>
     </div>
   );
 }

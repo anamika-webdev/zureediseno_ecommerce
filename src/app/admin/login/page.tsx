@@ -44,78 +44,110 @@ export default function AdminLoginPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!formData.email || !formData.password) {
+    toast.error('Please enter email and password');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    console.log('🔐 Attempting admin login with:', formData.email);
     
-    if (!formData.email || !formData.password) {
-      toast.error('Please enter email and password');
-      return;
-    }
+    const response = await fetch('/api/admin/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        email: formData.email.trim(),
+        password: formData.password
+      }),
+    });
 
-    setLoading(true);
+    console.log('📡 Login response status:', response.status);
 
-    try {
-      console.log('🔐 Attempting admin login with:', formData.email);
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Login successful:', data);
       
-      const response = await fetch('/api/admin/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password
-        }),
-      });
+      toast.success('Login successful! Redirecting...');
 
-      console.log('📡 Login response status:', response.status);
+      // Multiple redirect strategies to ensure it works
+      setTimeout(() => {
+        console.log('🔄 Attempting router.push redirect');
+        router.push('/dashboard/admin/categories');
+      }, 500);
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Login successful:', data);
-        
-        toast.success('Login successful! Redirecting...');
+      setTimeout(() => {
+        console.log('🔄 Attempting window.location redirect');
+        window.location.href = '/dashboard/admin/categories';
+      }, 1000);
 
-        // Multiple redirect strategies to ensure it works
-        setTimeout(() => {
-          console.log('🔄 Attempting router.push redirect');
-          router.push('/dashboard/admin/categories');
-        }, 500);
+      setTimeout(() => {
+        console.log('🔄 Force page reload if still here');
+        if (window.location.pathname === '/admin/login') {
+          window.location.reload();
+        }
+      }, 2000);
 
-        setTimeout(() => {
-          console.log('🔄 Attempting window.location redirect');
-          window.location.href = '/dashboard/admin/categories';
-        }, 1000);
-
-        setTimeout(() => {
-          console.log('🔄 Force page reload if still here');
-          if (window.location.pathname === '/admin/login') {
-            window.location.reload();
-          }
-        }, 2000);
-
-      } else {
+    } else {
+      // ENHANCED: Better error handling for failed login
+      let errorMessage = 'Login failed';
+      
+      try {
         const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
         console.error('❌ Login failed:', errorData);
-        toast.error(errorData.error || 'Login failed');
+        
+        // Map specific error messages for better UX
+        if (errorMessage === 'Invalid credentials') {
+          errorMessage = 'Invalid email or password. Please try again.';
+        } else if (errorMessage === 'Admin access required') {
+          errorMessage = 'This account does not have admin privileges.';
+        } else if (errorMessage === 'Email and password are required') {
+          errorMessage = 'Please fill in both email and password fields.';
+        }
+        
+      } catch (parseError) {
+        console.error('❌ Failed to parse error response:', parseError);
+        errorMessage = `Login failed (Status: ${response.status})`;
       }
-    } catch (error) {
-      console.error('❌ Login error:', error);
-      toast.error('Login failed. Please try again.');
-    } finally {
-      setLoading(false);
+      
+      // MULTIPLE notification methods to ensure visibility
+      toast.error(errorMessage);
+      
+      // Also log to console for debugging
+      console.error('LOGIN ERROR:', {
+        status: response.status,
+        message: errorMessage,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Clear password field on failed attempt
+      setFormData(prev => ({ ...prev, password: '' }));
     }
-  };
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    const errorMessage = error instanceof Error 
+      ? `Network error: ${error.message}` 
+      : 'Network error. Please check your connection and try again.';
+    
+    // Multiple notification methods
+    toast.error(errorMessage);
+    console.error('NETWORK ERROR:', error);
+    
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Quick test admin credentials
-  const handleTestLogin = () => {
-    setFormData({
-      email: 'admin@test.com',
-      password: 'admin123'
-    });
-    toast.info('Test credentials loaded. Click Sign In to test.');
-  };
+  
 
   if (!mounted) {
     return (
@@ -191,15 +223,7 @@ export default function AdminLoginPage() {
               </Button>
 
               {/* Test Button for Development */}
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={handleTestLogin}
-                disabled={loading}
-              >
-                Load Test Credentials
-              </Button>
+              
             </form>
 
             {/* REMOVED: Blue info box with SQL commands was here */}
