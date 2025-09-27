@@ -34,7 +34,7 @@ const Footer = () => {
   <a
     href="https://www.instagram.com/disenozuree/?utm_source=qr&r=nametag"
     aria-label="Instagram"
-    target="_blank"
+    target="_blanks"
     rel="noopener noreferrer"
     className="text-blue-600 hover:text-pink-500 transition-colors"
   >
