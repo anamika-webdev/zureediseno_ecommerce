@@ -16,14 +16,14 @@ export default async function HomePage() {
              <CollectionBanner
           title="Men's Collection"
           description="Explore the Men's collection, where elegant design meets comfort. Find beautifully crafted pieces for every occasion."
-          image="/assets/img/customshirt.jpg"
+          image="/assets/img/Men.png"
            link="/products/men"
         
         />
             <CollectionBanner
           title="Women's Collection"
           description="Explore the women's collection, where elegant design meets comfort. Find beautifully crafted pieces for every occasion."
-          image="https://images.unsplash.com/photo-1588117260148-b47818741c74?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80"
+          image="/assets/img/Women.png"
           link="/products/women"
           direction="right"
         />
@@ -31,7 +31,7 @@ export default async function HomePage() {
         <CollectionBanner
           title="Kids' Collection"
           description="Bright, comfortable, and durable clothing for the little ones. Dress with love."
-          image="https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1372&q=80"
+          image="/assets/img/Kids.png"
           link="/products/kids"
         />
 

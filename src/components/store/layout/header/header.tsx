@@ -287,7 +287,7 @@ const Header = () => {
             <li>
               <DropdownMenu>
                 <DropdownMenuTrigger className="flex items-center text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors">
-                  Shop
+                  Explore Designs
                   <ChevronDown className="h-4 w-4 ml-1" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-64 max-h-96 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
@@ -356,11 +356,6 @@ const Header = () => {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-            </li>
-            <li>
-              <Link href="/shop" className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors">
-                Explore Designs
-              </Link>
             </li>
             <li>
               <Link href="/tailoredoutfit" className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors flex items-center">
