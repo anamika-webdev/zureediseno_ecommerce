@@ -1,4 +1,4 @@
-// src/app/(store)/tailoredoutfit/page.tsx - Final Complete Version
+// src/app/(store)/tailoredoutfit/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -14,9 +14,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, User, Mail, Phone, Scissors, Ruler } from 'lucide-react';
 
-// Import our custom components
-import RunwayPreview from '@/components/store/CustomDesign/RunwayPreview';
-import DesignGallery from '@/components/store/CustomDesign/DesignGallery';
+// Import the custom components
+import Enhanced3DRunwayPreview from '@/components/store/CustomDesign/Enhanced3DRunwayPreview';
+import ModernDesignGallery from '@/components/store/CustomDesign/ModernDesignGallery';
 import ColorPalette from '@/components/store/CustomDesign/ColorPalette';
 
 // Fabric Options
@@ -27,28 +27,27 @@ const fabricOptions = [
   { id: 'polyester', name: 'Polyester', description: 'Wrinkle-resistant', texture: 'Smooth' },
   { id: 'giza-cotton', name: 'Giza Cotton', description: 'Premium long-staple cotton', texture: 'Luxurious' },
   { id: 'poplin', name: 'Poplin', description: 'Smooth, fine weave', texture: 'Crisp' },
-  { id: 'oxford-cotton', name: 'Oxford Cotton', description: 'Textured basket weave', texture: 'Textured' },
-  { id: 'rayon', name: 'Rayon', description: 'Soft and draping', texture: 'Flowing' },
-  { id: 'satin', name: 'Satin', description: 'Smooth and lustrous', texture: 'Silky' },
-  { id: 'silk', name: 'Silk', description: 'Luxurious natural fiber', texture: 'Premium' },
-  { id: 'denim', name: 'Denim', description: 'Sturdy cotton twill', texture: 'Heavy' },
-  { id: 'nylon', name: 'Nylon', description: 'Strong synthetic fiber', texture: 'Durable' },
-  { id: 'dobby', name: 'Dobby', description: 'Geometric woven pattern', texture: 'Patterned' },
-  { id: 'georgette', name: 'Georgette', description: 'Sheer, flowing fabric', texture: 'Delicate' },
+  { id: 'oxford-cotton', name: 'Oxford Cotton', description: 'Classic button-down fabric', texture: 'Textured' },
+  { id: 'rayon', name: 'Rayon', description: 'Silky smooth feel', texture: 'Smooth' },
+  { id: 'satin', name: 'Satin', description: 'Glossy finish', texture: 'Luxurious' },
+  { id: 'silk', name: 'Silk', description: 'Premium natural fiber', texture: 'Luxurious' },
+  { id: 'denim', name: 'Denim', description: 'Sturdy cotton weave', texture: 'Textured' },
+  { id: 'nylon', name: 'Nylon', description: 'Strong synthetic', texture: 'Smooth' },
+  { id: 'dobby', name: 'Dobby', description: 'Geometric pattern weave', texture: 'Textured' },
+  { id: 'georgette', name: 'Georgette', description: 'Flowing, sheer fabric', texture: 'Smooth' },
 ];
 
-// Measurement parameters
+// Measurement Parameters
 const measurementParams = [
-  { id: 'length', name: 'Length', unit: 'inches', placeholder: 'e.g., 30' },
-  { id: 'chest', name: 'Chest', unit: 'inches', placeholder: 'e.g., 40' },
-  { id: 'upper-chest', name: 'Upper Chest', unit: 'inches', placeholder: 'e.g., 38' },
-  { id: 'hip', name: 'Hip', unit: 'inches', placeholder: 'e.g., 42' },
-  { id: 'shoulder', name: 'Shoulder', unit: 'inches', placeholder: 'e.g., 18' },
-  { id: 'sleeves', name: 'Sleeves', unit: 'type', options: ['Half', '3/4', 'Full'] },
-  { id: 'arm-hole', name: 'Arm Hole', unit: 'inches', placeholder: 'e.g., 20' },
-  { id: 'round-neck', name: 'Round Neck', unit: 'inches', placeholder: 'e.g., 16' },
-  { id: 'neck-drop-front', name: 'Neck Drop Front', unit: 'inches', placeholder: 'e.g., 7' },
-  { id: 'neck-drop-back', name: 'Neck Drop Back', unit: 'inches', placeholder: 'e.g., 8' },
+  { id: 'chest', name: 'Chest', placeholder: 'e.g., 42', unit: 'inches' },
+  { id: 'waist', name: 'Waist', placeholder: 'e.g., 34', unit: 'inches' },
+  { id: 'hips', name: 'Hips', placeholder: 'e.g., 40', unit: 'inches' },
+  { id: 'shoulders', name: 'Shoulders', placeholder: 'e.g., 18', unit: 'inches' },
+  { id: 'inseam', name: 'Inseam', placeholder: 'e.g., 32', unit: 'inches' },
+  { id: 'sleeves', name: 'Sleeve Length', placeholder: 'e.g., 25', unit: 'inches' },
+  { id: 'neck', name: 'Neck', placeholder: 'e.g., 16', unit: 'inches' },
+  { id: 'length', name: 'Length', placeholder: 'e.g., 30', unit: 'inches' },
+  { id: 'fit', name: 'Preferred Fit', options: ['Slim', 'Regular', 'Loose'], unit: 'style' },
 ];
 
 // Form schema
@@ -69,7 +68,7 @@ export default function CustomDesignPage() {
   // State management
   const [selectedDesign, setSelectedDesign] = useState<string>('');
   const [selectedFabric, setSelectedFabric] = useState<string>('');
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [selectedColors, setSelectedColors] = useState<string[]>(['#E5E7EB']); // Start with default color
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [measurements, setMeasurements] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,13 +83,18 @@ export default function CustomDesignPage() {
       phoneNumber: '',
       designType: '',
       fabricType: '',
-      colors: [],
+      colors: ['#E5E7EB'],
       designDescription: '',
       measurements: {},
     },
   });
 
-  // Handle image upload
+  // Sync form colors with state
+  useEffect(() => {
+    form.setValue('colors', selectedColors);
+  }, [selectedColors, form]);
+
+  // Event Handlers
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -102,13 +106,18 @@ export default function CustomDesignPage() {
     }
   };
 
-  // Handle design selection
   const handleDesignSelect = (designId: string) => {
     setSelectedDesign(designId);
     form.setValue('designType', designId);
   };
 
-  // Handle color selection
+  // **NEW: Enhanced color change handler from runway preview**
+  const handleColorsChange = (newColors: string[]) => {
+    setSelectedColors(newColors);
+    form.setValue('colors', newColors);
+  };
+
+  // **UPDATED: Color selection from palette**
   const handleColorSelect = (color: string) => {
     if (!selectedColors.includes(color)) {
       const newColors = [...selectedColors, color];
@@ -117,20 +126,22 @@ export default function CustomDesignPage() {
     }
   };
 
-  // Remove color
+  // **UPDATED: Color removal from palette**
   const handleColorRemove = (colorToRemove: string) => {
     const newColors = selectedColors.filter(color => color !== colorToRemove);
+    // Ensure at least one color remains
+    if (newColors.length === 0) {
+      newColors.push('#E5E7EB');
+    }
     setSelectedColors(newColors);
     form.setValue('colors', newColors);
   };
 
-  // Handle fabric selection
   const handleFabricSelect = (fabricId: string) => {
     setSelectedFabric(fabricId);
     form.setValue('fabricType', fabricId);
   };
 
-  // Handle measurement change
   const handleMeasurementChange = (paramId: string, value: string) => {
     const newMeasurements = { ...measurements, [paramId]: value };
     setMeasurements(newMeasurements);
@@ -179,11 +190,10 @@ export default function CustomDesignPage() {
         form.reset();
         setSelectedDesign('');
         setSelectedFabric('');
-        setSelectedColors([]);
+        setSelectedColors(['#E5E7EB']); // Reset to default color
         setUploadedImage(null);
         setMeasurements({});
         
-        // Scroll to top
         window.scrollTo(0, 0);
       } else {
         throw new Error(result.error || 'Failed to submit request');
@@ -213,27 +223,28 @@ export default function CustomDesignPage() {
           </p>
         </div>
 
+        {/* Main Layout - 3D Preview + Design Tools */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left Panel - Runway Preview */}
+          
+          {/* LEFT PANEL: Enhanced 3D Runway Preview with Interactive Colors */}
           <div className="lg:col-span-1">
-            <RunwayPreview
+            <Enhanced3DRunwayPreview
               selectedDesign={selectedDesign}
               selectedColors={selectedColors}
               selectedFabric={selectedFabric}
               uploadedImage={uploadedImage}
+              measurements={measurements}
+              onColorsChange={handleColorsChange} // **NEW: Pass color change callback**
             />
           </div>
 
-          {/* Main Content */}
+          {/* RIGHT PANELS: Design Tools */}
           <div className="lg:col-span-3 space-y-8">
-            {/* Design Gallery */}
+            
+            {/* 1. Modern Design Gallery */}
             <Card>
-              <CardHeader>
-                <CardTitle>🎨 Design Gallery</CardTitle>
-                <p className="text-sm text-gray-600">Choose your garment type to start designing</p>
-              </CardHeader>
-              <CardContent>
-                <DesignGallery
+              <CardContent className="p-6">
+                <ModernDesignGallery
                   selectedDesign={selectedDesign}
                   onDesignSelect={handleDesignSelect}
                   selectedColors={selectedColors}
@@ -241,7 +252,7 @@ export default function CustomDesignPage() {
               </CardContent>
             </Card>
 
-            {/* Fabric Corner */}
+            {/* 2. Fabric Corner */}
             <Card>
               <CardHeader>
                 <CardTitle>🧵 Fabric Corner</CardTitle>
@@ -268,11 +279,20 @@ export default function CustomDesignPage() {
               </CardContent>
             </Card>
 
-            {/* Color Selection */}
+            {/* 3. Color Selection - Now works with runway preview */}
             <Card>
               <CardHeader>
-                <CardTitle>🎨 Color Selection</CardTitle>
-                <p className="text-sm text-gray-600">Hover over colors to see all shades, then click to select</p>
+                <CardTitle className="flex items-center justify-between">
+                  <div>
+                    <span>🎨 Color Selection</span>
+                    <p className="text-sm text-gray-600 font-normal">
+                      Select colors here or try them directly on the garment preview
+                    </p>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {selectedColors.length} color{selectedColors.length !== 1 ? 's' : ''} selected
+                  </div>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <ColorPalette
@@ -281,10 +301,20 @@ export default function CustomDesignPage() {
                   onColorRemove={handleColorRemove}
                   maxColors={5}
                 />
+                
+                {/* Color synchronization note */}
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <p className="text-sm text-blue-700">
+                      <strong>Try colors live!</strong> Click the palette icon in the runway preview to experiment with colors directly on your garment.
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            {/* Measurement Parameters */}
+            {/* 4. Measurement Parameters */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -296,7 +326,7 @@ export default function CustomDesignPage() {
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {measurementParams.map((param) => (
                     <div key={param.id}>
                       <Label className="text-sm font-medium mb-1 block">{param.name}</Label>
@@ -329,17 +359,86 @@ export default function CustomDesignPage() {
               </CardContent>
             </Card>
 
-            {/* Customer Details & Design Brief */}
+            {/* 5. Design Upload & Description */}
             <Card>
               <CardHeader>
-                <CardTitle>👤 Customer Details & Design Brief</CardTitle>
-                <p className="text-sm text-gray-600">Tell us about yourself and your design vision</p>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  📤 Design Inspiration & Details
+                </CardTitle>
+                <p className="text-sm text-gray-600">
+                  Upload reference images and describe your vision in detail
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Image Upload */}
+                <div>
+                  <Label className="block text-sm font-medium mb-2">
+                    Upload Reference Images (Optional)
+                  </Label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <label htmlFor="image-upload" className="cursor-pointer">
+                      {uploadedImage ? (
+                        <div className="space-y-2">
+                          <img 
+                            src={uploadedImage} 
+                            alt="Uploaded reference" 
+                            className="mx-auto h-32 w-32 object-cover rounded-lg"
+                          />
+                          <p className="text-sm text-green-600">Image uploaded successfully! Click to change.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                          <p className="text-sm text-gray-600">Click to upload design references or inspiration images</p>
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                {/* Design Description */}
+                <div>
+                  <Label className="block text-sm font-medium mb-2">
+                    Design Description *
+                  </Label>
+                  <Textarea
+                    placeholder="Describe your design vision in detail... Include style preferences, special features, occasions, or any specific requirements."
+                    className="min-h-[120px] resize-none"
+                    {...form.register('designDescription')}
+                  />
+                  {form.formState.errors.designDescription && (
+                    <p className="text-sm text-red-600 mt-1">
+                      {form.formState.errors.designDescription.message}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 6. Contact Information & Submit */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  👤 Contact Information
+                </CardTitle>
+                <p className="text-sm text-gray-600">
+                  We'll use this information to contact you about your custom design
+                </p>
               </CardHeader>
               <CardContent>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    {/* Customer Information */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Contact Fields */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="customerName"
@@ -347,7 +446,7 @@ export default function CustomDesignPage() {
                           <FormItem>
                             <FormLabel className="flex items-center gap-2">
                               <User className="h-4 w-4" />
-                              Full Name
+                              Full Name *
                             </FormLabel>
                             <FormControl>
                               <Input placeholder="Enter your full name" {...field} />
@@ -356,24 +455,7 @@ export default function CustomDesignPage() {
                           </FormItem>
                         )}
                       />
-
-                      <FormField
-                        control={form.control}
-                        name="customerEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center gap-2">
-                              <Mail className="h-4 w-4" />
-                              Email Address
-                            </FormLabel>
-                            <FormControl>
-                              <Input type="email" placeholder="your.email@example.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
+                      
                       <FormField
                         control={form.control}
                         name="phoneNumber"
@@ -381,10 +463,10 @@ export default function CustomDesignPage() {
                           <FormItem>
                             <FormLabel className="flex items-center gap-2">
                               <Phone className="h-4 w-4" />
-                              Phone Number
+                              Phone Number *
                             </FormLabel>
                             <FormControl>
-                              <Input placeholder="+1 (555) 123-4567" {...field} />
+                              <Input placeholder="Enter your phone number" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -392,89 +474,46 @@ export default function CustomDesignPage() {
                       />
                     </div>
 
-                    {/* Design Description */}
                     <FormField
                       control={form.control}
-                      name="designDescription"
+                      name="customerEmail"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Design Description & Special Requirements</FormLabel>
+                          <FormLabel className="flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            Email Address *
+                          </FormLabel>
                           <FormControl>
-                            <Textarea
-                              placeholder="Describe your design vision in detail. Include any special requirements, style preferences, occasion, fit preferences, or inspiration. The more details you provide, the better we can create your perfect garment..."
-                              className="min-h-[120px]"
-                              {...field}
-                            />
+                            <Input placeholder="Enter your email address" type="email" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
 
-                    {/* Image Upload */}
-                    <div>
-                      <Label className="flex items-center gap-2 mb-3">
-                        <Upload className="h-4 w-4" />
-                        Reference Image (Optional)
-                      </Label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                          id="image-upload"
-                        />
-                        <label htmlFor="image-upload" className="cursor-pointer">
-                          {uploadedImage ? (
-                            <div className="space-y-3">
-                              <img
-                                src={uploadedImage}
-                                alt="Uploaded reference"
-                                className="max-w-48 max-h-48 mx-auto object-cover rounded-lg shadow-lg"
-                              />
-                              <p className="text-sm text-gray-600">✅ Image uploaded successfully</p>
-                              <p className="text-xs text-blue-600">Click to change image</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              <Upload className="h-16 w-16 mx-auto text-gray-400" />
-                              <div>
-                                <p className="text-gray-600 font-medium">Upload a reference image</p>
-                                <p className="text-sm text-gray-500 mt-1">PNG, JPG, JPEG up to 10MB</p>
-                              </div>
-                              <div className="text-xs text-gray-400">
-                                Images help our designers understand your vision better
-                              </div>
-                            </div>
-                          )}
-                        </label>
-                      </div>
-                    </div>
-
                     {/* Submit Button */}
-                    <div className="pt-6">
+                    <div className="pt-4">
                       <Button
                         type="submit"
-                        className="w-full bg-gradient-to-r from-gray-900 to-gray-700 hover:from-gray-800 hover:to-gray-600 text-white h-14 text-lg font-medium"
-                        disabled={isSubmitting || !selectedDesign || selectedColors.length === 0}
+                        disabled={isSubmitting || !selectedDesign}
+                        className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isSubmitting ? (
                           <>
-                            <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                             Submitting Your Design Request...
                           </>
                         ) : (
                           <>
-                            <Scissors className="mr-3 h-5 w-5" />
+                            <Scissors className="mr-2 h-5 w-5" />
                             Submit Custom Design Request
                           </>
                         )}
                       </Button>
                       
-                      {(!selectedDesign || selectedColors.length === 0) && (
-                        <p className="text-sm text-red-600 text-center mt-2">
-                          Please select a design type and at least one color to continue
+                      {!selectedDesign && (
+                        <p className="text-sm text-gray-500 text-center mt-2">
+                          Please select a design from the gallery above to continue
                         </p>
                       )}
                     </div>
@@ -484,56 +523,6 @@ export default function CustomDesignPage() {
             </Card>
           </div>
         </div>
-
-        {/* Process Information */}
-        <Card className="mt-12">
-          <CardHeader>
-            <CardTitle className="text-center">🎯 How Our Custom Design Process Works</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
-              <div>
-                <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl font-bold text-blue-600">1</span>
-                </div>
-                <h3 className="font-semibold mb-2">Design Selection</h3>
-                <p className="text-gray-600 text-sm">
-                  Choose your garment type, fabric, colors, and provide measurements through our interactive design tool.
-                </p>
-              </div>
-              
-              <div>
-                <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl font-bold text-green-600">2</span>
-                </div>
-                <h3 className="font-semibold mb-2">Expert Consultation</h3>
-                <p className="text-gray-600 text-sm">
-                  Our design team contacts you within 24 hours to discuss details, confirm measurements, and provide pricing.
-                </p>
-              </div>
-              
-              <div>
-                <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl font-bold text-purple-600">3</span>
-                </div>
-                <h3 className="font-semibold mb-2">Skilled Crafting</h3>
-                <p className="text-gray-600 text-sm">
-                  Our master tailors craft your custom piece with precision, attention to detail, and quality materials.
-                </p>
-              </div>
-              
-              <div>
-                <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl font-bold text-orange-600">4</span>
-                </div>
-                <h3 className="font-semibold mb-2">Perfect Delivery</h3>
-                <p className="text-gray-600 text-sm">
-                  Your custom garment is completed and delivered with care, ensuring a perfect fit and finish.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
