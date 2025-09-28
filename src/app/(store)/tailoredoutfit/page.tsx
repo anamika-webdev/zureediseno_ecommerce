@@ -1,4 +1,4 @@
-
+// src/app/(store)/tailoredoutfit/page.tsx - Final Complete Version
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -14,9 +14,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, User, Mail, Phone, Scissors, Ruler } from 'lucide-react';
 
-// Import the three custom components
-import Enhanced3DRunwayPreview from '@/components/store/CustomDesign/Enhanced3DRunwayPreview';
-import ModernDesignGallery from '@/components/store/CustomDesign/ModernDesignGallery';
+// Import our custom components
+import RunwayPreview from '@/components/store/CustomDesign/RunwayPreview';
+import DesignGallery from '@/components/store/CustomDesign/DesignGallery';
 import ColorPalette from '@/components/store/CustomDesign/ColorPalette';
 
 // Fabric Options
@@ -90,7 +90,7 @@ export default function CustomDesignPage() {
     },
   });
 
-  // Event Handlers
+  // Handle image upload
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -102,11 +102,13 @@ export default function CustomDesignPage() {
     }
   };
 
+  // Handle design selection
   const handleDesignSelect = (designId: string) => {
     setSelectedDesign(designId);
     form.setValue('designType', designId);
   };
 
+  // Handle color selection
   const handleColorSelect = (color: string) => {
     if (!selectedColors.includes(color)) {
       const newColors = [...selectedColors, color];
@@ -115,17 +117,20 @@ export default function CustomDesignPage() {
     }
   };
 
+  // Remove color
   const handleColorRemove = (colorToRemove: string) => {
     const newColors = selectedColors.filter(color => color !== colorToRemove);
     setSelectedColors(newColors);
     form.setValue('colors', newColors);
   };
 
+  // Handle fabric selection
   const handleFabricSelect = (fabricId: string) => {
     setSelectedFabric(fabricId);
     form.setValue('fabricType', fabricId);
   };
 
+  // Handle measurement change
   const handleMeasurementChange = (paramId: string, value: string) => {
     const newMeasurements = { ...measurements, [paramId]: value };
     setMeasurements(newMeasurements);
@@ -178,6 +183,7 @@ export default function CustomDesignPage() {
         setUploadedImage(null);
         setMeasurements({});
         
+        // Scroll to top
         window.scrollTo(0, 0);
       } else {
         throw new Error(result.error || 'Failed to submit request');
@@ -207,27 +213,27 @@ export default function CustomDesignPage() {
           </p>
         </div>
 
-        {/* Main Layout - 3D Preview + Design Tools */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          
-          {/* LEFT PANEL: Enhanced 3D Runway Preview */}
+          {/* Left Panel - Runway Preview */}
           <div className="lg:col-span-1">
-            <Enhanced3DRunwayPreview
+            <RunwayPreview
               selectedDesign={selectedDesign}
               selectedColors={selectedColors}
               selectedFabric={selectedFabric}
               uploadedImage={uploadedImage}
-              measurements={measurements}
             />
           </div>
 
-          {/* RIGHT PANELS: Design Tools */}
+          {/* Main Content */}
           <div className="lg:col-span-3 space-y-8">
-            
-            {/* 1. Modern Design Gallery */}
+            {/* Design Gallery */}
             <Card>
-              <CardContent className="p-6">
-                <ModernDesignGallery
+              <CardHeader>
+                <CardTitle>🎨 Design Gallery</CardTitle>
+                <p className="text-sm text-gray-600">Choose your garment type to start designing</p>
+              </CardHeader>
+              <CardContent>
+                <DesignGallery
                   selectedDesign={selectedDesign}
                   onDesignSelect={handleDesignSelect}
                   selectedColors={selectedColors}
@@ -235,7 +241,7 @@ export default function CustomDesignPage() {
               </CardContent>
             </Card>
 
-            {/* 2. Fabric Corner */}
+            {/* Fabric Corner */}
             <Card>
               <CardHeader>
                 <CardTitle>🧵 Fabric Corner</CardTitle>
@@ -262,7 +268,7 @@ export default function CustomDesignPage() {
               </CardContent>
             </Card>
 
-            {/* 3. Color Selection */}
+            {/* Color Selection */}
             <Card>
               <CardHeader>
                 <CardTitle>🎨 Color Selection</CardTitle>
@@ -278,7 +284,7 @@ export default function CustomDesignPage() {
               </CardContent>
             </Card>
 
-            {/* 4. Measurement Parameters */}
+            {/* Measurement Parameters */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -323,7 +329,7 @@ export default function CustomDesignPage() {
               </CardContent>
             </Card>
 
-            {/* 5. Customer Details & Design Brief */}
+            {/* Customer Details & Design Brief */}
             <Card>
               <CardHeader>
                 <CardTitle>👤 Customer Details & Design Brief</CardTitle>
@@ -332,7 +338,6 @@ export default function CustomDesignPage() {
               <CardContent>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    
                     {/* Customer Information */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <FormField
@@ -396,7 +401,7 @@ export default function CustomDesignPage() {
                           <FormLabel>Design Description & Special Requirements</FormLabel>
                           <FormControl>
                             <Textarea
-                              placeholder="Describe your design vision in detail. Include any special requirements, style preferences, occasion, fit preferences, or inspiration..."
+                              placeholder="Describe your design vision in detail. Include any special requirements, style preferences, occasion, fit preferences, or inspiration. The more details you provide, the better we can create your perfect garment..."
                               className="min-h-[120px]"
                               {...field}
                             />
