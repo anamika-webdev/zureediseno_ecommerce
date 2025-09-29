@@ -1,4 +1,3 @@
-// src/components/ProductCard.tsx - Complete Fixed Version
 'use client';
 
 import { useState } from 'react';
@@ -41,14 +40,20 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [selectedSleeve, setSelectedSleeve] = useState<string>('');
+  const [selectedFit, setSelectedFit] = useState<string>('');
+  const [hoveredFit, setHoveredFit] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Get the main product image
+  const fitImages: { [key: string]: string } = {
+    'Regular Fit': '/assets/img/Fit/Regular Fit.png',
+    'Slim Fit': '/assets/img/Fit/SlimFit.jpg',
+    'Belly Fit': '/assets/img/Fit/BellyFit.jpg'
+  };
+
   const imageUrl = product.images && product.images.length > 0 
     ? product.images[currentImageIndex] 
     : '/assets/images/placeholder.jpg';
 
-  // Get available options from variants with proper filtering
   const availableColors = [...new Set(product.variants?.map(v => v.color).filter(Boolean) || [])];
   const availableSizes = [...new Set(product.variants?.map(v => v.size).filter(Boolean) || [])];
   const availableSleeves = [...new Set(
@@ -56,8 +61,8 @@ export default function ProductCard({ product }: ProductCardProps) {
       .filter((sleeve): sleeve is string => sleeve !== undefined && sleeve !== null && sleeve.trim() !== '') 
       || []
   )];
+  const availableFits = ['Regular Fit', 'Slim Fit', 'Belly Fit'];
 
-  // Get current variant based on selections
   const currentVariant = product.variants?.find(v => 
     v.color === selectedColor && 
     v.size === selectedSize && 
@@ -65,22 +70,20 @@ export default function ProductCard({ product }: ProductCardProps) {
   );
 
   const isVariantInStock = currentVariant ? currentVariant.stock > 0 : true;
-  const canAddToCart = product.inStock && 
-    (availableColors.length === 0 || selectedColor) && 
-    (availableSizes.length === 0 || selectedSize) && 
+  const canAddToCart = product.inStock &&
+    (availableColors.length === 0 || selectedColor) &&
+    (availableSizes.length === 0 || selectedSize) &&
     (availableSleeves.length === 0 || !availableSleeves.length || selectedSleeve) &&
     isVariantInStock;
 
   const handleColorSelect = (color: string) => {
     setSelectedColor(color);
-    // Reset size and sleeve when color changes
     setSelectedSize('');
     setSelectedSleeve('');
   };
 
   const handleSizeSelect = (size: string) => {
     setSelectedSize(size);
-    // Reset sleeve when size changes
     setSelectedSleeve('');
   };
 
@@ -91,7 +94,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!canAddToCart) {
       toast.error('Please select all required options');
       return;
@@ -106,6 +109,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       size: selectedSize || 'One Size',
       color: selectedColor || 'Default',
       sleeveType: selectedSleeve,
+      fit: selectedFit,
       variantId: currentVariant?.id,
       sku: currentVariant?.sku
     };
@@ -114,21 +118,17 @@ export default function ProductCard({ product }: ProductCardProps) {
     toast.success('Added to cart!');
   };
 
-  // Fixed Quick View function with proper type checking
   const handleQuickView = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    // Ensure product.slug exists and is valid
+
     if (product.slug && typeof product.slug === 'string' && product.slug.trim()) {
       router.push(`/product/${product.slug}`);
     } else {
-      console.warn('Product slug is undefined or empty, cannot navigate');
       toast.error('Product page not available');
     }
   };
 
-  // Fixed function to get available sizes with proper filtering
   const getAvailableSizes = (): string[] => {
     if (!selectedColor) return availableSizes;
     return [...new Set(
@@ -138,7 +138,6 @@ export default function ProductCard({ product }: ProductCardProps) {
     )];
   };
 
-  // Fixed function to get available sleeves with proper filtering
   const getAvailableSleeves = (): string[] => {
     if (!selectedColor || !selectedSize) return availableSleeves;
     return [...new Set(
@@ -150,12 +149,11 @@ export default function ProductCard({ product }: ProductCardProps) {
     )];
   };
 
-  // Create safe product URL
   const productUrl = product.slug && product.slug.trim() ? `/product/${product.slug}` : '#';
   const hasValidSlug = productUrl !== '#';
 
   return (
-    <Card className="group relative overflow-hidden hover:shadow-lg transition-all duration-300">
+    <Card className="group relative overflow-visible hover:shadow-lg transition-all duration-300">
       {/* Product Image */}
       <div className="relative aspect-square overflow-hidden bg-gray-100">
         {hasValidSlug ? (
@@ -183,8 +181,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             }}
           />
         )}
-        
-        {/* Badges */}
+
         <div className="absolute top-2 left-2 flex flex-col gap-1">
           {product.featured && (
             <Badge className="bg-yellow-500 text-white">
@@ -199,7 +196,6 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
 
-        {/* Action Buttons */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300">
           <div className="absolute bottom-2 left-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <Button 
@@ -229,10 +225,8 @@ export default function ProductCard({ product }: ProductCardProps) {
         </div>
       </div>
 
-      {/* Product Info */}
       <CardContent className="p-4">
         <div className="space-y-3">
-          {/* Product Name */}
           {hasValidSlug ? (
             <Link href={productUrl}>
               <h3 className="font-semibold text-sm hover:text-primary transition-colors line-clamp-2">
@@ -245,7 +239,6 @@ export default function ProductCard({ product }: ProductCardProps) {
             </h3>
           )}
 
-          {/* Price */}
           <div className="flex items-center gap-2">
             <span className="font-bold text-lg">₹{product.price.toFixed(2)}</span>
             {product.originalPrice && product.originalPrice > product.price && (
@@ -255,124 +248,169 @@ export default function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
 
-          {/* Color Selection */}
-          {availableColors.length > 0 && (
-            <div className="space-y-2">
+          {/* Options stacked vertically */}
+          <div className="space-y-3">
+
+            {/* Fit Selection with relative container for absolute preview */}
+            <div>
               <div className="text-xs font-medium text-gray-700">
-                Color: {selectedColor || 'Select color'}
+                Fit: {selectedFit || 'Select fit'}
               </div>
-              <div className="flex flex-wrap gap-1">
-                {availableColors.map((color) => (
+              <div className="flex flex-wrap gap-1 relative">
+                {availableFits.map((fit) => (
                   <button
-                    key={color}
+                    key={fit}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      handleColorSelect(color);
+                      setSelectedFit(fit);
                     }}
+                    onMouseEnter={() => setHoveredFit(fit)}
+                    onMouseLeave={() => setHoveredFit(null)}
                     className={`px-2 py-1 text-xs font-medium border rounded transition-all ${
-                      selectedColor === color
+                      selectedFit === fit
                         ? 'border-gray-900 bg-gray-900 text-white'
                         : 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
                     }`}
                     type="button"
                   >
-                    {color}
+                    {fit}
                   </button>
                 ))}
+
+                {/* Fit Preview below buttons */}
+                {hoveredFit && (
+                  <div className="absolute top-full mt-2 left-0 z-30 bg-white border border-gray-300 rounded-lg shadow-lg p-3 w-[220px] pointer-events-none">
+                    <Image
+                      src={fitImages[hoveredFit]}
+                      alt={hoveredFit}
+                      width={200}
+                      height={200}
+                      className="object-contain rounded mx-auto"
+                      onError={(e) => {
+                        e.currentTarget.src = '/assets/images/placeholder.jpg';
+                      }}
+                    />
+                    <p className="text-xs text-center mt-2 font-medium text-gray-700">{hoveredFit}</p>
+                  </div>
+                )}
               </div>
             </div>
-          )}
 
-          {/* Size Selection */}
-          {availableSizes.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-700">
-                Size: {selectedSize || 'Select size'}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {getAvailableSizes().map((size) => {
-                  const currentAvailableSizes = getAvailableSizes();
-                  const isAvailable = currentAvailableSizes.includes(size);
-                  return (
+            {/* Color Selection */}
+            {availableColors.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-gray-700">
+                  Color: {selectedColor || 'Select color'}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {availableColors.map((color) => (
                     <button
-                      key={size}
+                      key={color}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (isAvailable && size) {
-                          handleSizeSelect(size);
-                        }
+                        handleColorSelect(color);
                       }}
-                      disabled={!isAvailable}
                       className={`px-2 py-1 text-xs font-medium border rounded transition-all ${
-                        selectedSize === size
+                        selectedColor === color
                           ? 'border-gray-900 bg-gray-900 text-white'
-                          : isAvailable
-                          ? 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
-                          : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
                       }`}
                       type="button"
                     >
-                      {size}
+                      {color}
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Sleeve Selection - FIXED */}
-          {availableSleeves.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-gray-700">
-                Sleeve: {selectedSleeve || 'Select sleeve'}
+            {/* Size Selection */}
+            {availableSizes.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-gray-700">
+                  Size: {selectedSize || 'Select size'}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {getAvailableSizes().map((size) => {
+                    const currentAvailableSizes = getAvailableSizes();
+                    const isAvailable = currentAvailableSizes.includes(size);
+                    return (
+                      <button
+                        key={size}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (isAvailable && size) {
+                            handleSizeSelect(size);
+                          }
+                        }}
+                        disabled={!isAvailable}
+                        className={`px-2 py-1 text-xs font-medium border rounded transition-all ${
+                          selectedSize === size
+                            ? 'border-gray-900 bg-gray-900 text-white'
+                            : isAvailable
+                            ? 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
+                            : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                        type="button"
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {getAvailableSleeves().map((sleeve) => {
-                  // Safety check - only process valid sleeves
-                  if (!sleeve || typeof sleeve !== 'string') return null;
-                  
-                  const currentAvailableSleeves = getAvailableSleeves();
-                  const isAvailable = currentAvailableSleeves.includes(sleeve);
-                  
-                  return (
-                    <button
-                      key={sleeve}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Double check both conditions
-                        if (isAvailable && sleeve && typeof sleeve === 'string') {
-                          handleSleeveSelect(sleeve);
-                        }
-                      }}
-                      disabled={!isAvailable}
-                      className={`px-2 py-1 text-xs font-medium border rounded transition-all ${
-                        selectedSleeve === sleeve
-                          ? 'border-gray-900 bg-gray-900 text-white'
-                          : isAvailable
-                          ? 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
-                          : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                      }`}
-                      type="button"
-                    >
-                      {sleeve}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+            )}
 
-          {/* Stock Info */}
+            {/* Sleeve Selection */}
+            {availableSleeves.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-gray-700">
+                  Sleeve: {selectedSleeve || 'Select sleeve'}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {getAvailableSleeves().map((sleeve) => {
+                    if (!sleeve || typeof sleeve !== 'string') return null;
+                    const currentAvailableSleeves = getAvailableSleeves();
+                    const isAvailable = currentAvailableSleeves.includes(sleeve);
+                    return (
+                      <button
+                        key={sleeve}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (isAvailable && sleeve && typeof sleeve === 'string') {
+                            handleSleeveSelect(sleeve);
+                          }
+                        }}
+                        disabled={!isAvailable}
+                        className={`px-2 py-1 text-xs font-medium border rounded transition-all ${
+                          selectedSleeve === sleeve
+                            ? 'border-gray-900 bg-gray-900 text-white'
+                            : isAvailable
+                            ? 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
+                            : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                        type="button"
+                      >
+                        {sleeve}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+          </div>
+
           {currentVariant && (
             <div className="text-xs text-gray-600">
               {currentVariant.stock} in stock
             </div>
           )}
 
-          {/* Add to Cart Button */}
           <Button 
             className="w-full" 
             size="sm"

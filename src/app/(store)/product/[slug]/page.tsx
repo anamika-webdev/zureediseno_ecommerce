@@ -107,10 +107,20 @@ export default function ProductDetailsPage({ params }: PageProps) {
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedSleeveType, setSelectedSleeveType] = useState('');
+  const [selectedFit, setSelectedFit] = useState<string>('');
+  const [hoveredFit, setHoveredFit] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const resolvedParams = use(params);
+
+  // Fit options and images
+  const availableFits = ['Regular Fit', 'Slim Fit', 'Belly Fit'];
+  const fitImages: { [key: string]: string } = {
+    'Regular Fit': '/assets/img/Fit/Regular Fit.png',
+    'Slim Fit': '/assets/img/Fit/SlimFit.jpg',
+    'Belly Fit': '/assets/img/Fit/BellyFit.jpg'
+  };
 
   // Get unique options from variants
   const availableColors = product ? [...new Set(product.variants.map(v => v.color))] : [];
@@ -239,6 +249,11 @@ export default function ProductDetailsPage({ params }: PageProps) {
       return;
     }
 
+    if (!selectedFit) {
+      toast.error('Please select a fit');
+      return;
+    }
+
     if (!isInStock) {
       toast.error('Selected combination is out of stock');
       return;
@@ -252,6 +267,7 @@ export default function ProductDetailsPage({ params }: PageProps) {
       slug: product.slug,
       size: selectedSize,
       color: selectedColor,
+      fit: selectedFit,
       quantity: quantity
     });
 
@@ -415,6 +431,54 @@ export default function ProductDetailsPage({ params }: PageProps) {
                           Save ₹{formatPrice(product.originalPrice - product.price)}
                         </span>
                       </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Fit Selection */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Fit
+                    </h3>
+                    <span className="text-sm text-gray-600 font-medium">
+                      {selectedFit || 'Select fit'}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <div className="grid grid-cols-3 gap-3">
+                      {availableFits.map((fit) => (
+                        <button
+                          key={fit}
+                          onClick={() => setSelectedFit(fit)}
+                          onMouseEnter={() => setHoveredFit(fit)}
+                          onMouseLeave={() => setHoveredFit(null)}
+                          className={`py-3 px-4 border-2 font-semibold text-sm rounded-lg transition-all ${
+                            selectedFit === fit
+                              ? 'border-gray-900 bg-gray-900 text-white shadow-md'
+                              : 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {fit.replace(' Fit', '')}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Hover Image Preview - Absolute positioned overlay */}
+                    {hoveredFit && (
+                      <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-white border-2 border-gray-300 rounded-lg shadow-2xl p-4">
+                        <Image
+                          src={fitImages[hoveredFit]}
+                          alt={hoveredFit}
+                          width={200}
+                          height={200}
+                          className="object-contain rounded mx-auto"
+                          onError={(e) => {
+                            e.currentTarget.src = '/assets/images/placeholder.jpg';
+                          }}
+                        />
+                        <p className="text-sm text-center mt-2 font-semibold text-gray-800">{hoveredFit}</p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -600,11 +664,12 @@ export default function ProductDetailsPage({ params }: PageProps) {
                   <div className="flex gap-4">
                     <Button
                       onClick={handleAddToCart}
-                      disabled={!isInStock || !selectedSize || !selectedColor || (availableSleeveTypes.length > 0 && !selectedSleeveType)}
+                      disabled={!isInStock || !selectedSize || !selectedColor || !selectedFit || (availableSleeveTypes.length > 0 && !selectedSleeveType)}
                       className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
                       size="lg"
                     >
                       {!selectedColor || !selectedSize ? 'Select Options' :
+                       !selectedFit ? 'Select Fit' :
                        (availableSleeveTypes.length > 0 && !selectedSleeveType) ? 'Select Sleeve Type' :
                        !isInStock ? 'Out of Stock' : 
                        `Add to Cart • ₹${formatPrice(product.price * quantity)}`}
