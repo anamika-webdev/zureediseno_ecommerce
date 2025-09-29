@@ -374,41 +374,7 @@ const ModernDesignGallery: React.FC<ModernDesignGalleryProps> = ({
           })}
         </div>
 
-        {/* Selected Design Info */}
-        {selectedDesign && (
-          <div className="mt-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 relative">
-                {garmentTypes.find(g => g.name.toLowerCase().replace(/\s+/g, '-') === selectedDesign)?.icon}
-              </div>
-              <div>
-                <h3 className="font-medium">
-                  {garmentTypes.find(g => g.name.toLowerCase().replace(/\s+/g, '-') === selectedDesign)?.name}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  {garmentTypes.find(g => g.name.toLowerCase().replace(/\s+/g, '-') === selectedDesign)?.description}
-                </p>
-                {selectedColors.length > 0 && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <p className="text-xs text-orange-600">Selected colors:</p>
-                    <div className="flex gap-1">
-                      {selectedColors.slice(0, 3).map((color, idx) => (
-                        <div
-                          key={idx}
-                          className="w-4 h-4 rounded-full border border-gray-300"
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                      {selectedColors.length > 3 && (
-                        <span className="text-xs text-gray-500">+{selectedColors.length - 3}</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+    
       </div>
 
       {/* Right: Runway Preview */}

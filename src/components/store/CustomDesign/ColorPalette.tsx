@@ -57,43 +57,81 @@ const colorPalettes = {
 
 export default function ColorPalette({ selectedColors, onColorSelect, onColorRemove, maxColors = 5 }: ColorPaletteProps) {
   const [hoveredPalette, setHoveredPalette] = useState<string | null>(null);
+  const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const canSelectMore = selectedColors.length < maxColors;
+
+  // Handle mouse enter with slight delay to prevent flickering
+  const handleMouseEnter = (paletteKey: string) => {
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+    }
+    setHoveredPalette(paletteKey);
+  };
+
+  // Handle mouse leave with delay to allow moving to tooltip
+  const handleMouseLeave = () => {
+    const timeout = setTimeout(() => {
+      setHoveredPalette(null);
+    }, 150); // 150ms delay to allow moving to tooltip
+    setHoverTimeout(timeout);
+  };
+
+  // Keep tooltip open when hovering over it
+  const handleTooltipEnter = () => {
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+    }
+  };
+
+  // Hide tooltip when leaving tooltip area
+  const handleTooltipLeave = () => {
+    setHoveredPalette(null);
+  };
 
   return (
     <div className="space-y-6">
       {/* Popular Colors */}
       <div>
         <h3 className="font-medium mb-3">Popular Colors</h3>
-        <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
+        <div className="grid grid-cols-5 md:grid-cols-10 gap-3 relative">
           {Object.entries(colorPalettes).map(([paletteKey, palette]) => (
             <div key={paletteKey} className="relative">
               <button
-                className="w-12 h-12 rounded-lg border-2 border-gray-300 hover:scale-110 transition-all duration-200 shadow-sm"
+                className="w-12 h-12 rounded-lg border-2 border-gray-300 hover:scale-110 transition-all duration-200 shadow-sm hover:shadow-md"
                 style={{ backgroundColor: palette.shades[0] }}
-                onMouseEnter={() => setHoveredPalette(paletteKey)}
-                onMouseLeave={() => setHoveredPalette(null)}
+                onMouseEnter={() => handleMouseEnter(paletteKey)}
+                onMouseLeave={handleMouseLeave}
                 onClick={() => canSelectMore && onColorSelect(palette.shades[0])}
                 disabled={!canSelectMore && !selectedColors.includes(palette.shades[0])}
                 title={palette.name}
               />
               
-              {/* Color Shades Tooltip */}
+              {/* Color Shades Tooltip - Fixed positioning and z-index */}
               {hoveredPalette === paletteKey && (
-                <div className="absolute top-14 left-1/2 transform -translate-x-1/2 z-20 bg-white p-4 rounded-lg shadow-xl border-2 border-gray-200">
-                  <div className="text-center mb-2">
+                <div 
+                  className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 bg-white p-4 rounded-lg shadow-xl border-2 border-gray-200 min-w-[160px]"
+                  onMouseEnter={handleTooltipEnter}
+                  onMouseLeave={handleTooltipLeave}
+                  style={{ 
+                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                    zIndex: 9999 
+                  }}
+                >
+                  <div className="text-center mb-3">
                     <span className="text-sm font-medium text-gray-700">{palette.name} Shades</span>
                   </div>
-                  <div className="grid grid-cols-4 gap-2 min-w-[140px]">
+                  <div className="grid grid-cols-4 gap-2">
                     {palette.shades.map((shade, index) => (
                       <button
                         key={index}
-                        className="w-8 h-8 rounded border-2 border-gray-200 hover:scale-110 transition-transform duration-150 shadow-sm"
+                        className="w-8 h-8 rounded border-2 border-gray-200 hover:scale-110 hover:border-gray-400 transition-all duration-150 shadow-sm"
                         style={{ backgroundColor: shade }}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (canSelectMore || selectedColors.includes(shade)) {
                             onColorSelect(shade);
+                            setHoveredPalette(null); // Close tooltip after selection
                           }
                         }}
                         disabled={!canSelectMore && !selectedColors.includes(shade)}
@@ -104,6 +142,12 @@ export default function ColorPalette({ selectedColors, onColorSelect, onColorRem
                   <div className="text-xs text-gray-500 text-center mt-2">
                     Click any shade to select
                   </div>
+                  
+                  {/* Tooltip Arrow */}
+                  <div 
+                    className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white border-t-2 border-l-2 border-gray-200 rotate-45"
+                    style={{ zIndex: -1 }}
+                  ></div>
                 </div>
               )}
             </div>
@@ -151,7 +195,7 @@ export default function ColorPalette({ selectedColors, onColorSelect, onColorRem
         <div className="flex items-center gap-3">
           <input
             type="color"
-            className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer"
+            className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer hover:border-gray-400 transition-colors"
             onChange={(e) => canSelectMore && onColorSelect(e.target.value.toUpperCase())}
             disabled={!canSelectMore}
           />
