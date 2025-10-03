@@ -7,15 +7,22 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, User, Mail, Phone, Scissors, Ruler } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // Import the custom components
 import ModernDesignGallery from '@/components/store/CustomDesign/ModernDesignGallery';
+import EnhancedRunwayPreview from '@/components/store/CustomDesign/EnhancedRunwayPreview';
 import ColorPalette from '@/components/store/CustomDesign/ColorPalette';
 
 // Fabric Options
@@ -27,387 +34,294 @@ const fabricOptions = [
   { id: 'giza-cotton', name: 'Giza Cotton', description: 'Premium long-staple cotton', texture: 'Luxurious' },
   { id: 'poplin', name: 'Poplin', description: 'Smooth, fine weave', texture: 'Crisp' },
   { id: 'oxford-cotton', name: 'Oxford Cotton', description: 'Classic button-down fabric', texture: 'Textured' },
-  { id: 'rayon', name: 'Rayon', description: 'Silky smooth feel', texture: 'Smooth' },
-  { id: 'satin', name: 'Satin', description: 'Glossy finish', texture: 'Luxurious' },
-  { id: 'silk', name: 'Silk', description: 'Premium natural fiber', texture: 'Luxurious' },
-  { id: 'denim', name: 'Denim', description: 'Sturdy cotton weave', texture: 'Textured' },
-  { id: 'nylon', name: 'Nylon', description: 'Strong synthetic', texture: 'Smooth' },
-  { id: 'dobby', name: 'Dobby', description: 'Geometric pattern weave', texture: 'Textured' },
-  { id: 'georgette', name: 'Georgette', description: 'Flowing, sheer fabric', texture: 'Smooth' },
+  { id: 'rayon', name: 'Rayon', description: 'Soft, drapes well', texture: 'Silky' },
+  { id: 'silk', name: 'Silk', description: 'Luxurious natural fiber', texture: 'Silky' },
+  { id: 'wool', name: 'Wool', description: 'Warm, natural insulation', texture: 'Textured' },
+  { id: 'denim', name: 'Denim', description: 'Sturdy cotton twill', texture: 'Heavy' },
+  { id: 'chambray', name: 'Chambray', description: 'Lightweight denim alternative', texture: 'Soft' },
+  { id: 'flannel', name: 'Flannel', description: 'Soft, brushed cotton', texture: 'Fuzzy' },
+  { id: 'satin', name: 'Satin', description: 'Glossy, smooth finish', texture: 'Lustrous' },
 ];
 
-// Measurement Parameters
-const measurementParams = [
-  { id: 'chest', name: 'Chest', placeholder: 'e.g., 42', unit: 'inches' },
-  { id: 'waist', name: 'Waist', placeholder: 'e.g., 34', unit: 'inches' },
-  { id: 'hips', name: 'Hips', placeholder: 'e.g., 40', unit: 'inches' },
-  { id: 'shoulders', name: 'Shoulders', placeholder: 'e.g., 18', unit: 'inches' },
-  { id: 'inseam', name: 'Inseam', placeholder: 'e.g., 32', unit: 'inches' },
-  { id: 'sleeves', name: 'Sleeve Length', placeholder: 'e.g., 25', unit: 'inches' },
-  { id: 'neck', name: 'Neck', placeholder: 'e.g., 16', unit: 'inches' },
-  { id: 'length', name: 'Length', placeholder: 'e.g., 30', unit: 'inches' },
-  { id: 'fit', name: 'Preferred Fit', options: ['Slim', 'Regular', 'Loose'], unit: 'style' },
+// Measurement fields configuration
+const measurementFields = [
+  { id: 'chest', label: 'Chest', unit: 'inches', min: 30, max: 60 },
+  { id: 'waist', label: 'Waist', unit: 'inches', min: 24, max: 50 },
+  { id: 'hips', label: 'Hips', unit: 'inches', min: 30, max: 60 },
+  { id: 'shoulder', label: 'Shoulder', unit: 'inches', min: 14, max: 24 },
+  { id: 'sleeve', label: 'Sleeve Length', unit: 'inches', min: 20, max: 40 },
+  { id: 'neck', label: 'Neck', unit: 'inches', min: 12, max: 20 },
+  { id: 'inseam', label: 'Inseam', unit: 'inches', min: 26, max: 38 },
+  { id: 'length', label: 'Overall Length', unit: 'inches', min: 24, max: 50 },
 ];
 
-// Form schema
-const customDesignSchema = z.object({
-  customerName: z.string().min(2, "Name must be at least 2 characters"),
-  customerEmail: z.string().email("Invalid email address"),
-  phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
-  designType: z.string().min(1, "Please select a design type"),
-  fabricType: z.string().optional(),
-  colors: z.array(z.string()).min(1, "Please select at least one color"),
-  designDescription: z.string().min(10, "Please provide a detailed description"),
-  measurements: z.record(z.string()).optional(),
-  measurementMethod: z.enum(['manual', 'camera']).optional(),
+// Form validation schema
+const formSchema = z.object({
+  customerName: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
+  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  designDescription: z.string().min(10, 'Description must be at least 10 characters'),
 });
 
-type CustomDesignFormValues = z.infer<typeof customDesignSchema>;
+type FormData = z.infer<typeof formSchema>;
 
-export default function CustomDesignPage() {
-  // State management
-  const [selectedDesign, setSelectedDesign] = useState<string>('');
-  const [selectedFabric, setSelectedFabric] = useState<string>('');
-  const [selectedColors, setSelectedColors] = useState<string[]>(['#E5E7EB']);
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [measurements, setMeasurements] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // New state for measurement functionality
-  const [measurementMode, setMeasurementMode] = useState<'manual' | 'camera'>('manual');
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [isProcessingMeasurements, setIsProcessingMeasurements] = useState(false);
-  const [aiMeasurements, setAiMeasurements] = useState<Record<string, string>>({});
-  const [originalAiMeasurements, setOriginalAiMeasurements] = useState<Record<string, string>>({});
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [measurementSource, setMeasurementSource] = useState<Record<string, 'ai' | 'manual'>>({});
-  
+export default function TailoredOutfitPage() {
   const { toast } = useToast();
-  
-  const form = useForm<CustomDesignFormValues>({
-    resolver: zodResolver(customDesignSchema),
+  const [selectedDesign, setSelectedDesign] = useState<string>('');
+  const [selectedFabric, setSelectedFabric] = useState<string>('cotton-100');
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [uploadedImage, setUploadedImage] = useState<string>('');
+  const [measurements, setMeasurements] = useState<Record<string, string>>({});
+  const [measurementSource, setMeasurementSource] = useState<Record<string, 'ai' | 'manual'>>({});
+  const [originalAIMeasurements, setOriginalAIMeasurements] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cameraActive, setcameraActive] = useState(false);
+  const [aiProcessing, setAiProcessing] = useState(false);
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       customerName: '',
-      customerEmail: '',
-      phoneNumber: '',
-      designType: '',
-      fabricType: '',
-      colors: ['#E5E7EB'],
+      email: '',
+      phone: '',
       designDescription: '',
-      measurements: {},
-      measurementMethod: 'manual',
     },
   });
 
-  // Sync form colors with state
-  useEffect(() => {
-    form.setValue('colors', selectedColors);
-  }, [selectedColors, form]);
+  // Handlers
+  const handleDesignSelect = (designId: string) => {
+    setSelectedDesign(designId);
+    toast({
+      title: 'Design Selected',
+      description: 'You have selected a design from the gallery.',
+    });
+  };
 
-  // Cleanup camera stream on unmount
-  useEffect(() => {
-    return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [cameraStream]);
+  const handleFabricSelect = (fabricId: string) => {
+    setSelectedFabric(fabricId);
+    const fabric = fabricOptions.find(f => f.id === fabricId);
+    toast({
+      title: 'Fabric Selected',
+      description: `${fabric?.name} - ${fabric?.description}`,
+    });
+  };
 
-  // Event Handlers
+  const handleColorSelect = (color: string) => {
+    if (selectedColors.length < 5 && !selectedColors.includes(color)) {
+      setSelectedColors([...selectedColors, color]);
+    }
+  };
+
+  const handleColorRemove = (color: string) => {
+    setSelectedColors(selectedColors.filter(c => c !== color));
+  };
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onloadend = () => {
         setUploadedImage(reader.result as string);
+        toast({
+          title: 'Image Uploaded',
+          description: 'Your reference image has been uploaded successfully.',
+        });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleDesignSelect = (designId: string) => {
-    setSelectedDesign(designId);
-    form.setValue('designType', designId);
+  const handleMeasurementChange = (field: string, value: string) => {
+    setMeasurements(prev => ({ ...prev, [field]: value }));
+    setMeasurementSource(prev => ({ ...prev, [field]: 'manual' }));
   };
 
-  // Color selection from palette
-  const handleColorSelect = (color: string) => {
-    if (!selectedColors.includes(color)) {
-      const newColors = [...selectedColors, color];
-      setSelectedColors(newColors);
-      form.setValue('colors', newColors);
-    }
-  };
-
-  // Color removal from palette
-  const handleColorRemove = (colorToRemove: string) => {
-    const newColors = selectedColors.filter(color => color !== colorToRemove);
-    // Ensure at least one color remains
-    if (newColors.length === 0) {
-      newColors.push('#E5E7EB');
-    }
-    setSelectedColors(newColors);
-    form.setValue('colors', newColors);
-  };
-
-  const handleFabricSelect = (fabricId: string) => {
-    setSelectedFabric(fabricId);
-    form.setValue('fabricType', fabricId);
-  };
-
-  const handleMeasurementChange = (paramId: string, value: string) => {
-    const newMeasurements = { ...measurements, [paramId]: value };
-    setMeasurements(newMeasurements);
-    form.setValue('measurements', newMeasurements);
-    
-    // Track that this measurement was manually modified
-    setMeasurementSource(prev => ({
-      ...prev,
-      [paramId]: 'manual'
-    }));
-  };
-
-  // AI Camera Measurement Handler
-  const handleCameraMeasurement = async () => {
-    setIsCameraActive(true);
-    setIsProcessingMeasurements(true);
-    
-    try {
-      // Request camera access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user' 
-        } 
+  const handleRestoreAIMeasurement = (field: string) => {
+    if (originalAIMeasurements[field]) {
+      setMeasurements(prev => ({ ...prev, [field]: originalAIMeasurements[field] }));
+      setMeasurementSource(prev => ({ ...prev, [field]: 'ai' }));
+      toast({
+        title: 'AI Measurement Restored',
+        description: `${field} measurement has been restored to AI-detected value.`,
       });
+    }
+  };
+
+  const startAICamera = () => {
+    setcameraActive(true);
+    setAiProcessing(true);
+    
+    // Simulate AI processing
+    setTimeout(() => {
+      const simulatedMeasurements: Record<string, string> = {
+        chest: '38',
+        waist: '32',
+        hips: '40',
+        shoulder: '18',
+        sleeve: '34',
+        neck: '15.5',
+        inseam: '32',
+        length: '28',
+      };
       
-      setCameraStream(stream);
+      setMeasurements(simulatedMeasurements);
+      setOriginalAIMeasurements(simulatedMeasurements);
+      
+      const sources: Record<string, 'ai' | 'manual'> = {};
+      Object.keys(simulatedMeasurements).forEach(key => {
+        sources[key] = 'ai';
+      });
+      setMeasurementSource(sources);
+      
+      setAiProcessing(false);
+      setcameraActive(false);
       
       toast({
-        title: "📸 Camera Activated",
-        description: "Please stand in good lighting for accurate measurements. Processing will begin automatically.",
+        title: 'AI Measurements Complete',
+        description: 'Your body measurements have been captured successfully.',
       });
-
-      // Here you would integrate with your ML model
-      // For demonstration, we'll simulate the AI processing
-      setTimeout(async () => {
-        // Stop the camera stream
-        stream.getTracks().forEach(track => track.stop());
-        setCameraStream(null);
-        
-        // Simulate AI-generated measurements (replace with actual ML model API call)
-        const simulatedMeasurements = {
-          chest: (40 + Math.random() * 6).toFixed(1),
-          waist: (32 + Math.random() * 4).toFixed(1),
-          hips: (38 + Math.random() * 4).toFixed(1),
-          shoulders: (17 + Math.random() * 2).toFixed(1),
-          inseam: (30 + Math.random() * 4).toFixed(1),
-          sleeves: (24 + Math.random() * 2).toFixed(1),
-          neck: (15 + Math.random() * 2).toFixed(1),
-          length: (28 + Math.random() * 4).toFixed(1),
-          fit: 'Regular'
-        };
-        
-        setAiMeasurements(simulatedMeasurements);
-        setOriginalAiMeasurements(simulatedMeasurements); // Preserve original AI measurements
-        setMeasurements(simulatedMeasurements);
-        
-        // Mark all measurements as AI-generated
-        const aiSourceMap = Object.keys(simulatedMeasurements).reduce((acc, key) => {
-          acc[key] = 'ai';
-          return acc;
-        }, {} as Record<string, 'ai' | 'manual'>);
-        setMeasurementSource(aiSourceMap);
-        
-        // Update form with AI measurements
-        form.setValue('measurements', simulatedMeasurements);
-        form.setValue('measurementMethod', 'camera');
-        
-        setIsProcessingMeasurements(false);
-        setIsCameraActive(false);
-        
-        toast({
-          title: "✅ Measurements Captured Successfully!",
-          description: "AI has analyzed your body measurements. Please review and adjust if needed.",
-        });
-      }, 5000); // 5 second simulation - replace with actual ML processing time
-      
-    } catch (error) {
-      console.error('Camera access failed:', error);
-      setIsCameraActive(false);
-      setIsProcessingMeasurements(false);
-      
-      toast({
-        title: "Camera Access Failed",
-        description: "Please allow camera access or use manual measurement input.",
-        variant: "destructive",
-      });
-    }
+    }, 3000);
   };
 
-  // Handle measurement mode change
-  const handleMeasurementModeChange = (mode: 'manual' | 'camera') => {
-    setMeasurementMode(mode);
-    form.setValue('measurementMethod', mode);
-    
-    // When switching to manual mode, don't clear AI measurements
-    if (mode === 'manual') {
-      // Stop camera if active but keep AI measurements
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-        setCameraStream(null);
-        setIsCameraActive(false);
-        setIsProcessingMeasurements(false);
-      }
-    }
-  };
-
-  // Reset AI measurements function
-  const resetToAiMeasurements = () => {
-    if (Object.keys(originalAiMeasurements).length > 0) {
-      setMeasurements(originalAiMeasurements);
-      form.setValue('measurements', originalAiMeasurements);
-      
-      // Reset source tracking to AI for all original measurements
-      const aiSourceMap = Object.keys(originalAiMeasurements).reduce((acc, key) => {
-        acc[key] = 'ai';
-        return acc;
-      }, {} as Record<string, 'ai' | 'manual'>);
-      setMeasurementSource(aiSourceMap);
-      
-      toast({
-        title: "✅ Reset to AI Measurements",
-        description: "All measurements have been reset to the original AI-captured values.",
-      });
-    }
-  };
-
-  // Submit form
-  const onSubmit = async (data: CustomDesignFormValues) => {
+  const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
-    try {
-      const formData = new FormData();
-      
-      // Add form fields
-      formData.append('customerName', data.customerName);
-      formData.append('customerEmail', data.customerEmail);
-      formData.append('phoneNumber', data.phoneNumber);
-      formData.append('designDescription', data.designDescription);
-      formData.append('colorDescription', selectedColors.join(', '));
-      formData.append('fabricPreference', selectedFabric || '');
-      formData.append('measurements', JSON.stringify(measurements));
-      formData.append('measurementMethod', measurementMode);
-      formData.append('designType', selectedDesign);
-      formData.append('userType', 'guest');
 
-      // Add image file if uploaded
-      if (uploadedImage) {
-        const imageInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-        if (imageInput?.files?.[0]) {
-          formData.append('image', imageInput.files[0]);
-        }
-      }
-
-      const response = await fetch('/api/custom-design', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast({
-          title: "Design Request Submitted Successfully! ✅",
-          description: `Your request ID is: ${result.requestId}. Our team will contact you within 24 hours.`,
-        });
-        
-        // Reset form and state
-        form.reset();
-        setSelectedDesign('');
-        setSelectedFabric('');
-        setSelectedColors(['#E5E7EB']);
-        setUploadedImage(null);
-        setMeasurements({});
-        setAiMeasurements({});
-        setOriginalAiMeasurements({});
-        setMeasurementSource({});
-        setMeasurementMode('manual');
-        setIsCameraActive(false);
-        setIsProcessingMeasurements(false);
-        
-        window.scrollTo(0, 0);
-      } else {
-        throw new Error(result.error || 'Failed to submit request');
-      }
-    } catch (error) {
-      console.error('Submission error:', error);
+    // Validation
+    if (!selectedDesign || selectedDesign === '') {
       toast({
-        title: "Submission Failed",
-        description: "There was an error submitting your request. Please try again or contact us directly.",
-        variant: "destructive",
+        title: 'Design Required',
+        description: 'Please select a design from the gallery.',
+        variant: 'destructive',
       });
-    } finally {
       setIsSubmitting(false);
+      return;
     }
+
+    if (selectedColors.length === 0) {
+      toast({
+        title: 'Colors Required',
+        description: 'Please select at least one color.',
+        variant: 'destructive',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const orderData = {
+      ...data,
+      selectedDesign,
+      selectedFabric,
+      selectedColors,
+      measurements,
+      measurementSource,
+      uploadedImage,
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log('Order Data:', orderData);
+
+    // Simulate API call
+    setTimeout(() => {
+      setIsSubmitting(false);
+      toast({
+        title: 'Order Submitted Successfully!',
+        description: 'We will contact you within 24 hours to confirm your custom design.',
+      });
+      
+      // Reset form
+      form.reset();
+      setSelectedDesign('');
+      setSelectedColors([]);
+      setUploadedImage('');
+      setMeasurements({});
+      setMeasurementSource({});
+      setOriginalAIMeasurements({});
+    }, 2000);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-            Custom Design Studio
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 relative overflow-hidden">
+      {/* Background Decorations */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-0 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-0 left-1/2 w-96 h-96 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+      </div>
+
+      <div className="relative z-10 container mx-auto px-4 py-12">
+        {/* Hero Section */}
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent animate-gradient">
+            Create Your Custom Design
           </h1>
-          <p className="text-gray-600 max-w-3xl mx-auto text-lg">
-            Create your perfect garment with our advanced design tool. Choose from our gallery, select premium fabrics, and customize every detail to match your vision.
+          <p className="text-xl text-gray-700 max-w-3xl mx-auto">
+            Choose from our gallery, select premium fabrics, and customize every detail to match your vision.
           </p>
         </div>
 
         {/* Main Layout - Design Tools Only (No Sidebar) */}
         <div className="max-w-6xl mx-auto space-y-8">
           
-          {/* 1. Modern Design Gallery */}
-          <Card>
-            <CardContent className="p-6">
-              <ModernDesignGallery
-                selectedDesign={selectedDesign}
-                onDesignSelect={handleDesignSelect}
-                selectedColors={selectedColors}
-              />
-            </CardContent>
-          </Card>
-
-          {/* 2. Fabric Corner */}
-          <Card>
+          {/* 1. Design Inspiration & Fabric Selection */}
+          <Card className="backdrop-blur-sm bg-white/90 border border-white/50 shadow-xl">
             <CardHeader>
-              <CardTitle>🧵 Fabric Corner</CardTitle>
-              <p className="text-sm text-gray-600">Select your preferred fabric for the perfect feel and look</p>
+              <CardTitle>✨ Design Inspiration & Fabric Selection</CardTitle>
+              <p className="text-sm text-gray-600">Choose from our gallery and select your preferred fabric</p>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-                {fabricOptions.map((fabric) => (
-                  <button
-                    key={fabric.id}
-                    onClick={() => handleFabricSelect(fabric.id)}
-                    className={`p-3 rounded-lg border text-left transition-all hover:scale-105 ${
-                      selectedFabric === fabric.id
-                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                        : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                    }`}
-                  >
-                    <div className="font-medium text-sm mb-1">{fabric.name}</div>
-                    <div className="text-xs text-gray-500 mb-1">{fabric.description}</div>
-                    <div className="text-xs font-medium text-blue-600">{fabric.texture}</div>
-                  </button>
-                ))}
+            <CardContent className="space-y-6">
+              {/* Design Gallery */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Gallery</h3>
+                <ModernDesignGallery
+                  selectedDesign={selectedDesign}
+                  onDesignSelect={handleDesignSelect}
+                  selectedColors={selectedColors}
+                />
+              </div>
+
+              {/* Fabric Dropdown */}
+              <div>
+                <label htmlFor="fabric-select" className="flex items-center gap-2 text-sm font-medium mb-2">
+                  🧵 Fabric Selection
+                </label>
+                <Select value={selectedFabric} onValueChange={handleFabricSelect}>
+                  <SelectTrigger id="fabric-select" className="w-full">
+                    <SelectValue placeholder="Select a fabric">
+                      {selectedFabric && (
+                        <span>
+                          {fabricOptions.find(f => f.id === selectedFabric)?.name}
+                          {' - '}
+                          <span className="text-gray-500 text-sm">
+                            {fabricOptions.find(f => f.id === selectedFabric)?.description}
+                          </span>
+                        </span>
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fabricOptions.map((fabric) => (
+                      <SelectItem key={fabric.id} value={fabric.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{fabric.name}</span>
+                          <span className="text-xs text-gray-500">
+                            {fabric.description} • {fabric.texture}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedFabric && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Texture: {fabricOptions.find(f => f.id === selectedFabric)?.texture}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* 3. Color Selection */}
-          <Card>
+          {/* 2. Color Selection */}
+          <Card className="backdrop-blur-sm bg-white/90 border border-white/50 shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div>
@@ -431,488 +345,159 @@ export default function CustomDesignPage() {
             </CardContent>
           </Card>
 
-          {/* 4. Enhanced Measurement Parameters with AI Camera & Manual Options */}
-          <Card>
+          {/* 3. Enhanced Measurement Parameters with AI Camera & Manual Options */}
+          <Card className="backdrop-blur-sm bg-white/90 border border-white/50 shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Ruler className="h-5 w-5" />
-                Key Measurement Parameters
+                📏 Key Measurement Parameters
               </CardTitle>
               <p className="text-sm text-gray-600">
                 Get perfect fit measurements using AI camera analysis or enter manually
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
-              
-              {/* Measurement Mode Selection */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-sm text-gray-900">Choose Measurement Method:</h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* AI Camera Option */}
-                  <button
-                    type="button"
-                    onClick={() => handleMeasurementModeChange('camera')}
-                    className={`relative p-4 rounded-lg border-2 transition-all duration-200 ${
-                      measurementMode === 'camera'
-                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                        : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                    }`}
+              {/* AI Camera Section */}
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-lg border border-purple-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-purple-900">AI-Powered Measurement</h3>
+                    <p className="text-sm text-purple-700">Capture accurate body measurements instantly</p>
+                  </div>
+                  <Button
+                    onClick={startAICamera}
+                    disabled={cameraActive || aiProcessing}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89L8.46 4.23A2 2 0 0110.124 3h3.752a2 2 0 011.664.23l.865 1.88A2 2 0 0017.07 7H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V9z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      </div>
-                      <div className="text-left">
-                        <h3 className="font-semibold text-gray-900">Camera Measurement</h3>
-                        <p className="text-sm text-gray-600">
-                          Switch to camera mode for instant, accurate measurements
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* Manual Option */}
-                  <button
-                    type="button"
-                    onClick={() => handleMeasurementModeChange('manual')}
-                    className={`relative p-4 rounded-lg border-2 transition-all duration-200 ${
-                      measurementMode === 'manual'
-                        ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
-                        : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </div>
-                      <div className="text-left">
-                        <h3 className="font-semibold text-gray-900">Manual Input</h3>
-                        <p className="text-sm text-gray-600">
-                          Enter your measurements manually with our guide
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* AI Camera Measurement Interface */}
-              {measurementMode === 'camera' && (
-                <div className="space-y-4">
-                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">AI-Powered Measurement System</h4>
-                        <p className="text-sm text-gray-600">Our advanced camera mode will analyze your body measurements in real-time</p>
-                      </div>
-                    </div>
-                    
-                    {!isCameraActive ? (
-                      <div className="space-y-3">
-                        <div className="bg-white rounded-lg p-3 border">
-                          <h5 className="font-medium text-sm mb-2">📋 Before You Start:</h5>
-                          <ul className="text-xs text-gray-600 space-y-1">
-                            <li>• Stand in good lighting conditions</li>
-                            <li>• Wear form-fitting clothes</li>
-                            <li>• Face the camera directly</li>
-                            <li>• Allow camera access when prompted</li>
-                            <li>• Stand 3-4 feet away from camera</li>
-                          </ul>
-                        </div>
-                        
-                        <Button
-                          type="button"
-                          onClick={handleCameraMeasurement}
-                          disabled={isProcessingMeasurements}
-                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                        >
-                          {isProcessingMeasurements ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Processing Measurements...
-                            </>
-                          ) : (
-                            <>
-                              <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89L8.46 4.23A2 2 0 0110.124 3h3.752a2 2 0 011.664.23l.865 1.88A2 2 0 0017.07 7H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V9z" />
-                              </svg>
-                              🚀 Start AI Measurement Scan
-                            </>
-                          )}
-                        </Button>
-                      </div>
+                    {aiProcessing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : cameraActive ? (
+                      'Camera Active'
                     ) : (
-                      <div className="text-center py-8">
-                        <div className="relative inline-block mb-4">
-                          <div className="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center animate-pulse">
-                            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89L8.46 4.23A2 2 0 0110.124 3h3.752a2 2 0 011.664.23l.865 1.88A2 2 0 0017.07 7H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V9z" />
-                            </svg>
-                          </div>
-                          <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full animate-bounce flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        </div>
-                        <p className="text-lg font-medium text-gray-900">Camera is Active</p>
-                        <p className="text-sm text-gray-600">AI is analyzing your measurements...</p>
-                        <div className="mt-4 w-32 h-2 bg-gray-200 rounded-full mx-auto overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"></div>
-                        </div>
-                      </div>
+                      <>
+                        <Scissors className="h-4 w-4 mr-2" />
+                        Start AI Camera
+                      </>
                     )}
-                  </div>
-
-                  {/* AI Results Display */}
-                  {Object.keys(aiMeasurements).length > 0 && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                          <h4 className="font-semibold text-green-800">🎯 AI Measurements Captured</h4>
-                        </div>
-                        
-                        {/* Reset to AI Measurements Button */}
-                        {measurementMode === 'manual' && Object.keys(originalAiMeasurements).length > 0 && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={resetToAiMeasurements}
-                            className="text-xs border-green-300 text-green-700 hover:bg-green-100"
-                          >
-                            <svg className="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            Reset to AI Values
-                          </Button>
-                        )}
-                      </div>
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {Object.entries(originalAiMeasurements).filter(([key]) => key !== 'fit').map(([key, value]) => (
-                          <div key={key} className="bg-white rounded-lg p-3 border border-green-200 relative">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium text-gray-700 capitalize">{key}:</span>
-                              <span className="text-sm font-semibold text-green-700">{value}"</span>
-                            </div>
-                            {/* Show if this measurement has been manually modified */}
-                            {measurementSource[key] === 'manual' && measurements[key] !== value && (
-                              <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
-                                <span className="text-xs text-white">!</span>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                        {originalAiMeasurements.fit && (
-                          <div className="bg-white rounded-lg p-3 border border-green-200 relative">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium text-gray-700">Fit:</span>
-                              <span className="text-sm font-semibold text-green-700">{originalAiMeasurements.fit}</span>
-                            </div>
-                            {measurementSource.fit === 'manual' && measurements.fit !== originalAiMeasurements.fit && (
-                              <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
-                                <span className="text-xs text-white">!</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="mt-3 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p className="text-xs text-green-700">
-                          Original AI measurements are preserved. Manual changes are marked with orange indicators.
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  </Button>
                 </div>
-              )}
 
-              {/* Manual Measurement Interface */}
-              {measurementMode === 'manual' && (
-                <div className="space-y-4">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">Manual Measurement Entry</h4>
-                        <p className="text-sm text-gray-600">Enter your measurements manually for precise control</p>
-                      </div>
-                    </div>
-                    
-                    {/* Measurement Guide */}
-                    <div className="bg-white rounded-lg p-3 border border-green-200">
-                      <h5 className="font-medium text-sm mb-2">📐 How to Measure:</h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-600">
-                        <div>• <strong>Chest:</strong> Around fullest part</div>
-                        <div>• <strong>Waist:</strong> At natural waistline</div>
-                        <div>• <strong>Shoulders:</strong> Across shoulder blades</div>
-                        <div>• <strong>Inseam:</strong> Inside leg to ankle</div>
-                        <div>• <strong>Sleeves:</strong> Shoulder to wrist</div>
-                        <div>• <strong>Neck:</strong> Around base of neck</div>
-                      </div>
+                {cameraActive && (
+                  <div className="bg-black/80 rounded-lg h-64 flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" />
+                      <p>Analyzing your body measurements...</p>
+                      <p className="text-sm text-gray-300 mt-2">Please stand in a well-lit area</p>
                     </div>
                   </div>
-
-                  {/* Manual Input Fields */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {measurementParams.map((param) => (
-                      <div key={param.id} className="space-y-2">
-                        <Label className="text-sm font-medium block flex items-center gap-2">
-                          {param.name}
-                          {/* Show indicator for AI vs Manual source */}
-                          {measurementSource[param.id] === 'ai' && measurements[param.id] && (
-                            <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full">
-                              🤖 AI
-                            </span>
-                          )}
-                          {measurementSource[param.id] === 'manual' && measurements[param.id] && (
-                            <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full">
-                              ✏️ Manual
-                            </span>
-                          )}
-                        </Label>
-                        {param.options ? (
-                          <select
-                            className={`w-full p-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white ${
-                              measurementSource[param.id] === 'ai' ? 'border-purple-200 bg-purple-50' : 
-                              measurementSource[param.id] === 'manual' ? 'border-orange-200 bg-orange-50' : ''
-                            }`}
-                            onChange={(e) => handleMeasurementChange(param.id, e.target.value)}
-                            value={measurements[param.id] || ''}
-                          >
-                            <option value="">Select...</option>
-                            {param.options.map((option) => (
-                              <option key={option} value={option}>{option}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <div className="relative">
-                            <Input
-                              type="number"
-                              placeholder={param.placeholder}
-                              className={`text-sm bg-white ${
-                                measurementSource[param.id] === 'ai' ? 'border-purple-200 bg-purple-50' : 
-                                measurementSource[param.id] === 'manual' ? 'border-orange-200 bg-orange-50' : ''
-                              }`}
-                              onChange={(e) => handleMeasurementChange(param.id, e.target.value)}
-                              value={measurements[param.id] || ''}
-                            />
-                            {/* Show original AI value as placeholder if manually modified */}
-                            {measurementSource[param.id] === 'manual' && originalAiMeasurements[param.id] && (
-                              <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                                <span className="text-xs text-purple-600 bg-purple-100 px-1 py-0.5 rounded">
-                                  AI: {originalAiMeasurements[param.id]}"
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <span className="text-xs text-gray-500 block">
-                          {param.unit === 'inches' ? 'in inches' : param.unit}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Reset to AI Button for Manual Mode */}
-                  {Object.keys(originalAiMeasurements).length > 0 && (
-                    <div className="flex items-center justify-between pt-3 border-t border-green-200">
-                      <p className="text-sm text-gray-600">
-                        Want to go back to AI measurements?
-                      </p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={resetToAiMeasurements}
-                        className="border-purple-300 text-purple-700 hover:bg-purple-100"
-                      >
-                        <svg className="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Restore AI Measurements
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Switch Between Modes */}
-              <div className="flex items-center justify-center pt-4 border-t border-gray-200">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleMeasurementModeChange(measurementMode === 'manual' ? 'camera' : 'manual')}
-                  className="text-sm"
-                >
-                  {measurementMode === 'manual' ? (
-                    <>
-                      <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89L8.46 4.23A2 2 0 0110.124 3h3.752a2 2 0 011.664.23l.865 1.88A2 2 0 0017.07 7H18a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V9z" />
-                      </svg>
-                      Switch to Camera Measurement
-                    </>
-                  ) : (
-                    <>
-                      <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Switch to Manual Input
-                    </>
-                  )}
-                </Button>
+                )}
               </div>
 
-              {/* Progress Indicator */}
-              {Object.keys(measurements).length > 0 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-sm font-medium text-blue-800">
-                      {Object.keys(measurements).length} of {measurementParams.length} measurements provided
-                      {Object.keys(originalAiMeasurements).length > 0 && (
-                        <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                          Camera Base Available
-                        </span>
+              {/* Manual Measurement Grid */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Measurement Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {measurementFields.map((field) => (
+                    <div key={field.id} className="space-y-2">
+                      <label htmlFor={field.id} className="flex items-center justify-between text-sm font-medium">
+                        <span>{field.label}</span>
+                        {measurementSource[field.id] === 'ai' && (
+                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                            AI
+                          </span>
+                        )}
+                        {measurementSource[field.id] === 'manual' && (
+                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                            Manual
+                          </span>
+                        )}
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          id={field.id}
+                          type="number"
+                          min={field.min}
+                          max={field.max}
+                          step="0.5"
+                          value={measurements[field.id] || ''}
+                          onChange={(e) => handleMeasurementChange(field.id, e.target.value)}
+                          placeholder={`Enter ${field.label.toLowerCase()}`}
+                          className={
+                            measurementSource[field.id] === 'ai'
+                              ? 'border-purple-300 bg-purple-50'
+                              : measurementSource[field.id] === 'manual'
+                              ? 'border-orange-300 bg-orange-50'
+                              : ''
+                          }
+                        />
+                        <span className="text-sm text-gray-500 flex items-center">{field.unit}</span>
+                      </div>
+                      {measurementSource[field.id] === 'manual' && originalAIMeasurements[field.id] && (
+                        <button
+                          type="button"
+                          onClick={() => handleRestoreAIMeasurement(field.id)}
+                          className="text-xs text-purple-600 hover:text-purple-800 underline"
+                        >
+                          Restore AI value ({originalAIMeasurements[field.id]})
+                        </button>
                       )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Measurement Progress */}
+              {Object.keys(measurements).length > 0 && (
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-green-800">
+                      Measurements Progress
+                    </span>
+                    <span className="text-sm text-green-600">
+                      {Object.keys(measurements).length} / {measurementFields.length} completed
                     </span>
                   </div>
-                  <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ 
-                        width: `${(Object.keys(measurements).length / measurementParams.length) * 100}%` 
+                  <div className="mt-2 h-2 bg-green-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 transition-all duration-500"
+                      style={{
+                        width: `${(Object.keys(measurements).length / measurementFields.length) * 100}%`,
                       }}
-                    />
+                    ></div>
                   </div>
-                  
-                  {/* Measurement Summary with Source Indicators */}
-                  {Object.keys(measurements).length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        {Object.entries(measurements).slice(0, 4).map(([key, value]) => (
-                          <div key={key} className="text-xs flex items-center gap-1">
-                            <span className="font-medium text-gray-700 capitalize">{key}:</span>
-                            <span className="text-blue-700">{value}"</span>
-                            {measurementSource[key] === 'ai' && (
-                              <span className="text-purple-600">🤖</span>
-                            )}
-                            {measurementSource[key] === 'manual' && (
-                              <span className="text-orange-600">✏️</span>
-                            )}
-                          </div>
-                        ))}
-                        {Object.keys(measurements).length > 4 && (
-                          <div className="text-xs text-gray-500">
-                            +{Object.keys(measurements).length - 4} more...
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Legend */}
-                      <div className="flex items-center gap-4 text-xs">
-                        <div className="flex items-center gap-1">
-                          <span className="text-purple-600">🤖</span>
-                          <span className="text-gray-600">AI Generated</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-orange-600">✏️</span>
-                          <span className="text-gray-600">Manually Edited</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* 5. Design Upload & Description */}
-          <Card>
+          {/* 4. Design Details */}
+          <Card className="backdrop-blur-sm bg-white/90 border border-white/50 shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Upload className="h-5 w-5" />
-                Design Inspiration & Details
+                <Scissors className="h-5 w-5" />
+                ✂️ Design Details & Inspiration
               </CardTitle>
               <p className="text-sm text-gray-600">
-                Upload reference images and describe your vision in detail
+                Share your vision and upload reference images
               </p>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Image Upload */}
+            <CardContent className="space-y-4">
               <div>
-                <Label className="block text-sm font-medium mb-2">
-                  Upload Reference Images (Optional)
-                </Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="image-upload"
-                  />
-                  <label htmlFor="image-upload" className="cursor-pointer">
-                    {uploadedImage ? (
-                      <div className="space-y-2">
-                        <img 
-                          src={uploadedImage} 
-                          alt="Uploaded reference" 
-                          className="mx-auto h-32 w-32 object-cover rounded-lg border-2 border-green-200"
-                        />
-                        <p className="text-sm text-green-600 font-medium">✅ Image uploaded successfully! Click to change.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                        <p className="text-sm text-gray-600">Click to upload design references or inspiration images</p>
-                        <p className="text-xs text-gray-500">Supports JPG, PNG, WEBP (Max 5MB)</p>
-                      </div>
-                    )}
-                  </label>
-                </div>
-              </div>
-
-              {/* Design Description */}
-              <div>
-                <Label className="block text-sm font-medium mb-2">
+                <label htmlFor="design-description" className="block text-sm font-medium mb-2">
                   Design Description *
-                </Label>
+                </label>
                 <Textarea
-                  placeholder="Describe your design vision in detail... Include style preferences, special features, occasions, or any specific requirements. Be as detailed as possible to help our designers understand your vision."
-                  className="min-h-[120px] resize-none"
+                  id="design-description"
                   {...form.register('designDescription')}
+                  placeholder="Describe your ideal design in detail... (e.g., 'I want a flowing maxi dress with floral patterns, off-shoulder sleeves, and a belt at the waist')"
+                  rows={4}
+                  className="w-full"
                 />
                 {form.formState.errors.designDescription && (
-                  <p className="text-sm text-red-600 mt-1">
+                  <p className="text-sm text-red-500 mt-1">
                     {form.formState.errors.designDescription.message}
                   </p>
                 )}
@@ -920,15 +505,53 @@ export default function CustomDesignPage() {
                   Minimum 10 characters required. Current: {form.watch('designDescription')?.length || 0} characters
                 </p>
               </div>
+
+              <div>
+                <label htmlFor="image-upload" className="block text-sm font-medium mb-2">
+                  Upload Reference Image (Optional)
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                  <input
+                    id="image-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="image-upload"
+                    className="cursor-pointer flex flex-col items-center"
+                  >
+                    {uploadedImage && uploadedImage !== '' && (
+                      <div className="space-y-2">
+                        <img
+                          src={uploadedImage}
+                          alt="Reference"
+                          className="max-h-48 rounded-lg shadow-md"
+                        />
+                        <p className="text-sm text-green-600 font-medium">Image uploaded successfully!</p>
+                      </div>
+                    )} : (
+                      <>
+                        <Upload className="h-12 w-12 text-gray-400 mb-2" />
+                        <span className="text-sm text-gray-600">
+                          Click to upload or drag and drop
+                        </span>
+                        <span className="text-xs text-gray-500">PNG, JPG up to 10MB</span>
+                      </>
+                    )}
+                  </label>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          {/* 6. Contact Information & Submit */}
-          <Card>
+          {/* 5. Contact Information & Submit */}
+          <Card className="backdrop-blur-sm bg-white/90 border border-white/50 shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
-                Contact Information
+                👤 Contact Information
               </CardTitle>
               <p className="text-sm text-gray-600">
                 We'll use this information to contact you about your custom design
@@ -955,10 +578,10 @@ export default function CustomDesignPage() {
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={form.control}
-                      name="phoneNumber"
+                      name="phone"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center gap-2">
@@ -976,7 +599,7 @@ export default function CustomDesignPage() {
 
                   <FormField
                     control={form.control}
-                    name="customerEmail"
+                    name="email"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center gap-2">
@@ -992,86 +615,43 @@ export default function CustomDesignPage() {
                   />
 
                   {/* Order Summary */}
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                      <Scissors className="h-4 w-4" />
-                     Order Summary
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Design:</span>
-                          <span className="font-medium">
-                            {selectedDesign ? selectedDesign.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not selected'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Fabric:</span>
-                          <span className="font-medium">
-                            {selectedFabric ? fabricOptions.find(f => f.id === selectedFabric)?.name : 'Not selected'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Colors:</span>
-                          <span className="font-medium">{selectedColors.length} selected</span>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Measurements:</span>
-                          <span className="font-medium">
-                            {Object.keys(measurements).length > 0 ? 
-                              `${Object.keys(measurements).length} provided` : 'Optional'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Method:</span>
-                          <span className="font-medium capitalize">
-                            {measurementMode === 'camera' ? '🤖 AI Camera' : '✏️ Manual'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Reference Image:</span>
-                          <span className="font-medium">
-                            {uploadedImage ? '✅ Uploaded' : 'None'}
-                          </span>
-                        </div>
+                  {selectedDesign && selectedDesign !== '' && (
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <h3 className="font-semibold text-blue-900 mb-2">Order Summary</h3>
+                      <div className="space-y-1 text-sm text-blue-800">
+                        <p>✓ Design Selected: {selectedDesign}</p>
+                        <p>✓ Fabric: {fabricOptions.find(f => f.id === selectedFabric)?.name}</p>
+                        <p>✓ Colors: {selectedColors.length} selected</p>
+                        <p>✓ Measurements: {Object.keys(measurements).length} provided</p>
+                        {uploadedImage && uploadedImage !== '' && <p>✓ Reference image uploaded</p>}
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Submit Button */}
-                  <div className="pt-4">
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting || !selectedDesign}
-                      className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Submitting Your Design Request...
-                        </>
-                      ) : (
-                        <>
-                          <Scissors className="mr-2 h-5 w-5" />
-                          🚀 Submit Custom Design Request
-                        </>
-                      )}
-                    </Button>
-                    
-                    {!selectedDesign && (
-                      <p className="text-sm text-gray-500 text-center mt-2">
-                        Please select a design from the gallery above to continue
-                      </p>
+                  <Button
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg py-6"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Submitting Order...
+                      </>
+                    ) : (
+                      <>
+                        <Scissors className="h-5 w-5 mr-2" />
+                        Submit Custom Design Order
+                      </>
                     )}
-                    
-                    {selectedDesign && (
-                      <p className="text-sm text-green-600 text-center mt-2 font-medium">
-                        ✅ Ready to submit! Our team will contact you within 24 hours.
-                      </p>
-                    )}
-                  </div>
+                  </Button>
+
+                  {isSubmitting && (
+                    <p className="text-center text-sm text-gray-600">
+                      Processing your order... Our team will contact you within 24 hours.
+                    </p>
+                  )}
                 </form>
               </Form>
             </CardContent>

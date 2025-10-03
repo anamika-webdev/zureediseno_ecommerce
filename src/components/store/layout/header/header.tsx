@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = 'force-dynamic'
 import Link from "next/link";
-import { ShoppingBag, User, Search, Menu, LogOut, ChevronDown, Scissors, Package } from "lucide-react";
+import { ShoppingBag, User, Search, Menu, LogOut, ChevronDown, Scissors, Package, Layers, PackageCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -362,6 +362,12 @@ const Header = () => {
                 <Scissors className="h-4 w-4 mr-1" /> Custom Design
               </Link>
             </li>
+            {/* NEW: Bulk Order Menu Item */}
+            <li>
+              <Link href="/bulk-order" className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors flex items-center">
+                <Layers className="h-4 w-4 mr-1" /> Bulk Order
+              </Link>
+            </li>
             <li>
               <Link href="/about" className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors">
                 About
@@ -459,6 +465,16 @@ const Header = () => {
                   onClick={closeMobileMenu}
                 >
                   <Scissors className="h-4 w-4 mr-1" /> Custom Design
+                </Link>
+              </li>
+              {/* NEW: Bulk Order Mobile Menu Item */}
+              <li>
+                <Link 
+                  href="/bulk-order" 
+                  className="text-sm font-medium text-gray-900 dark:text-white hover:text-zuree-red transition-colors flex items-center py-2"
+                  onClick={closeMobileMenu}
+                >
+                  <Layers className="h-4 w-4 mr-1" /> Bulk Order
                 </Link>
               </li>
               <li>
@@ -700,16 +716,16 @@ const Header = () => {
           {/* Cart Drawer */}
           <CartDrawer />
           <Link href="/track-order">
-    <Button
-      variant="ghost"
-      size="icon"
-      className="relative hover:bg-gray-100 transition-colors"
-      title="Track Order"
-    >
-      <Package className="h-5 w-5" />
-    </Button>
-      </Link>
-  {/*  Theme Toggle Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative hover:bg-gray-100 transition-colors"
+              title="Track Order"
+            >
+              <PackageCheck className="h-5 w-5" />
+            </Button>
+          </Link>
+          {/* Theme Toggle Button */}
           <ModeToggle />
         </div>
       </div>

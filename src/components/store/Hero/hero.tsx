@@ -1,4 +1,4 @@
-// src/components/store/Hero/hero.tsx - Final Working Version
+// src/components/store/Hero/hero.tsx - Updated with Bulk Order button
 'use client';
 
 import Link from "next/link";
@@ -8,8 +8,8 @@ export default function Hero() {
   const router = useRouter();
 
   // Fallback click handlers for buttons if Link doesn't work
-  const handleShopClick = () => {
-    router.push('/shop');
+  const handleBulkOrderClick = () => {
+    router.push('/bulk-order');
   };
 
   const handleCustomDesignClick = () => {
@@ -37,14 +37,15 @@ export default function Hero() {
           <p className="text-xl mb-8">Where tradition meets modernity!</p>
           
           <div className="flex flex-wrap gap-4">
-            {/* Method 1: Link with explicit styling (recommended) */}
+            {/* Bulk Order Button - Primary */}
             <Link 
-              href="/shop" 
+              href="/bulk-order" 
               className="inline-block bg-black text-white py-3 px-6 hover:bg-gray-800 transition-colors font-medium text-sm tracking-wide rounded-md dark:bg-white dark:text-black dark:hover:bg-gray-200"
             >
-              Shop Collection
+              Bulk Order
             </Link>
             
+            {/* Custom Design Button - Secondary */}
             <Link 
               href="/tailoredoutfit" 
               className="inline-block bg-white/80 backdrop-blur-sm border border-white/30 text-gray-900 py-3 px-6 hover:bg-white/90 transition-colors font-medium text-sm tracking-wide rounded-md"
@@ -56,10 +57,10 @@ export default function Hero() {
           {/* Fallback buttons in case Link approach doesn't work */}
           <div className="hidden">
             <button 
-              onClick={handleShopClick}
+              onClick={handleBulkOrderClick}
               className="btn-primary mr-4"
             >
-              Shop Collection
+              Bulk Order
             </button>
             
             <button 

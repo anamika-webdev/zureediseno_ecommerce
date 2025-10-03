@@ -23,7 +23,7 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
-            <h3 className="font-serif text-lg font-medium mb-4">ZUREE GLOBAL</h3>
+            <h3 className="font-serif text-lg font-medium mb-4">ZUREE DISENO</h3>
             <p className="text-gray-600 text-sm mb-4">
               A clothing brand that celebrates the artistry of design, 
               combining modern style with timeless elegance.
@@ -102,7 +102,7 @@ const Footer = () => {
 
         <div className="border-t mt-12 pt-6 text-sm text-gray-600 text-center">
           <div className="flex flex-col md:flex-row justify-center items-center space-y-2 md:space-y-0 md:space-x-6">
-            <p>&copy; {new Date().getFullYear()} Zuree Global. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Zuree Diseno. All rights reserved.</p>
             
             <div className="flex space-x-4">
               {/* Terms & Conditions Modal */}
@@ -127,7 +127,7 @@ const Footer = () => {
                       <section>
                         <h2 className="text-xl font-bold mb-4 text-gray-900">Terms and Conditions</h2>
                         <p className="text-gray-700 leading-relaxed mb-4">
-                          Welcome to Zuree Global. These Terms and Conditions govern your use of our website 
+                          Welcome to Zuree Diseno. These Terms and Conditions govern your use of our website 
                           Zureeglobal.com and our services, including the purchase of clothing and use of our 
                           custom design build option. By accessing or using our website, you agree to be bound 
                           by these terms, as well as all applicable Indian laws, including the Consumer Protection 
@@ -139,7 +139,7 @@ const Footer = () => {
                       <section>
                         <h3 className="text-lg font-semibold mb-3">1. General</h3>
                         <p className="text-gray-700 leading-relaxed">
-                          Our website and services are operated by Zuree Global, a company registered under the 
+                          Our website and services are operated by Zuree Diseno, a company registered under the 
                           laws of India, with its registered office at Plot no 23, Udyog Vihar Sector 20 Phase 1 
                           Gurugram- 122016. You must be at least 18 years old or have parental consent to use our services.
                         </p>
@@ -173,7 +173,7 @@ const Footer = () => {
                       <section>
                         <h3 className="text-lg font-semibold mb-3">4. Orders and Payments</h3>
                         <ul className="list-disc list-inside space-y-1 text-gray-700 ml-4">
-                          <li>All orders are subject to availability and acceptance by Zuree Global.</li>
+                          <li>All orders are subject to availability and acceptance by Zuree Diseno.</li>
                           <li>Payments must be made through approved payment methods (e.g., credit/debit cards, UPI, net banking).</li>
                           <li>All prices are inclusive of applicable taxes unless otherwise stated.</li>
                           <li>For custom designs, you must provide accurate measurements and specifications. We are not responsible for errors in customer-provided data.</li>
@@ -188,7 +188,7 @@ Delivery timelines may vary based on your location and availability of the produ
                         <h3 className="text-lg font-semibold mb-3">5. Intellectual Property</h3>
                         <p className="text-gray-700 leading-relaxed">
                           All content on our website, including designs, logos, text, and images, is the property 
-                          of Zuree Global or its licensors and is protected under the Copyright Act, 1957. You may 
+                          of Zuree Diseno or its licensors and is protected under the Copyright Act, 1957. You may 
                           not reproduce, distribute, or use our content without prior written permission.
                         </p>
                       </section>
@@ -312,7 +312,7 @@ Delivery timelines may vary based on your location and availability of the produ
                       <section>
                         <h2 className="text-xl font-bold mb-4 text-gray-900">Privacy Policy</h2>
                         <p className="text-gray-700 leading-relaxed mb-4">
-                          At Zuree Global, we value your privacy and are committed to protecting your personal data 
+                          At Zuree Diseno, we value your privacy and are committed to protecting your personal data 
                           in accordance with the Digital Personal Data Protection Act, 2023 (DPDP Act), Information 
                           Technology Act, 2000, and other applicable Indian laws. This Privacy Policy outlines how we 
                           collect, use, disclose, and safeguard your information when you visit our website or use our 
