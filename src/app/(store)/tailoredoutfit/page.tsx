@@ -1,7 +1,7 @@
 // src/app/(store)/tailoredoutfit/page.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, User, Mail, Phone, Scissors, Ruler } from 'lucide-react';
+import { Loader2, Upload, User, Mail, Phone, Scissors, Ruler, Palette } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -19,11 +19,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 // Import the custom components
 import ModernDesignGallery from '@/components/store/CustomDesign/ModernDesignGallery';
-import EnhancedRunwayPreview from '@/components/store/CustomDesign/EnhancedRunwayPreview';
-import ColorPalette from '@/components/store/CustomDesign/ColorPalette';
+import MergedRunwayColorPreview from '@/components/store/CustomDesign/MergedRunwayColorPreview';
 
 // Fabric Options
 const fabricOptions = [
@@ -45,14 +45,16 @@ const fabricOptions = [
 
 // Measurement fields configuration
 const measurementFields = [
+  { id: 'length', label: 'Length', unit: 'inches', min: 24, max: 50 },
   { id: 'chest', label: 'Chest', unit: 'inches', min: 30, max: 60 },
-  { id: 'waist', label: 'Waist', unit: 'inches', min: 24, max: 50 },
-  { id: 'hips', label: 'Hips', unit: 'inches', min: 30, max: 60 },
+  { id: 'upperChest', label: 'Upper Chest', unit: 'inches', min: 28, max: 56 },
+  { id: 'hip', label: 'Hip', unit: 'inches', min: 30, max: 60 },
   { id: 'shoulder', label: 'Shoulder', unit: 'inches', min: 14, max: 24 },
-  { id: 'sleeve', label: 'Sleeve Length', unit: 'inches', min: 20, max: 40 },
-  { id: 'neck', label: 'Neck', unit: 'inches', min: 12, max: 20 },
-  { id: 'inseam', label: 'Inseam', unit: 'inches', min: 26, max: 38 },
-  { id: 'length', label: 'Overall Length', unit: 'inches', min: 24, max: 50 },
+  { id: 'sleeves', label: 'Sleeves', unit: 'type', options: ['Half', '3/4', 'Full'] },
+  { id: 'armHole', label: 'Arm Hole', unit: 'inches', min: 14, max: 24 },
+  { id: 'roundNeck', label: 'Round Neck', unit: 'inches', min: 12, max: 20 },
+  { id: 'neckDropFront', label: 'Neck Drop Front', unit: 'inches', min: 4, max: 12 },
+  { id: 'neckDropBack', label: 'Neck Drop Back', unit: 'inches', min: 4, max: 12 },
 ];
 
 // Form validation schema
@@ -71,12 +73,9 @@ export default function TailoredOutfitPage() {
   const [selectedFabric, setSelectedFabric] = useState<string>('cotton-100');
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [uploadedImage, setUploadedImage] = useState<string>('');
+  const [designDescription, setDesignDescription] = useState<string>('');
   const [measurements, setMeasurements] = useState<Record<string, string>>({});
-  const [measurementSource, setMeasurementSource] = useState<Record<string, 'ai' | 'manual'>>({});
-  const [originalAIMeasurements, setOriginalAIMeasurements] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [cameraActive, setcameraActive] = useState(false);
-  const [aiProcessing, setAiProcessing] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -91,29 +90,10 @@ export default function TailoredOutfitPage() {
   // Handlers
   const handleDesignSelect = (designId: string) => {
     setSelectedDesign(designId);
-    toast({
-      title: 'Design Selected',
-      description: 'You have selected a design from the gallery.',
-    });
   };
 
   const handleFabricSelect = (fabricId: string) => {
     setSelectedFabric(fabricId);
-    const fabric = fabricOptions.find(f => f.id === fabricId);
-    toast({
-      title: 'Fabric Selected',
-      description: `${fabric?.name} - ${fabric?.description}`,
-    });
-  };
-
-  const handleColorSelect = (color: string) => {
-    if (selectedColors.length < 5 && !selectedColors.includes(color)) {
-      setSelectedColors([...selectedColors, color]);
-    }
-  };
-
-  const handleColorRemove = (color: string) => {
-    setSelectedColors(selectedColors.filter(c => c !== color));
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,10 +102,6 @@ export default function TailoredOutfitPage() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setUploadedImage(reader.result as string);
-        toast({
-          title: 'Image Uploaded',
-          description: 'Your reference image has been uploaded successfully.',
-        });
       };
       reader.readAsDataURL(file);
     }
@@ -133,60 +109,11 @@ export default function TailoredOutfitPage() {
 
   const handleMeasurementChange = (field: string, value: string) => {
     setMeasurements(prev => ({ ...prev, [field]: value }));
-    setMeasurementSource(prev => ({ ...prev, [field]: 'manual' }));
-  };
-
-  const handleRestoreAIMeasurement = (field: string) => {
-    if (originalAIMeasurements[field]) {
-      setMeasurements(prev => ({ ...prev, [field]: originalAIMeasurements[field] }));
-      setMeasurementSource(prev => ({ ...prev, [field]: 'ai' }));
-      toast({
-        title: 'AI Measurement Restored',
-        description: `${field} measurement has been restored to AI-detected value.`,
-      });
-    }
-  };
-
-  const startAICamera = () => {
-    setcameraActive(true);
-    setAiProcessing(true);
-    
-    // Simulate AI processing
-    setTimeout(() => {
-      const simulatedMeasurements: Record<string, string> = {
-        chest: '38',
-        waist: '32',
-        hips: '40',
-        shoulder: '18',
-        sleeve: '34',
-        neck: '15.5',
-        inseam: '32',
-        length: '28',
-      };
-      
-      setMeasurements(simulatedMeasurements);
-      setOriginalAIMeasurements(simulatedMeasurements);
-      
-      const sources: Record<string, 'ai' | 'manual'> = {};
-      Object.keys(simulatedMeasurements).forEach(key => {
-        sources[key] = 'ai';
-      });
-      setMeasurementSource(sources);
-      
-      setAiProcessing(false);
-      setcameraActive(false);
-      
-      toast({
-        title: 'AI Measurements Complete',
-        description: 'Your body measurements have been captured successfully.',
-      });
-    }, 3000);
   };
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
 
-    // Validation
     if (!selectedDesign || selectedDesign === '') {
       toast({
         title: 'Design Required',
@@ -213,14 +140,13 @@ export default function TailoredOutfitPage() {
       selectedFabric,
       selectedColors,
       measurements,
-      measurementSource,
       uploadedImage,
+      designDescription,
       timestamp: new Date().toISOString(),
     };
 
     console.log('Order Data:', orderData);
 
-    // Simulate API call
     setTimeout(() => {
       setIsSubmitting(false);
       toast({
@@ -228,422 +154,300 @@ export default function TailoredOutfitPage() {
         description: 'We will contact you within 24 hours to confirm your custom design.',
       });
       
-      // Reset form
       form.reset();
       setSelectedDesign('');
       setSelectedColors([]);
       setUploadedImage('');
+      setDesignDescription('');
       setMeasurements({});
-      setMeasurementSource({});
-      setOriginalAIMeasurements({});
     }, 2000);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 relative overflow-hidden">
-      {/* Background Decorations */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-0 left-1/2 w-96 h-96 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
-
-      <div className="relative z-10 container mx-auto px-4 py-12">
-        {/* Hero Section */}
+    <div className="min-h-screen bg-gray-50">
+      <div className="w-full px-4 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent animate-gradient">
+          <h1 className="text-4xl font-bold mb-4 text-gray-900">
             Create Your Custom Design
           </h1>
-          <p className="text-xl text-gray-700 max-w-3xl mx-auto">
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
             Choose from our gallery, select premium fabrics, and customize every detail to match your vision.
           </p>
         </div>
 
-        {/* Main Layout - Design Tools Only (No Sidebar) */}
-        <div className="max-w-6xl mx-auto space-y-8">
-          
-          {/* 1. Design Inspiration & Fabric Selection */}
-          <Card className="backdrop-blur-sm bg-white/90 border border-white/50 shadow-xl">
-            <CardHeader>
-              <CardTitle>✨ Design Inspiration & Fabric Selection</CardTitle>
-              <p className="text-sm text-gray-600">Choose from our gallery and select your preferred fabric</p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Design Gallery */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Gallery</h3>
-                <ModernDesignGallery
-                  selectedDesign={selectedDesign}
-                  onDesignSelect={handleDesignSelect}
-                  selectedColors={selectedColors}
-                />
-              </div>
-
-              {/* Fabric Dropdown */}
-              <div>
-                <label htmlFor="fabric-select" className="flex items-center gap-2 text-sm font-medium mb-2">
-                  🧵 Fabric Selection
-                </label>
-                <Select value={selectedFabric} onValueChange={handleFabricSelect}>
-                  <SelectTrigger id="fabric-select" className="w-full">
-                    <SelectValue placeholder="Select a fabric">
-                      {selectedFabric && (
-                        <span>
-                          {fabricOptions.find(f => f.id === selectedFabric)?.name}
-                          {' - '}
-                          <span className="text-gray-500 text-sm">
-                            {fabricOptions.find(f => f.id === selectedFabric)?.description}
-                          </span>
-                        </span>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {fabricOptions.map((fabric) => (
-                      <SelectItem key={fabric.id} value={fabric.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{fabric.name}</span>
-                          <span className="text-xs text-gray-500">
-                            {fabric.description} • {fabric.texture}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedFabric && (
-                  <p className="text-xs text-gray-500 mt-2">
-                    Texture: {fabricOptions.find(f => f.id === selectedFabric)?.texture}
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 2. Color Selection */}
-          <Card className="backdrop-blur-sm bg-white/90 border border-white/50 shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+        <div className="w-full max-w-[1600px] mx-auto space-y-8">
+          {/* 1. Design Gallery & Live Preview - SIDE BY SIDE */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left: Design Gallery with Fabric & Description */}
+            <Card className="bg-white shadow-md">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5" />
+                  Design Gallery
+                </CardTitle>
+                <p className="text-sm text-gray-600">
+                  Choose your garment and customize
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Design Gallery */}
                 <div>
-                  <span>🎨 Color Selection</span>
-                  <p className="text-sm text-gray-600 font-normal">
-                    Choose your preferred colors for the design
+                  <Label className="text-sm font-medium mb-2 block">Select Design</Label>
+                  <ModernDesignGallery
+                    selectedDesign={selectedDesign}
+                    onDesignSelect={handleDesignSelect}
+                    previewColors={selectedColors}
+                    setPreviewColors={setSelectedColors}
+                  />
+                </div>
+
+                {/* Fabric Selection Dropdown */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Fabric Selection</Label>
+                  <Select value={selectedFabric} onValueChange={handleFabricSelect}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select fabric" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fabricOptions.map((fabric) => (
+                        <SelectItem key={fabric.id} value={fabric.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{fabric.name}</span>
+                            <span className="text-xs text-gray-500">{fabric.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedFabric && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      Selected: {fabricOptions.find(f => f.id === selectedFabric)?.name}
+                    </p>
+                  )}
+                </div>
+
+                {/* Design Description */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Design Description</Label>
+                  <Textarea
+                    value={designDescription}
+                    onChange={(e) => setDesignDescription(e.target.value)}
+                    placeholder="Describe your ideal design in detail..."
+                    rows={3}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Min 10 characters required
                   </p>
                 </div>
-                <div className="text-sm text-gray-500">
-                  {selectedColors.length} color{selectedColors.length !== 1 ? 's' : ''} selected
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ColorPalette
-                selectedColors={selectedColors}
-                onColorSelect={handleColorSelect}
-                onColorRemove={handleColorRemove}
-                maxColors={5}
-              />
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* 3. Enhanced Measurement Parameters with AI Camera & Manual Options */}
-          <Card className="backdrop-blur-sm bg-white/90 border border-white/50 shadow-xl">
+            {/* Right: Live Preview & Color Selection */}
+            <div>
+              <MergedRunwayColorPreview
+                selectedDesign={selectedDesign}
+                selectedColors={selectedColors}
+                selectedFabric={selectedFabric}
+                uploadedImage={uploadedImage}
+                measurements={measurements}
+                onColorsChange={setSelectedColors}
+                onImageUpload={setUploadedImage}
+              />
+            </div>
+          </div>
+
+          {/* 2. Measurements */}
+          <Card className="bg-white shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Ruler className="h-5 w-5" />
-                📏 Key Measurement Parameters
+                📏 Measurements
               </CardTitle>
               <p className="text-sm text-gray-600">
-                Get perfect fit measurements using AI camera analysis or enter manually
+                Enter your body measurements for a perfect fit
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* AI Camera Section */}
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-lg border border-purple-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-purple-900">AI-Powered Measurement</h3>
-                    <p className="text-sm text-purple-700">Capture accurate body measurements instantly</p>
-                  </div>
-                  <Button
-                    onClick={startAICamera}
-                    disabled={cameraActive || aiProcessing}
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                  >
-                    {aiProcessing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : cameraActive ? (
-                      'Camera Active'
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {measurementFields.map((field) => (
+                  <div key={field.id} className="space-y-2">
+                    <label className="text-sm font-medium">{field.label}</label>
+                    {field.unit === 'type' ? (
+                      <Select
+                        value={measurements[field.id] || ''}
+                        onValueChange={(value) => handleMeasurementChange(field.id, value)}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {field.options?.map((option) => (
+                            <SelectItem key={option} value={option.toLowerCase()}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     ) : (
-                      <>
-                        <Scissors className="h-4 w-4 mr-2" />
-                        Start AI Camera
-                      </>
-                    )}
-                  </Button>
-                </div>
-
-                {cameraActive && (
-                  <div className="bg-black/80 rounded-lg h-64 flex items-center justify-center">
-                    <div className="text-center text-white">
-                      <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" />
-                      <p>Analyzing your body measurements...</p>
-                      <p className="text-sm text-gray-300 mt-2">Please stand in a well-lit area</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Manual Measurement Grid */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Measurement Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {measurementFields.map((field) => (
-                    <div key={field.id} className="space-y-2">
-                      <label htmlFor={field.id} className="flex items-center justify-between text-sm font-medium">
-                        <span>{field.label}</span>
-                        {measurementSource[field.id] === 'ai' && (
-                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                            AI
-                          </span>
-                        )}
-                        {measurementSource[field.id] === 'manual' && (
-                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
-                            Manual
-                          </span>
-                        )}
-                      </label>
                       <div className="flex gap-2">
                         <Input
-                          id={field.id}
                           type="number"
+                          value={measurements[field.id] || ''}
+                          onChange={(e) => handleMeasurementChange(field.id, e.target.value)}
+                          placeholder={field.unit}
                           min={field.min}
                           max={field.max}
                           step="0.5"
-                          value={measurements[field.id] || ''}
-                          onChange={(e) => handleMeasurementChange(field.id, e.target.value)}
-                          placeholder={`Enter ${field.label.toLowerCase()}`}
-                          className={
-                            measurementSource[field.id] === 'ai'
-                              ? 'border-purple-300 bg-purple-50'
-                              : measurementSource[field.id] === 'manual'
-                              ? 'border-orange-300 bg-orange-50'
-                              : ''
-                          }
                         />
-                        <span className="text-sm text-gray-500 flex items-center">{field.unit}</span>
                       </div>
-                      {measurementSource[field.id] === 'manual' && originalAIMeasurements[field.id] && (
-                        <button
-                          type="button"
-                          onClick={() => handleRestoreAIMeasurement(field.id)}
-                          className="text-xs text-purple-600 hover:text-purple-800 underline"
-                        >
-                          Restore AI value ({originalAIMeasurements[field.id]})
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Measurement Progress */}
-              {Object.keys(measurements).length > 0 && (
-                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-green-800">
-                      Measurements Progress
-                    </span>
-                    <span className="text-sm text-green-600">
-                      {Object.keys(measurements).length} / {measurementFields.length} completed
-                    </span>
-                  </div>
-                  <div className="mt-2 h-2 bg-green-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-green-500 transition-all duration-500"
-                      style={{
-                        width: `${(Object.keys(measurements).length / measurementFields.length) * 100}%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* 4. Design Details */}
-          <Card className="backdrop-blur-sm bg-white/90 border border-white/50 shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Scissors className="h-5 w-5" />
-                ✂️ Design Details & Inspiration
-              </CardTitle>
-              <p className="text-sm text-gray-600">
-                Share your vision and upload reference images
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label htmlFor="design-description" className="block text-sm font-medium mb-2">
-                  Design Description *
-                </label>
-                <Textarea
-                  id="design-description"
-                  {...form.register('designDescription')}
-                  placeholder="Describe your ideal design in detail... (e.g., 'I want a flowing maxi dress with floral patterns, off-shoulder sleeves, and a belt at the waist')"
-                  rows={4}
-                  className="w-full"
-                />
-                {form.formState.errors.designDescription && (
-                  <p className="text-sm text-red-500 mt-1">
-                    {form.formState.errors.designDescription.message}
-                  </p>
-                )}
-                <p className="text-xs text-gray-500 mt-1">
-                  Minimum 10 characters required. Current: {form.watch('designDescription')?.length || 0} characters
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="image-upload" className="block text-sm font-medium mb-2">
-                  Upload Reference Image (Optional)
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                  <input
-                    id="image-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  <label
-                    htmlFor="image-upload"
-                    className="cursor-pointer flex flex-col items-center"
-                  >
-                    {uploadedImage && uploadedImage !== '' && (
-                      <div className="space-y-2">
-                        <img
-                          src={uploadedImage}
-                          alt="Reference"
-                          className="max-h-48 rounded-lg shadow-md"
-                        />
-                        <p className="text-sm text-green-600 font-medium">Image uploaded successfully!</p>
-                      </div>
-                    )} : (
-                      <>
-                        <Upload className="h-12 w-12 text-gray-400 mb-2" />
-                        <span className="text-sm text-gray-600">
-                          Click to upload or drag and drop
-                        </span>
-                        <span className="text-xs text-gray-500">PNG, JPG up to 10MB</span>
-                      </>
                     )}
-                  </label>
-                </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
 
-          {/* 5. Contact Information & Submit */}
-          <Card className="backdrop-blur-sm bg-white/90 border border-white/50 shadow-xl">
+          {/* 3. Customer Information & Submit */}
+          <Card className="bg-white shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
-                👤 Contact Information
+                👤 Your Information
               </CardTitle>
-              <p className="text-sm text-gray-600">
-                We'll use this information to contact you about your custom design
-              </p>
             </CardHeader>
             <CardContent>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  {/* Contact Fields */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="customerName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-2">
-                            <User className="h-4 w-4" />
-                            Full Name *
-                          </FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter your full name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-2">
-                            <Phone className="h-4 w-4" />
-                            Phone Number *
-                          </FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter your phone number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <FormField
                     control={form.control}
-                    name="email"
+                    name="customerName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="flex items-center gap-2">
-                          <Mail className="h-4 w-4" />
-                          Email Address *
-                        </FormLabel>
+                        <FormLabel>Full Name *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter your email address" type="email" {...field} />
+                          <Input placeholder="Enter your name" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  {/* Order Summary */}
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="your.email@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+1 234 567 8900" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   {selectedDesign && selectedDesign !== '' && (
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                      <h3 className="font-semibold text-blue-900 mb-2">Order Summary</h3>
-                      <div className="space-y-1 text-sm text-blue-800">
-                        <p>✓ Design Selected: {selectedDesign}</p>
-                        <p>✓ Fabric: {fabricOptions.find(f => f.id === selectedFabric)?.name}</p>
-                        <p>✓ Colors: {selectedColors.length} selected</p>
-                        <p>✓ Measurements: {Object.keys(measurements).length} provided</p>
-                        {uploadedImage && uploadedImage !== '' && <p>✓ Reference image uploaded</p>}
+                    <div className="bg-white border-2 border-gray-200 rounded-lg p-6 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-200">
+                        <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
+                          <Scissors className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">Order Summary</h3>
+                          <p className="text-xs text-gray-500">Review your custom design</p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                          <span className="text-sm text-gray-600">Design</span>
+                          <span className="text-sm font-semibold text-gray-900 capitalize">{selectedDesign.replace(/-/g, ' ')}</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                          <span className="text-sm text-gray-600">Fabric</span>
+                          <span className="text-sm font-semibold text-gray-900">{fabricOptions.find(f => f.id === selectedFabric)?.name}</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                          <span className="text-sm text-gray-600">Colors</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-gray-900">{selectedColors.length}</span>
+                            <div className="flex gap-1">
+                              {selectedColors.slice(0, 4).map((color, idx) => (
+                                <div
+                                  key={idx}
+                                  className="w-5 h-5 rounded border-2 border-white shadow-sm"
+                                  style={{ backgroundColor: color }}
+                                />
+                              ))}
+                              {selectedColors.length > 4 && (
+                                <div className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center">
+                                  <span className="text-[10px] text-gray-600">+{selectedColors.length - 4}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                          <span className="text-sm text-gray-600">Measurements</span>
+                          <span className="text-sm font-semibold text-gray-900">{Object.keys(measurements).length} fields</span>
+                        </div>
+                        
+                        {uploadedImage && uploadedImage !== '' && (
+                          <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                            <span className="text-sm text-gray-600">Reference Image</span>
+                            <div className="flex items-center gap-1 text-green-600">
+                              <Upload className="h-3 w-3" />
+                              <span className="text-xs font-medium">Uploaded</span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {designDescription && designDescription.length >= 10 && (
+                          <div className="flex items-center justify-between py-2">
+                            <span className="text-sm text-gray-600">Description</span>
+                            <div className="flex items-center gap-1 text-blue-600">
+                              <Scissors className="h-3 w-3" />
+                              <span className="text-xs font-medium">Added</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {/* Submit Button */}
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg py-6"
+                    className="w-full bg-black hover:bg-gray-900 text-white text-base font-semibold py-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                        Submitting Order...
-                      </>
+                      <div className="flex items-center justify-center gap-3">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Processing Your Order...</span>
+                      </div>
                     ) : (
-                      <>
-                        <Scissors className="h-5 w-5 mr-2" />
-                        Submit Custom Design Order
-                      </>
+                      <div className="flex items-center justify-center gap-3">
+                        <Scissors className="h-5 w-5" />
+                        <span>Submit Custom Design Order</span>
+                      </div>
                     )}
                   </Button>
 
