@@ -90,72 +90,6 @@ const colorPalettes = {
   }
 };
 
-// Canvas-based color fill component
-const ColoredGarmentCanvas: React.FC<{
-  imagePath: string;
-  color: string;
-  altText: string;
-}> = ({ imagePath, color, altText }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const img = new window.Image();
-    img.crossOrigin = 'anonymous';
-    
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-
-      // Draw the original image
-      ctx.drawImage(img, 0, 0);
-
-      // Get image data
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-
-      // Parse selected color
-      const r = parseInt(color.slice(1, 3), 16);
-      const g = parseInt(color.slice(3, 5), 16);
-      const b = parseInt(color.slice(5, 7), 16);
-
-      // Color only the non-transparent white/light areas (the shirt body)
-      for (let i = 0; i < data.length; i += 4) {
-        const alpha = data[i + 3];
-        const red = data[i];
-        const green = data[i + 1];
-        const blue = data[i + 2];
-
-        // If pixel is not transparent and is light colored (not the black outline)
-        if (alpha > 0 && red > 100 && green > 100 && blue > 100) {
-          // Replace with selected color while maintaining some shading
-          const brightness = (red + green + blue) / 3 / 255;
-          data[i] = r * brightness;
-          data[i + 1] = g * brightness;
-          data[i + 2] = b * brightness;
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-    };
-
-    img.src = imagePath;
-  }, [imagePath, color]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="w-full h-full object-contain"
-      style={{ maxWidth: '100%', maxHeight: '100%' }}
-    />
-  );
-};
-
 export default function MergedRunwayColorPreview({ 
   selectedDesign, 
   selectedColors = [], 
@@ -213,27 +147,28 @@ export default function MergedRunwayColorPreview({
       </CardHeader>
       
       <CardContent className="space-y-6 flex-1 overflow-y-auto">
-        {/* Live Preview Display - PNG Images without Color Fill */}
-        <div className="relative h-64 bg-white rounded-lg flex items-center justify-center border-2 border-gray-300 flex-shrink-0">
+        {/* Live Preview Display - FIXED HEIGHT */}
+        <div className="relative bg-white rounded-lg flex items-center justify-center border-2 border-gray-300 overflow-hidden" style={{ height: '280px' }}>
           {selectedDesign && designInfo ? (
-            <div className="relative w-48 h-64 flex items-center justify-center bg-white">
-              <div className="relative w-full h-full">
-                {/* PNG Image - No color overlay */}
+            <div className="relative w-full h-full flex items-center justify-center bg-white p-4">
+              <div className="relative max-w-full max-h-full flex flex-col items-center justify-center">
+                {/* PNG Image - Constrained to container */}
                 <img
                   src={designInfo.imagePath}
                   alt={designInfo.name}
-                  className="w-full h-full object-contain"
+                  className="max-w-full max-h-[220px] w-auto h-auto object-contain"
                 />
-              </div>
-              
-              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-2 rounded-b z-10">
-                <p className="text-sm font-medium text-center">
-                  {designInfo.name}
-                </p>
+                
+                {/* Design Name Label */}
+                <div className="mt-2 bg-black bg-opacity-70 text-white px-4 py-2 rounded text-center">
+                  <p className="text-sm font-medium">
+                    {designInfo.name}
+                  </p>
+                </div>
               </div>
             </div>
           ) : (
-            <div className="text-center text-gray-400">
+            <div className="text-center text-gray-400 p-6">
               <Shirt className="h-16 w-16 mx-auto mb-4 opacity-30" />
               <p className="text-lg font-medium">Select a design to preview</p>
               <p className="text-sm">Choose from the gallery and add colors</p>
@@ -241,7 +176,7 @@ export default function MergedRunwayColorPreview({
           )}
 
           {selectedColors.length > 0 && (
-            <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-2">
+            <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-2 z-10">
               <p className="text-xs font-medium text-gray-600 mb-1">Live Colors</p>
               <div className="flex gap-1">
                 {selectedColors.map((color, idx) => (
@@ -296,7 +231,7 @@ export default function MergedRunwayColorPreview({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Palette className="h-5 w-5 text-purple-500" />
-              <h3 className="font-semibold text-gray-900">🎨 Choose Your Colors</h3>
+              <h3 className="font-semibold text-gray-900">Choose Your Colors</h3>
             </div>
             <Badge variant="secondary" className="text-sm">
               {selectedColors.length} / {maxColors}

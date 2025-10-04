@@ -164,8 +164,18 @@ export default function TailoredOutfitPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="w-full px-4 py-12">
+    <div className="min-h-screen relative bg-gray-50">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/assets/img/skirt.jpg')" }}
+      >
+        {/* Overlay for better readability */}
+        <div className="absolute inset-0 bg-white/40 backdrop-blur-sm"></div>
+      </div>
+
+      {/* Content */}
+      <div className="relative z-10 w-full px-4 py-12">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4 text-gray-900">
             Create Your Custom Design
@@ -262,7 +272,7 @@ export default function TailoredOutfitPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Ruler className="h-5 w-5" />
-                📏 Measurements
+                Measurements
               </CardTitle>
               <p className="text-sm text-gray-600">
                 Enter your body measurements for a perfect fit
@@ -308,158 +318,186 @@ export default function TailoredOutfitPage() {
             </CardContent>
           </Card>
 
-          {/* 3. Customer Information & Submit */}
-          <Card className="bg-white shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                👤 Your Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="customerName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter your name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+          {/* 3. Customer Information & Order Summary - SIDE BY SIDE */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* LEFT SIDE: Your Information Form */}
+            <Card className="bg-white shadow-md">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Your Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="customerName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter your name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="your.email@example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="your.email@example.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="+1 234 567 8900" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone Number *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="+1 234 567 8900" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  {selectedDesign && selectedDesign !== '' && (
-                    <div className="bg-white border-2 border-gray-200 rounded-lg p-6 shadow-sm">
-                      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-200">
-                        <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
-                          <Scissors className="h-5 w-5 text-white" />
+                    <Button
+                      type="submit"
+                      className="w-full bg-black hover:bg-gray-900 text-white text-base font-semibold py-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <div className="flex items-center justify-center gap-3">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span>Processing Your Order...</span>
                         </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-900">Order Summary</h3>
-                          <p className="text-xs text-gray-500">Review your custom design</p>
+                      ) : (
+                        <div className="flex items-center justify-center gap-3">
+                          <Scissors className="h-5 w-5" />
+                          <span>Submit Custom Design Order</span>
+                        </div>
+                      )}
+                    </Button>
+
+                    {isSubmitting && (
+                      <p className="text-center text-sm text-gray-600">
+                        Processing your order... Our team will contact you within 24 hours.
+                      </p>
+                    )}
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+
+            {/* RIGHT SIDE: Order Summary */}
+            <Card className="bg-white shadow-md h-fit lg:sticky lg:top-6">
+              <CardContent className="p-6">
+                {selectedDesign && selectedDesign !== '' ? (
+                  <div>
+                    <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-200">
+                      <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
+                        <Scissors className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Order Summary</h3>
+                        <p className="text-xs text-gray-500">Review your custom design</p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-600">Design</span>
+                        <span className="text-sm font-semibold text-gray-900 capitalize">
+                          {selectedDesign.replace(/-/g, ' ')}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-600">Fabric</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {fabricOptions.find(f => f.id === selectedFabric)?.name}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-600">Colors</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-900">{selectedColors.length}</span>
+                          <div className="flex gap-1">
+                            {selectedColors.slice(0, 4).map((color, idx) => (
+                              <div
+                                key={idx}
+                                className="w-5 h-5 rounded border-2 border-white shadow-sm"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                            {selectedColors.length > 4 && (
+                              <div className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center">
+                                <span className="text-[10px] text-gray-600">+{selectedColors.length - 4}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                       
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                          <span className="text-sm text-gray-600">Design</span>
-                          <span className="text-sm font-semibold text-gray-900 capitalize">{selectedDesign.replace(/-/g, ' ')}</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                          <span className="text-sm text-gray-600">Fabric</span>
-                          <span className="text-sm font-semibold text-gray-900">{fabricOptions.find(f => f.id === selectedFabric)?.name}</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                          <span className="text-sm text-gray-600">Colors</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-gray-900">{selectedColors.length}</span>
-                            <div className="flex gap-1">
-                              {selectedColors.slice(0, 4).map((color, idx) => (
-                                <div
-                                  key={idx}
-                                  className="w-5 h-5 rounded border-2 border-white shadow-sm"
-                                  style={{ backgroundColor: color }}
-                                />
-                              ))}
-                              {selectedColors.length > 4 && (
-                                <div className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center">
-                                  <span className="text-[10px] text-gray-600">+{selectedColors.length - 4}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                          <span className="text-sm text-gray-600">Measurements</span>
-                          <span className="text-sm font-semibold text-gray-900">{Object.keys(measurements).length} fields</span>
-                        </div>
-                        
-                        {uploadedImage && uploadedImage !== '' && (
-                          <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                            <span className="text-sm text-gray-600">Reference Image</span>
-                            <div className="flex items-center gap-1 text-green-600">
-                              <Upload className="h-3 w-3" />
-                              <span className="text-xs font-medium">Uploaded</span>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {designDescription && designDescription.length >= 10 && (
-                          <div className="flex items-center justify-between py-2">
-                            <span className="text-sm text-gray-600">Description</span>
-                            <div className="flex items-center gap-1 text-blue-600">
-                              <Scissors className="h-3 w-3" />
-                              <span className="text-xs font-medium">Added</span>
-                            </div>
-                          </div>
-                        )}
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-600">Measurements</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {Object.keys(measurements).length} fields
+                        </span>
                       </div>
+                      
+                      {uploadedImage && uploadedImage !== '' && (
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                          <span className="text-sm text-gray-600">Reference Image</span>
+                          <div className="flex items-center gap-1 text-green-600">
+                            <Upload className="h-3 w-3" />
+                            <span className="text-xs font-medium">Uploaded</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {designDescription && designDescription.length >= 10 && (
+                        <div className="flex items-center justify-between py-2">
+                          <span className="text-sm text-gray-600">Description</span>
+                          <div className="flex items-center gap-1 text-blue-600">
+                            <Scissors className="h-3 w-3" />
+                            <span className="text-xs font-medium">Added</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
 
-                  <Button
-                    type="submit"
-                    className="w-full bg-black hover:bg-gray-900 text-white text-base font-semibold py-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <div className="flex items-center justify-center gap-3">
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        <span>Processing Your Order...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center gap-3">
-                        <Scissors className="h-5 w-5" />
-                        <span>Submit Custom Design Order</span>
-                      </div>
-                    )}
-                  </Button>
+                    {/* Info Message */}
+                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        💡 Our team will contact you within 24 hours to confirm your custom design details and pricing.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Scissors className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm">Select a design to see your order summary</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                  {isSubmitting && (
-                    <p className="text-center text-sm text-gray-600">
-                      Processing your order... Our team will contact you within 24 hours.
-                    </p>
-                  )}
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
+          </div>
         </div>
       </div>
     </div>
