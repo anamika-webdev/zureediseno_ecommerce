@@ -1,9 +1,10 @@
+// src/components/ProductCard.tsx - Fit option only for Men's Shirts
 'use client';
 
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Heart, ShoppingCart, Star, Eye } from 'lucide-react';
+import { Heart, ShoppingCart, Eye } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,7 @@ interface ProductVariant {
   stock: number;
   sku?: string;
   sleeveType?: string;
+  fit?: string;
 }
 
 interface ProductCardProps {
@@ -31,6 +33,14 @@ interface ProductCardProps {
     featured: boolean;
     inStock: boolean;
     variants?: ProductVariant[];
+    category?: {
+      name: string;
+      slug: string;
+    };
+    subcategory?: {
+      name: string;
+      slug: string;
+    };
   };
 }
 
@@ -43,6 +53,12 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [selectedFit, setSelectedFit] = useState<string>('');
   const [hoveredFit, setHoveredFit] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // ✅ CHECK: Only show fit for Men's Shirts category
+  const isMensShirts = 
+    product.category?.slug?.toLowerCase() === 'men' && 
+    (product.subcategory?.slug?.toLowerCase() === 'shirts' || 
+     product.subcategory?.slug?.toLowerCase() === 'shirt');
 
   const fitImages: { [key: string]: string } = {
     'Regular Fit': '/assets/img/Fit/Regular Fit.png',
@@ -61,35 +77,27 @@ export default function ProductCard({ product }: ProductCardProps) {
       .filter((sleeve): sleeve is string => sleeve !== undefined && sleeve !== null && sleeve.trim() !== '') 
       || []
   )];
-  const availableFits = ['Regular Fit', 'Slim Fit', 'Belly Fit'];
+  
+  // ✅ Only show fit options for Men's Shirts
+  const availableFits = isMensShirts ? ['Regular Fit', 'Slim Fit', 'Belly Fit'] : [];
 
-  const currentVariant = product.variants?.find(v => 
-    v.color === selectedColor && 
-    v.size === selectedSize && 
-    (!selectedSleeve || v.sleeveType === selectedSleeve)
-  );
+  const currentVariant = product.variants?.find(v => {
+    const colorMatch = v.color === selectedColor;
+    const sizeMatch = v.size === selectedSize;
+    const sleeveMatch = !selectedSleeve || v.sleeveType === selectedSleeve;
+    const fitMatch = !isMensShirts || !selectedFit || v.fit === selectedFit;
+    
+    return colorMatch && sizeMatch && sleeveMatch && fitMatch;
+  });
 
   const isVariantInStock = currentVariant ? currentVariant.stock > 0 : true;
+  
   const canAddToCart = product.inStock &&
     (availableColors.length === 0 || selectedColor) &&
     (availableSizes.length === 0 || selectedSize) &&
     (availableSleeves.length === 0 || !availableSleeves.length || selectedSleeve) &&
+    (availableFits.length === 0 || selectedFit) && // ✅ Fit required only if availableFits exists
     isVariantInStock;
-
-  const handleColorSelect = (color: string) => {
-    setSelectedColor(color);
-    setSelectedSize('');
-    setSelectedSleeve('');
-  };
-
-  const handleSizeSelect = (size: string) => {
-    setSelectedSize(size);
-    setSelectedSleeve('');
-  };
-
-  const handleSleeveSelect = (sleeve: string) => {
-    setSelectedSleeve(sleeve);
-  };
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -109,7 +117,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       size: selectedSize || 'One Size',
       color: selectedColor || 'Default',
       sleeveType: selectedSleeve,
-      fit: selectedFit,
+      fit: isMensShirts ? selectedFit : undefined, // ✅ Only include fit for Men's Shirts
       variantId: currentVariant?.id,
       sku: currentVariant?.sku
     };
@@ -162,11 +170,8 @@ export default function ProductCard({ product }: ProductCardProps) {
               src={imageUrl}
               alt={product.name}
               fill
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-              onError={(e) => {
-                e.currentTarget.src = '/assets/images/placeholder.jpg';
-              }}
             />
           </Link>
         ) : (
@@ -174,54 +179,47 @@ export default function ProductCard({ product }: ProductCardProps) {
             src={imageUrl}
             alt={product.name}
             fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className="object-cover"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-            onError={(e) => {
-              e.currentTarget.src = '/assets/images/placeholder.jpg';
-            }}
           />
         )}
 
-        <div className="absolute top-2 left-2 flex flex-col gap-1">
+        {/* Badges */}
+        <div className="absolute top-2 left-2 flex flex-col gap-2">
           {product.featured && (
-            <Badge className="bg-yellow-500 text-white">
-              <Star className="h-3 w-3 mr-1" />
-              Featured
-            </Badge>
+            <Badge className="bg-yellow-500 hover:bg-yellow-600">Featured</Badge>
           )}
-          {!product.inStock && (
-            <Badge variant="secondary">
-              Out of Stock
+          {product.originalPrice && product.originalPrice > product.price && (
+            <Badge variant="destructive">
+              {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
             </Badge>
           )}
         </div>
 
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300">
-          <div className="absolute bottom-2 left-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <Button 
-              size="sm" 
-              variant="secondary" 
-              className="flex-1"
-              onClick={handleQuickView}
-              type="button"
-              disabled={!hasValidSlug}
-            >
-              <Eye className="h-4 w-4 mr-1" />
-              Quick View
-            </Button>
-            <Button 
-              size="sm" 
-              variant="secondary"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toast.success('Added to wishlist!');
-              }}
-              type="button"
-            >
-              <Heart className="h-4 w-4" />
-            </Button>
-          </div>
+        {/* Quick Actions */}
+        <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            size="icon"
+            variant="secondary"
+            className="rounded-full bg-white/90 hover:bg-white"
+            onClick={handleQuickView}
+            type="button"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="secondary"
+            className="rounded-full bg-white/90 hover:bg-white"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toast.info('Added to wishlist!');
+            }}
+            type="button"
+          >
+            <Heart className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -250,52 +248,50 @@ export default function ProductCard({ product }: ProductCardProps) {
 
           {/* Options stacked vertically */}
           <div className="space-y-3">
-
-            {/* Fit Selection with relative container for absolute preview */}
-            <div>
-              <div className="text-xs font-medium text-gray-700">
-                Fit: {selectedFit || 'Select fit'}
-              </div>
-              <div className="flex flex-wrap gap-1 relative">
-                {availableFits.map((fit) => (
-                  <button
-                    key={fit}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setSelectedFit(fit);
-                    }}
-                    onMouseEnter={() => setHoveredFit(fit)}
-                    onMouseLeave={() => setHoveredFit(null)}
-                    className={`px-2 py-1 text-xs font-medium border rounded transition-all ${
-                      selectedFit === fit
-                        ? 'border-gray-900 bg-gray-900 text-white'
-                        : 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
-                    }`}
-                    type="button"
-                  >
-                    {fit}
-                  </button>
-                ))}
-
-                {/* Fit Preview below buttons */}
-                {hoveredFit && (
-                  <div className="absolute top-full mt-2 left-0 z-30 bg-white border border-gray-300 rounded-lg shadow-lg p-3 w-[220px] pointer-events-none">
-                    <Image
-                      src={fitImages[hoveredFit]}
-                      alt={hoveredFit}
-                      width={200}
-                      height={200}
-                      className="object-contain rounded mx-auto"
-                      onError={(e) => {
-                        e.currentTarget.src = '/assets/images/placeholder.jpg';
+            {/* ✅ FIT SELECTION - ONLY FOR MEN'S SHIRTS */}
+            {isMensShirts && availableFits.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-gray-700">
+                  Fit: {selectedFit || 'Select fit'}
+                </div>
+                <div className="flex flex-wrap gap-1 relative">
+                  {availableFits.map((fit) => (
+                    <button
+                      key={fit}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedFit(fit);
                       }}
-                    />
-                    <p className="text-xs text-center mt-2 font-medium text-gray-700">{hoveredFit}</p>
-                  </div>
-                )}
+                      onMouseEnter={() => setHoveredFit(fit)}
+                      onMouseLeave={() => setHoveredFit(null)}
+                      className={`px-2 py-1 text-xs font-medium border rounded transition-all ${
+                        selectedFit === fit
+                          ? 'border-gray-900 bg-gray-900 text-white'
+                          : 'border-gray-300 hover:border-gray-500 hover:bg-gray-50'
+                      }`}
+                      type="button"
+                    >
+                      {fit.replace(' Fit', '')}
+                    </button>
+                  ))}
+
+                  {/* Fit Preview Tooltip */}
+                  {hoveredFit && fitImages[hoveredFit] && (
+                    <div className="absolute z-50 bottom-full left-0 mb-2 p-2 bg-white border rounded-lg shadow-xl">
+                      <Image
+                        src={fitImages[hoveredFit]}
+                        alt={hoveredFit}
+                        width={120}
+                        height={120}
+                        className="rounded"
+                      />
+                      <p className="text-xs text-center mt-1 font-medium">{hoveredFit}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Color Selection */}
             {availableColors.length > 0 && (
@@ -310,7 +306,9 @@ export default function ProductCard({ product }: ProductCardProps) {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        handleColorSelect(color);
+                        setSelectedColor(color);
+                        setSelectedSize('');
+                        setSelectedSleeve('');
                       }}
                       className={`px-2 py-1 text-xs font-medium border rounded transition-all ${
                         selectedColor === color
@@ -343,7 +341,8 @@ export default function ProductCard({ product }: ProductCardProps) {
                           e.preventDefault();
                           e.stopPropagation();
                           if (isAvailable && size) {
-                            handleSizeSelect(size);
+                            setSelectedSize(size);
+                            setSelectedSleeve('');
                           }
                         }}
                         disabled={!isAvailable}
@@ -364,7 +363,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               </div>
             )}
 
-            {/* Sleeve Selection */}
+            {/* Sleeve Type Selection */}
             {availableSleeves.length > 0 && (
               <div>
                 <div className="text-xs font-medium text-gray-700">
@@ -372,7 +371,6 @@ export default function ProductCard({ product }: ProductCardProps) {
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {getAvailableSleeves().map((sleeve) => {
-                    if (!sleeve || typeof sleeve !== 'string') return null;
                     const currentAvailableSleeves = getAvailableSleeves();
                     const isAvailable = currentAvailableSleeves.includes(sleeve);
                     return (
@@ -381,8 +379,8 @@ export default function ProductCard({ product }: ProductCardProps) {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          if (isAvailable && sleeve && typeof sleeve === 'string') {
-                            handleSleeveSelect(sleeve);
+                          if (isAvailable) {
+                            setSelectedSleeve(sleeve);
                           }
                         }}
                         disabled={!isAvailable}
@@ -402,35 +400,22 @@ export default function ProductCard({ product }: ProductCardProps) {
                 </div>
               </div>
             )}
-
           </div>
 
-          {currentVariant && (
-            <div className="text-xs text-gray-600">
-              {currentVariant.stock} in stock
-            </div>
+          {/* Stock Status */}
+          {!isVariantInStock && (
+            <p className="text-xs text-red-600 font-medium">Out of stock</p>
           )}
 
-          <Button 
-            className="w-full" 
-            size="sm"
+          {/* Add to Cart Button */}
+          <Button
+            className="w-full"
             onClick={handleAddToCart}
-            disabled={!canAddToCart || !product.inStock}
+            disabled={!canAddToCart}
             type="button"
           >
-            <ShoppingCart className="h-4 w-4 mr-1" />
-            {!product.inStock 
-              ? 'Out of Stock' 
-              : !selectedColor && availableColors.length > 0
-              ? 'Select Color' 
-              : !selectedSize && availableSizes.length > 0
-              ? 'Select Size'
-              : availableSleeves.length > 0 && !selectedSleeve
-              ? 'Select Sleeve'
-              : !isVariantInStock
-              ? 'Out of Stock'
-              : 'Add to Cart'
-            }
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            {canAddToCart ? 'Add to Cart' : 'Select Options'}
           </Button>
         </div>
       </CardContent>

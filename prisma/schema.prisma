@@ -141,6 +141,7 @@ model ProductVariant {
   sleeveType String?  @db.VarChar(50)
   stock      Int      @default(0)
   sku        String?  @unique @db.VarChar(255)
+  //fit        String?  @db.VarChar(50)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   
