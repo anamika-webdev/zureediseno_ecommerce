@@ -168,7 +168,7 @@ export default function TailoredOutfitPage() {
       {/* Background Image */}
       <div 
         className="absolute inset-0 z-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/assets/img/skirt.jpg')" }}
+        style={{ backgroundImage: "url('/assets/img/skirts.jpg')" }}
       >
         {/* Overlay for better readability */}
         <div className="absolute inset-0 bg-white/40 backdrop-blur-sm"></div>

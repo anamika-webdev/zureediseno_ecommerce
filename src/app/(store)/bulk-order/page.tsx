@@ -358,7 +358,7 @@ export default function BulkOrder() {
                 What is the minimum order quantity?
               </h3>
               <p className="text-gray-600 dark:text-gray-300 text-sm">
-                Our minimum bulk order quantity is 50 pieces. However, we can discuss custom requirements based on your needs.
+                Our minimum bulk order quantity is 10 pieces. However, we can discuss custom requirements based on your needs.
               </p>
             </div>
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">

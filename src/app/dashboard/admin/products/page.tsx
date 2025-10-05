@@ -1,4 +1,4 @@
-// src/app/dashboard/admin/products/page.tsx - COMPLETE FULL VERSION
+// src/app/dashboard/admin/products/page.tsx - COMPLETE FINAL VERSION
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -7,34 +7,47 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
+  DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
 } from '@/components/ui/select';
-import { Trash2, Edit, Plus, Loader2, Upload, X, Image as ImageIcon } from 'lucide-react';
-import { toast } from 'sonner';
+import { 
+  Trash2, 
+  Edit, 
+  Plus, 
+  Loader2, 
+  Upload, 
+  X, 
+  Search,
+  Image as ImageIcon,
+  Package
+} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Pagination } from '@/components/admin/Pagination';
 import Image from 'next/image';
 
-// Types
 interface Category {
   id: string;
   name: string;
+  slug: string;
 }
 
 interface Subcategory {
   id: string;
   name: string;
+  slug: string;
   categoryId: string;
 }
 
@@ -44,6 +57,7 @@ interface ProductVariant {
   color: string;
   stock: number;
   sleeveType?: string;
+  fit?: string;
   sku?: string;
 }
 
@@ -89,7 +103,6 @@ interface ProductFormData {
 }
 
 export default function ProductsPage() {
-  // State
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
@@ -99,13 +112,15 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
-
-  // File upload state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const { toast } = useToast();
 
-  // Form data
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
     description: '',
@@ -117,136 +132,94 @@ export default function ProductsPage() {
     featured: false,
     inStock: true,
     sortOrder: 0,
-    variants: [{ size: '', color: '', stock: 0, sleeveType: '' }],
+    variants: [{ size: '', color: '', stock: 0, sleeveType: '', fit: '' }],
   });
 
-  // Fetch all data
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      const [productsResponse, categoriesResponse, subcategoriesResponse] = await Promise.all([
-        fetch('/api/admin/products', { credentials: 'include' }),
+      const productsResponse = await fetch(
+        `/api/admin/products?page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(searchQuery)}`,
+        { credentials: 'include' }
+      );
+      const [categoriesResponse, subcategoriesResponse] = await Promise.all([
         fetch('/api/admin/categories', { credentials: 'include' }),
         fetch('/api/admin/subcategories', { credentials: 'include' })
       ]);
 
-      // Handle products
       if (productsResponse.ok) {
         const productsData = await productsResponse.json();
-        console.log('Products API response:', productsData);
-        
         if (productsData.success && Array.isArray(productsData.products)) {
           setProducts(productsData.products);
+          setTotalItems(productsData.pagination?.total || productsData.products.length);
         } else if (Array.isArray(productsData)) {
           setProducts(productsData);
+          setTotalItems(productsData.length);
         } else {
-          console.warn('Unexpected products response format:', productsData);
           setProducts([]);
+          setTotalItems(0);
         }
-      } else {
-        console.error('Failed to fetch products:', productsResponse.status);
-        setProducts([]);
       }
 
-      // Handle categories - Check for nested response
       if (categoriesResponse.ok) {
         const categoriesData = await categoriesResponse.json();
-        console.log('Categories API response:', categoriesData);
-        
         let categoriesArray: Category[] = [];
         if (categoriesData.success && Array.isArray(categoriesData.categories)) {
           categoriesArray = categoriesData.categories;
         } else if (Array.isArray(categoriesData)) {
           categoriesArray = categoriesData;
-        } else {
-          console.warn('Unexpected categories response format:', categoriesData);
         }
-        
         setCategories(categoriesArray);
-      } else {
-        console.error('Failed to fetch categories:', categoriesResponse.status);
-        setCategories([]);
       }
 
-      // Handle subcategories - FIX: Check for nested response
       if (subcategoriesResponse.ok) {
         const subcategoriesData = await subcategoriesResponse.json();
-        console.log('Subcategories API response:', subcategoriesData);
-        
         let subcategoriesArray: Subcategory[] = [];
         if (subcategoriesData.success && Array.isArray(subcategoriesData.subcategories)) {
           subcategoriesArray = subcategoriesData.subcategories;
         } else if (Array.isArray(subcategoriesData)) {
           subcategoriesArray = subcategoriesData;
-        } else {
-          console.warn('Unexpected subcategories response format:', subcategoriesData);
         }
-        
-        console.log('Final subcategories array:', subcategoriesArray);
         setSubcategories(subcategoriesArray);
-      } else {
-        console.error('Failed to fetch subcategories:', subcategoriesResponse.status);
-        setSubcategories([]);
       }
-
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('Failed to load data');
-      setProducts([]);
-      setCategories([]);
-      setSubcategories([]);
+      toast({ title: 'Error', description: 'Failed to fetch data', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial data load
+  useEffect(() => { fetchData(); }, [currentPage, itemsPerPage]);
   useEffect(() => {
-    fetchData();
-  }, []);
+    const timeoutId = setTimeout(() => { setCurrentPage(1); fetchData(); }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
-  // Filter subcategories based on selected category
   useEffect(() => {
-    console.log('Category changed:', formData.categoryId);
-    console.log('All subcategories:', subcategories);
-    
-    if (formData.categoryId) {
+    if (formData.categoryId && subcategories.length > 0) {
       const filtered = subcategories.filter(sub => sub.categoryId === formData.categoryId);
-      console.log('Filtered subcategories:', filtered);
       setFilteredSubcategories(filtered);
-      
-      // Reset subcategory if it doesn't belong to the selected category
       if (formData.subcategoryId && !filtered.find(sub => sub.id === formData.subcategoryId)) {
-        console.log('Resetting subcategory because it doesnt belong to selected category');
         setFormData(prev => ({ ...prev, subcategoryId: '' }));
       }
     } else {
-      console.log('No category selected, clearing subcategories');
       setFilteredSubcategories([]);
       setFormData(prev => ({ ...prev, subcategoryId: '' }));
     }
   }, [formData.categoryId, subcategories]);
 
-  // Utility functions
-  const generateSlug = (name: string) => {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Form handlers
-  const handleInputChange = (field: keyof ProductFormData, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleVariantChange = (index: number, field: keyof ProductVariant, value: any) => {
+  const handleVariantChange = (index: number, field: string, value: any) => {
     const updatedVariants = [...formData.variants];
     updatedVariants[index] = { ...updatedVariants[index], [field]: value };
     setFormData(prev => ({ ...prev, variants: updatedVariants }));
@@ -255,7 +228,7 @@ export default function ProductsPage() {
   const addVariant = () => {
     setFormData(prev => ({
       ...prev,
-      variants: [...prev.variants, { size: '', color: '', stock: 0, sleeveType: '' }]
+      variants: [...prev.variants, { size: '', color: '', stock: 0, sleeveType: '', fit: '' }]
     }));
   };
 
@@ -266,120 +239,79 @@ export default function ProductsPage() {
     }
   };
 
-  // File handling
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
-    const validFiles = files.filter(file => {
-      if (!file.type.startsWith('image/')) {
-        toast.error(`${file.name} is not an image file`);
-        return false;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} is too large (max 5MB)`);
-        return false;
-      }
-      return true;
-    });
-
-    if (validFiles.length > 0) {
-      setSelectedFiles(prev => [...prev, ...validFiles]);
-      
-      const newPreviewUrls = validFiles.map(file => URL.createObjectURL(file));
-      setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
-    }
+    setSelectedFiles(files);
+    const urls = files.map(file => URL.createObjectURL(file));
+    setPreviewUrls(urls);
   };
 
   const removeImage = (index: number) => {
-    // Remove from selectedFiles if it's a new file
-    if (index < selectedFiles.length) {
-      setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-    }
-    
-    // Clean up blob URLs
-    if (previewUrls[index] && previewUrls[index].startsWith('blob:')) {
-      URL.revokeObjectURL(previewUrls[index]);
-    }
-    
-    // Remove from preview URLs
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
-  const removeAllImages = () => {
-    // Clean up all blob URLs
-    previewUrls.forEach(url => {
-      if (url.startsWith('blob:')) {
-        URL.revokeObjectURL(url);
+  const uploadImages = async (): Promise<string[]> => {
+    if (selectedFiles.length === 0) return [];
+    setUploadingImages(true);
+    const uploadedUrls: string[] = [];
+    try {
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (response.ok) {
+          const data = await response.json();
+          uploadedUrls.push(data.url);
+        }
       }
-    });
-    
-    // Clear all images
-    setSelectedFiles([]);
-    setPreviewUrls([]);
-    
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      return uploadedUrls;
+    } catch (error) {
+      toast({ title: 'Upload Error', description: 'Failed to upload some images', variant: 'destructive' });
+      return uploadedUrls;
+    } finally {
+      setUploadingImages(false);
     }
   };
 
-  const uploadImages = async (files: File[]): Promise<string[]> => {
-    const uploadPromises = files.map(async (file) => {
-      const formDataUpload = new FormData();
-      formDataUpload.append('image', file);
-      formDataUpload.append('folder', 'products');
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formDataUpload,
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.categoryId) {
+      toast({ title: 'Validation Error', description: 'Product name and category are required', variant: 'destructive' });
+      return;
+    }
+    setFormLoading(true);
+    try {
+      const imageUrls = await uploadImages();
+      const productData = {
+        ...formData,
+        images: imageUrls.map((url, index) => ({ url, alt: formData.name, isPrimary: index === 0 })),
+        variants: formData.variants.filter(v => v.size || v.color || v.stock > 0 || v.sleeveType || v.fit),
+      };
+      const url = selectedProduct ? `/api/admin/products/${selectedProduct.id}` : '/api/admin/products';
+      const method = selectedProduct ? 'PUT' : 'POST';
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(productData),
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to upload ${file.name}`);
+      if (response.ok) {
+        toast({ title: 'Success', description: `Product ${selectedProduct ? 'updated' : 'created'} successfully` });
+        setIsDialogOpen(false);
+        resetForm();
+        fetchData();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save product');
       }
-
-      const data = await response.json();
-      return data.url;
-    });
-
-    return Promise.all(uploadPromises);
-  };
-
-  // Form management
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      price: 0,
-      originalPrice: 0,
-      sku: '',
-      categoryId: '',
-      subcategoryId: '',
-      featured: false,
-      inStock: true,
-      sortOrder: 0,
-      variants: [{ size: '', color: '', stock: 0, sleeveType: '' }],
-    });
-    setSelectedProduct(null);
-    setSelectedFiles([]);
-    setPreviewUrls([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    } catch (error) {
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to save product', variant: 'destructive' });
+    } finally {
+      setFormLoading(false);
     }
   };
 
-  const handleFormSuccess = () => {
-    setIsDialogOpen(false);
-    resetForm();
-    fetchData();
-  };
-
-  const handleFormCancel = () => {
-    setIsDialogOpen(false);
-    resetForm();
-  };
-
-  // CRUD operations
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
     setFormData({
@@ -393,672 +325,379 @@ export default function ProductsPage() {
       featured: product.featured,
       inStock: product.inStock,
       sortOrder: product.sortOrder,
-      variants: product.variants.length > 0 ? product.variants : [{ size: '', color: '', stock: 0, sleeveType: '' }],
+      variants: product.variants.length > 0 ? product.variants : [{ size: '', color: '', stock: 0, sleeveType: '', fit: '' }],
     });
-    
-    // Set existing images as preview
-    if (product.images && product.images.length > 0) {
-      const imageUrls = product.images.map(img => 
-        typeof img === 'string' ? img : img.url
-      );
-      setPreviewUrls(imageUrls);
-    }
-    
     setIsDialogOpen(true);
   };
 
-  // Updated delete handler with better error handling
-  const handleDelete = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) {
-      return;
-    }
-
-    console.log('🗑️ Starting delete process for product:', productId);
-
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this product?')) return;
     try {
-      const deleteUrl = `/api/admin/products/${productId}`;
-      console.log('🔗 Delete URL:', deleteUrl);
-
-      const response = await fetch(deleteUrl, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('📡 Delete response status:', response.status);
-
-      // Get response text first to handle both JSON and text responses
-      const responseText = await response.text();
-      console.log('📥 Delete response text (raw):', responseText);
-
-      if (!response.ok) {
-        console.error('❌ Delete request failed with status:', response.status);
-        
-        let errorMessage = `Delete failed (${response.status})`;
-        
-        if (responseText) {
-          try {
-            const errorData = JSON.parse(responseText);
-            console.error('❌ Delete error data:', errorData);
-            errorMessage = errorData.error || errorData.message || errorMessage;
-            
-            if (errorData.details) {
-              console.error('❌ Error details:', errorData.details);
-            }
-            if (errorData.code) {
-              console.error('❌ Error code:', errorData.code);
-            }
-          } catch (parseError) {
-            console.error('❌ Could not parse error response:', parseError);
-            errorMessage = `${errorMessage}: ${responseText}`;
-          }
-        }
-        
-        throw new Error(errorMessage);
+      const response = await fetch(`/api/admin/products/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (response.ok) {
+        toast({ title: 'Success', description: 'Product deleted successfully' });
+        fetchData();
+      } else {
+        throw new Error('Failed to delete product');
       }
-
-      // Try to parse success response
-      let result = { success: true, message: 'Product deleted successfully' };
-      if (responseText) {
-        try {
-          result = JSON.parse(responseText);
-          console.log('✅ Delete success response:', result);
-        } catch (parseError) {
-          console.log('⚠️ Could not parse success response, but delete succeeded');
-        }
-      }
-      
-      toast.success(result.message || 'Product deleted successfully!');
-      fetchData(); // Refresh the product list
-      
     } catch (error) {
-      console.error('❌ Delete operation failed:', error);
-      
-      let errorMessage = 'Failed to delete product';
-      
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      } else if (error && typeof error === 'object') {
-        errorMessage = (error as any).message || (error as any).error || JSON.stringify(error);
-      }
-      
-      console.error('❌ Final error message:', errorMessage);
-      toast.error(errorMessage);
+      toast({ title: 'Error', description: 'Failed to delete product', variant: 'destructive' });
     }
   };
 
-  // Form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.name.trim()) {
-      toast.error('Please enter a product name');
-      return;
-    }
+  const resetForm = () => {
+    setFormData({
+      name: '', description: '', price: 0, originalPrice: 0, sku: '', categoryId: '', subcategoryId: '',
+      featured: false, inStock: true, sortOrder: 0, variants: [{ size: '', color: '', stock: 0, sleeveType: '', fit: '' }],
+    });
+    setSelectedProduct(null);
+    setSelectedFiles([]);
+    setPreviewUrls([]);
+  };
 
-    if (!formData.categoryId) {
-      toast.error('Please select a category');
-      return;
-    }
-
-    if (formData.price <= 0) {
-      toast.error('Please enter a valid price');
-      return;
-    }
-
-    setFormLoading(true);
-
-    try {
-      let imageUrls: string[] = [];
-
-      // Upload new images if selected
-      if (selectedFiles.length > 0) {
-        setUploadingImages(true);
-        imageUrls = await uploadImages(selectedFiles);
-        setUploadingImages(false);
-      }
-
-      // Handle image logic based on whether we're editing or creating
-      let allImageUrls: string[] = [];
-      
-      if (selectedProduct?.id) {
-        // For editing: Use current preview URLs (which include both existing and new images)
-        // This allows users to remove existing images and add new ones
-        const currentImages = previewUrls.filter(url => {
-          // Keep existing images that are still in preview
-          return url && url.trim() !== '';
-        });
-        
-        // Add newly uploaded images
-        allImageUrls = [...currentImages.filter(url => !url.startsWith('blob:')), ...imageUrls];
-      } else {
-        // For new products, just use uploaded images
-        allImageUrls = imageUrls;
-      }
-
-      const slug = generateSlug(formData.name);
-      
-      const submitData = {
-        ...formData,
-        slug,
-        images: allImageUrls,
-        variants: formData.variants.filter(variant => 
-          variant.size || variant.color || variant.stock > 0
-        ),
-      };
-
-      console.log('Submitting product data:', submitData);
-      console.log('Final images:', allImageUrls);
-
-      const url = selectedProduct?.id 
-        ? `/api/admin/products/${selectedProduct.id}`
-        : '/api/admin/products';
-      
-      const method = selectedProduct?.id ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      });
-
-      if (response.ok) {
-        toast.success(
-          selectedProduct?.id 
-            ? 'Product updated successfully!' 
-            : 'Product created successfully!'
-        );
-        handleFormSuccess();
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save product');
-      }
-    } catch (error) {
-      console.error('Error saving product:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to save product');
-    } finally {
-      setFormLoading(false);
-      setUploadingImages(false);
-    }
+  const handleFormCancel = () => {
+    setIsDialogOpen(false);
+    resetForm();
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin" />
+        <span className="ml-2">Loading products...</span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Products</h1>
-          <p className="text-gray-600">Manage your product catalog</p>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Package className="w-8 h-8" />
+            Products Management
+          </h1>
+          <p className="text-gray-500 mt-1">Manage your product catalog ({totalItems} total products)</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => {
-              setSelectedProduct(null);
-              resetForm();
-            }}>
+            <Button onClick={resetForm}>
               <Plus className="w-4 h-4 mr-2" />
               Add Product
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {selectedProduct ? 'Edit Product' : 'Add New Product'}
-              </DialogTitle>
+              <DialogTitle>{selectedProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
             </DialogHeader>
-
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Basic Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Product Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    required
-                  />
+                  <Input id="name" value={formData.name} onChange={(e) => handleInputChange('name', e.target.value)} placeholder="Enter product name" required />
                 </div>
                 <div>
                   <Label htmlFor="sku">SKU</Label>
-                  <Input
-                    id="sku"
-                    value={formData.sku}
-                    onChange={(e) => handleInputChange('sku', e.target.value)}
-                  />
+                  <Input id="sku" value={formData.sku} onChange={(e) => handleInputChange('sku', e.target.value)} placeholder="Enter SKU" />
                 </div>
               </div>
-
-              {/* Description */}
               <div>
                 <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  rows={3}
-                />
+                <Textarea id="description" value={formData.description} onChange={(e) => handleInputChange('description', e.target.value)} placeholder="Enter product description" rows={4} />
               </div>
-
-              {/* Pricing */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="price">Price * (₹)</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.price || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      handleInputChange('price', value === '' ? 0 : parseFloat(value));
-                    }}
-                    required
-                  />
+                  <Label htmlFor="price">Price</Label>
+                  <Input id="price" type="number" step="0.01" value={formData.price} onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)} placeholder="0.00" />
                 </div>
                 <div>
-                  <Label htmlFor="originalPrice">Original Price (₹)</Label>
-                  <Input
-                    id="originalPrice"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.originalPrice || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      handleInputChange('originalPrice', value === '' ? 0 : parseFloat(value));
-                    }}
-                  />
+                  <Label htmlFor="originalPrice">Original Price</Label>
+                  <Input id="originalPrice" type="number" step="0.01" value={formData.originalPrice} onChange={(e) => handleInputChange('originalPrice', parseFloat(e.target.value) || 0)} placeholder="0.00" />
                 </div>
                 <div>
                   <Label htmlFor="sortOrder">Sort Order</Label>
-                  <Input
-                    id="sortOrder"
-                    type="number"
-                    value={formData.sortOrder || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      handleInputChange('sortOrder', value === '' ? 0 : parseInt(value));
-                    }}
-                  />
+                  <Input id="sortOrder" type="number" value={formData.sortOrder} onChange={(e) => handleInputChange('sortOrder', parseInt(e.target.value) || 0)} placeholder="0" />
                 </div>
               </div>
-
-              {/* Categories */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="category">Category *</Label>
-                  <Select
-                    value={formData.categoryId}
-                    onValueChange={(value) => {
-                      console.log('Category selected:', value);
-                      handleInputChange('categoryId', value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
+                  <Label htmlFor="categoryId">Category *</Label>
+                  <Select value={formData.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
+                        <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="subcategory">Subcategory</Label>
-                  <Select
-                    value={formData.subcategoryId}
-                    onValueChange={(value) => {
-                      console.log('Subcategory selected:', value);
-                      handleInputChange('subcategoryId', value);
-                    }}
-                    disabled={!formData.categoryId || filteredSubcategories.length === 0}
-                  >
+                  <Label htmlFor="subcategoryId">Subcategory</Label>
+                  <Select value={formData.subcategoryId} onValueChange={(value) => handleInputChange('subcategoryId', value)} disabled={!formData.categoryId || filteredSubcategories.length === 0}>
                     <SelectTrigger>
-                      <SelectValue placeholder={
-                        !formData.categoryId 
-                          ? "Select category first" 
-                          : filteredSubcategories.length === 0 
-                            ? "No subcategories available"
-                            : "Select subcategory"
-                      } />
+                      <SelectValue placeholder={!formData.categoryId ? "Select category first" : filteredSubcategories.length === 0 ? "No subcategories available" : "Select subcategory"} />
                     </SelectTrigger>
                     <SelectContent>
                       {filteredSubcategories.map((subcategory) => (
-                        <SelectItem key={subcategory.id} value={subcategory.id}>
-                          {subcategory.name}
-                        </SelectItem>
+                        <SelectItem key={subcategory.id} value={subcategory.id}>{subcategory.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {formData.categoryId && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {filteredSubcategories.length} subcategories available
-                    </p>
-                  )}
                 </div>
               </div>
-
-              {/* Switches */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center space-x-2">
-                  <Switch
-                    id="featured"
-                    checked={formData.featured}
-                    onCheckedChange={(checked) => handleInputChange('featured', checked)}
-                  />
+                  <Switch id="featured" checked={formData.featured} onCheckedChange={(checked) => handleInputChange('featured', checked)} />
                   <Label htmlFor="featured">Featured Product</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Switch
-                    id="inStock"
-                    checked={formData.inStock}
-                    onCheckedChange={(checked) => handleInputChange('inStock', checked)}
-                  />
+                  <Switch id="inStock" checked={formData.inStock} onCheckedChange={(checked) => handleInputChange('inStock', checked)} />
                   <Label htmlFor="inStock">In Stock</Label>
                 </div>
               </div>
-
-              {/* Images */}
               <div>
                 <Label>Product Images</Label>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileSelect}
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingImages}
-                  >
+                  <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*" multiple className="hidden" />
+                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploadingImages}>
                     <Upload className="w-4 h-4 mr-2" />
                     {uploadingImages ? 'Uploading...' : selectedProduct ? 'Add More Images' : 'Upload Images'}
                   </Button>
-                  
-                  {previewUrls.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      onClick={removeAllImages}
-                      disabled={uploadingImages}
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Remove All Images
-                    </Button>
-                  )}
                 </div>
-                
-                {selectedProduct && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    Note: Removing images here will delete them from the product. Use "Add More Images" to keep existing images.
-                  </p>
-                )}
-                
-                {/* Image Previews */}
                 {previewUrls.length > 0 && (
-                  <div className="mt-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium">Current Images ({previewUrls.length})</span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {previewUrls.map((url, index) => (
-                        <div key={index} className="relative group">
-                          <Image
-                            src={url}
-                            alt={`Preview ${index + 1}`}
-                            width={150}
-                            height={150}
-                            className="object-cover rounded border"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => removeImage(index)}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                          <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                            {index + 1}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="mt-4 grid grid-cols-4 gap-4">
+                    {previewUrls.map((url, index) => (
+                      <div key={index} className="relative">
+                        <img src={url} alt={`Preview ${index + 1}`} className="w-full h-32 object-cover rounded" />
+                        <Button type="button" variant="destructive" size="sm" className="absolute top-1 right-1" onClick={() => removeImage(index)}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-
-              {/* Variants */}
               <div>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center justify-between mb-2">
                   <Label>Product Variants</Label>
                   <Button type="button" variant="outline" size="sm" onClick={addVariant}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Variant
+                    <Plus className="w-4 h-4 mr-1" />Add Variant
                   </Button>
                 </div>
-                
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {formData.variants.map((variant, index) => (
-                    <div key={index} className="grid grid-cols-2 md:grid-cols-5 gap-2 p-4 border rounded">
-                      <div>
-                        <Label>Size</Label>
-                        <Input
-                          value={variant.size}
-                          onChange={(e) => handleVariantChange(index, 'size', e.target.value)}
-                          placeholder="S, M, L, XL"
-                        />
-                      </div>
-                      <div>
-                        <Label>Color</Label>
-                        <Input
-                          value={variant.color}
-                          onChange={(e) => handleVariantChange(index, 'color', e.target.value)}
-                          placeholder="Red, Blue"
-                        />
-                      </div>
-                      <div>
-                        <Label>Stock</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={variant.stock || ''}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            handleVariantChange(index, 'stock', value === '' ? 0 : parseInt(value));
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <Label>Sleeve Type</Label>
-                        <Input
-                          value={variant.sleeveType || ''}
-                          onChange={(e) => handleVariantChange(index, 'sleeveType', e.target.value)}
-                          placeholder="Short, Long"
-                        />
-                      </div>
-                      <div className="flex items-end">
-                        {formData.variants.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => removeVariant(index)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+                    <Card key={index}>
+                      <CardContent className="pt-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                          <div>
+                            <Label className="text-xs font-medium">Size</Label>
+                            <Input 
+                              value={variant.size} 
+                              onChange={(e) => handleVariantChange(index, 'size', e.target.value)} 
+                              placeholder="S, M, L, XL"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium">Color</Label>
+                            <Input 
+                              value={variant.color} 
+                              onChange={(e) => handleVariantChange(index, 'color', e.target.value)} 
+                              placeholder="Blue, Red"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium">Sleeve Type</Label>
+                            <Input 
+                              value={variant.sleeveType || ''} 
+                              onChange={(e) => handleVariantChange(index, 'sleeveType', e.target.value)} 
+                              placeholder="Full, Half"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium">Fit</Label>
+                            <Input 
+                              value={variant.fit || ''} 
+                              onChange={(e) => handleVariantChange(index, 'fit', e.target.value)} 
+                              placeholder="Regular, Slim"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium">Stock</Label>
+                            <Input 
+                              type="number" 
+                              value={variant.stock} 
+                              onChange={(e) => handleVariantChange(index, 'stock', parseInt(e.target.value) || 0)} 
+                              placeholder="0"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div className="flex items-end">
+                            <Button 
+                              type="button" 
+                              variant="destructive" 
+                              size="sm" 
+                              onClick={() => removeVariant(index)} 
+                              disabled={formData.variants.length === 1}
+                              className="w-full"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               </div>
-
-              {/* Form Actions */}
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleFormCancel}
-                  disabled={formLoading}
-                >
-                  Cancel
-                </Button>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handleFormCancel}>Cancel</Button>
                 <Button type="submit" disabled={formLoading || uploadingImages}>
-                  {formLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      {selectedProduct ? 'Updating...' : 'Creating...'}
-                    </>
-                  ) : (
-                    selectedProduct ? 'Update Product' : 'Create Product'
-                  )}
+                  {formLoading ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>) : (<>{selectedProduct ? 'Update Product' : 'Create Product'}</>)}
                 </Button>
-              </div>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Products Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Products ({products.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {products.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No products found</p>
-              <p className="text-sm text-gray-400">Create your first product to get started</p>
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="relative flex-1 max-w-md w-full">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Input type="text" placeholder="Search products by name, SKU, or category..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2">Image</th>
-                    <th className="text-left p-2">Name</th>
-                    <th className="text-left p-2">Category</th>
-                    <th className="text-left p-2">Price</th>
-                    <th className="text-left p-2">Stock</th>
-                    <th className="text-left p-2">Status</th>
-                    <th className="text-left p-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map((product) => (
-                    <tr key={product.id} className="border-b hover:bg-gray-50">
-                      <td className="p-2">
-                        {product.images && product.images.length > 0 ? (
-                          <Image
-                            src={typeof product.images[0] === 'string' ? product.images[0] : product.images[0].url}
-                            alt={product.name}
-                            width={50}
-                            height={50}
-                            className="object-cover rounded"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
-                            <ImageIcon className="w-6 h-6 text-gray-400" />
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-2">
-                        <div>
-                          <p className="font-medium">{product.name}</p>
-                          <p className="text-sm text-gray-500">{product.sku}</p>
-                        </div>
-                      </td>
-                      <td className="p-2">
-                        <div>
-                          <p>{product.category.name}</p>
-                          {product.subcategory && (
-                            <p className="text-sm text-gray-500">{product.subcategory.name}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-2">
-                        <div>
-                          <p className="font-medium">₹{product.price}</p>
-                          {product.originalPrice && product.originalPrice > product.price && (
-                            <p className="text-sm text-gray-500 line-through">₹{product.originalPrice}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-2">
-                        <div>
-                          <p>{product.variants.reduce((total, variant) => total + variant.stock, 0)} units</p>
-                          <p className="text-sm text-gray-500">{product.variants.length} variants</p>
-                        </div>
-                      </td>
-                      <td className="p-2">
-                        <div className="flex flex-col gap-1">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            product.inStock 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {product.inStock ? 'In Stock' : 'Out of Stock'}
-                          </span>
-                          {product.featured && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                              Featured
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-2">
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(product)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDelete(product.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="itemsPerPage" className="whitespace-nowrap text-sm">Items per page:</Label>
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => { setItemsPerPage(Number(value)); setCurrentPage(1); }}>
+                <SelectTrigger id="itemsPerPage" className="w-24"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
+
+      {products.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <ImageIcon className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-500 text-lg">{searchQuery ? 'No products found matching your search.' : 'No products found. Create your first product to get started.'}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {products.map((product) => (
+                      <tr key={product.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="w-16 h-16 relative bg-gray-100 rounded overflow-hidden">
+                            {product.images && product.images.length > 0 ? (
+                              <Image src={typeof product.images[0] === 'string' ? product.images[0] : product.images[0].url} alt={product.name} fill className="object-cover" sizes="64px" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-300" /></div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-900">{product.name}</span>
+                            {product.description && (<span className="text-xs text-gray-500 line-clamp-1">{product.description}</span>)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="text-sm text-blue-600 font-medium">{product.category.name}</span>
+                            {product.subcategory && (<span className="text-xs text-gray-500">{product.subcategory.name}</span>)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-gray-900">${product.price.toFixed(2)}</span>
+                            {product.originalPrice && product.originalPrice > product.price && (
+                              <span className="text-xs text-gray-500 line-through">${product.originalPrice.toFixed(2)}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-500 font-mono">{product.sku || '-'}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            {product.variants && product.variants.length > 0 ? (
+                              <>
+                                <span className="text-sm text-gray-900">{product.variants.reduce((sum, v) => sum + v.stock, 0)} units</span>
+                                <span className="text-xs text-gray-500">{product.variants.length} variants</span>
+                              </>
+                            ) : (
+                              <span className="text-sm text-gray-500">-</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col gap-1">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${product.inStock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                              {product.inStock ? '✓ In Stock' : '✗ Out of Stock'}
+                            </span>
+                            {product.featured && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">⭐ Featured</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button size="sm" variant="ghost" onClick={() => handleEdit(product)} className="h-8 w-8 p-0" title="Edit">
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleDelete(product.id)} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50" title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              itemsPerPage={itemsPerPage}
+              totalItems={totalItems}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }

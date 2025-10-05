@@ -1,106 +1,62 @@
-// src/app/api/admin/categories/route.ts - EMERGENCY FIX VERSION
+// src/app/api/admin/categories/route.ts - FIXED VERSION
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentAdmin } from '@/lib/adminAuth';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 Categories API called - starting...');
+    console.log('🔍 GET /api/admin/categories called');
     
-    // Test admin auth first
-    let user;
-    try {
-      user = await getCurrentAdmin();
-      console.log('👤 Admin auth result:', user ? `${user.email} (${user.role})` : 'null');
-    } catch (authError) {
-      console.error('❌ Admin auth error:', authError);
-      return NextResponse.json(
-        { error: 'Authentication failed', details: authError instanceof Error ? authError.message : 'Auth error' },
-        { status: 401 }
-      );
-    }
+    // Check authentication
+    const user = await getCurrentAdmin();
     
     if (!user) {
-      console.log('❌ No admin user found');
+      console.log('❌ No admin user authenticated');
       return NextResponse.json(
-        { error: 'Unauthorized - No admin session' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
     if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
-      console.log('❌ User role not admin:', user.role);
+      console.log('❌ User is not admin:', user.role);
       return NextResponse.json(
-        { error: `Forbidden - Role ${user.role} not allowed` },
+        { success: false, error: 'Forbidden - Admin access required' },
         { status: 403 }
       );
     }
 
-    console.log('✅ Admin authenticated successfully');
+    console.log('✅ Admin authenticated:', user.email);
 
-    // Test database connection
-    let categories;
-    try {
-      console.log('🔍 Attempting to fetch categories from database...');
-      
-      categories = await prisma.category.findMany({
-        orderBy: [
-          { sortOrder: 'asc' },
-          { name: 'asc' }
-        ],
-        include: {
-          _count: {
-            select: { products: true }
+    // Fetch categories from database
+    const categories = await prisma.category.findMany({
+      orderBy: [
+        { sortOrder: 'asc' },
+        { name: 'asc' }
+      ],
+      include: {
+        _count: {
+          select: {
+            products: true,
+            subcategories: true
           }
         }
-      });
-      
-      console.log('📊 Database query successful, found', categories.length, 'categories');
-      
-    } catch (dbError) {
-      console.error('❌ Database error:', dbError);
-      return NextResponse.json(
-        { error: 'Database error', details: dbError instanceof Error ? dbError.message : 'DB error' },
-        { status: 500 }
-      );
-    }
+      }
+    });
 
-    // Transform data safely
-    try {
-      const cleanCategories = categories.map(category => ({
-        id: category.id,
-        name: category.name,
-        slug: category.slug,
-        description: category.description,
-        image: category.image,
-        featured: category.featured,
-        sortOrder: category.sortOrder,
-        createdAt: category.createdAt.toISOString(),
-        updatedAt: category.updatedAt.toISOString(),
-        productCount: category._count.products
-      }));
+    console.log('✅ Found', categories.length, 'categories');
 
-      console.log('✅ Categories transformed successfully');
-      console.log('📤 Returning', cleanCategories.length, 'categories');
-
-      return NextResponse.json(cleanCategories);
-      
-    } catch (transformError) {
-      console.error('❌ Transform error:', transformError);
-      return NextResponse.json(
-        { error: 'Data transform error', details: transformError instanceof Error ? transformError.message : 'Transform error' },
-        { status: 500 }
-      );
-    }
+    // Return categories array directly (simpler format)
+    return NextResponse.json(categories);
 
   } catch (error) {
-    console.error('❌ General categories API error:', error);
+    console.error('❌ Categories API error:', error);
     
     return NextResponse.json(
       { 
+        success: false,
         error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
@@ -109,26 +65,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('📤 Creating new category');
+    console.log('📤 POST /api/admin/categories called');
     
     const user = await getCurrentAdmin();
     
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
-      return NextResponse.json(
-        { error: 'Forbidden - Admin access required' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const categoryData = await request.json();
-    console.log('📝 Category data received:', categoryData);
+    console.log('📝 Category data:', categoryData);
 
     if (!categoryData.name) {
       return NextResponse.json(
@@ -137,7 +87,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate slug if not provided
+    // Generate slug
     const slug = categoryData.slug || categoryData.name
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '')
@@ -145,7 +95,7 @@ export async function POST(request: NextRequest) {
       .replace(/-+/g, '-')
       .trim();
 
-    // Check if slug already exists
+    // Check if slug exists
     const existingCategory = await prisma.category.findFirst({
       where: { slug }
     });
@@ -157,6 +107,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Create category
     const category = await prisma.category.create({
       data: {
         name: categoryData.name.trim(),
@@ -180,10 +131,7 @@ export async function POST(request: NextRequest) {
     console.error('❌ Error creating category:', error);
     
     return NextResponse.json(
-      { 
-        error: 'Failed to create category',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to create category' },
       { status: 500 }
     );
   }
