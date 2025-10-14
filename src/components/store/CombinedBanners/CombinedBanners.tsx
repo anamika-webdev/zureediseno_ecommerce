@@ -62,7 +62,7 @@ export default function SplitBanners() {
               <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 cursor-pointer">
                 {/* Background Image */}
                 <Image
-                  src="/assets/img/BulkOrderBanner/BulkOrderBanner (1).jpg"
+                  src="/assets/img/BulkOrderBanner/BulkOrderBanner.jpg"
                   alt="Bulk Order Banner"
                   fill
                   className="object-cover transition-transform duration-700 group-hover:scale-110"
@@ -138,7 +138,7 @@ export default function SplitBanners() {
               <Link href="/bulk-order">
                 <div className="relative w-full h-full rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
                   <Image
-                    src="/assets/img/BulkOrderBanner/BulkOrderBanner (1).jpg"
+                    src="/assets/img/BulkOrderBanner/BulkOrderBanner.jpg"
                     alt="Bulk Order Banner"
                     fill
                     className="object-cover"
@@ -200,7 +200,7 @@ export default function SplitBanners() {
           <Link href="/bulk-order">
             <div className="relative h-[450px] rounded-2xl overflow-hidden shadow-xl">
               <Image
-                src="/assets/img/BulkOrderBanner/BulkOrderBanner (1).jpg"
+                src="/assets/img/BulkOrderBanner/BulkOrderBanner.jpg"
                 alt="Bulk Order Banner"
                 fill
                 className="object-cover"

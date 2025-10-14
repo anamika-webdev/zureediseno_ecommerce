@@ -1,17 +1,23 @@
 // src/app/(store)/tailoredoutfit/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Button } from '@/components/ui/button';
+import * as z from 'zod';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, User, Mail, Phone, Scissors, Ruler, Palette } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import {
   Select,
   SelectContent,
@@ -19,19 +25,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-
-// Import the custom components
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, Scissors, Ruler, CheckCircle, Palette } from 'lucide-react';
 import ModernDesignGallery from '@/components/store/CustomDesign/ModernDesignGallery';
 import MergedRunwayColorPreview from '@/components/store/CustomDesign/MergedRunwayColorPreview';
 
-// Fabric Options
+// Fabric options
 const fabricOptions = [
-  { id: 'cotton-100', name: '100% Cotton', description: 'Pure, breathable cotton', texture: 'Smooth' },
-  { id: 'linen', name: 'Linen', description: 'Lightweight and airy', texture: 'Textured' },
-  { id: 'cotton-poly', name: 'Cotton Poly', description: 'Durable blend', texture: 'Smooth' },
-  { id: 'polyester', name: 'Polyester', description: 'Wrinkle-resistant', texture: 'Smooth' },
-  { id: 'giza-cotton', name: 'Giza Cotton', description: 'Premium long-staple cotton', texture: 'Luxurious' },
+  { id: 'cotton-100', name: 'Cotton 100%', description: 'Natural, breathable fabric', texture: 'Soft' },
+  { id: 'linen', name: 'Linen', description: 'Lightweight, airy', texture: 'Textured' },
+  { id: 'premium-cotton', name: 'Premium Cotton', description: 'Extra soft, high quality', texture: 'Luxurious' },
   { id: 'poplin', name: 'Poplin', description: 'Smooth, fine weave', texture: 'Crisp' },
   { id: 'oxford-cotton', name: 'Oxford Cotton', description: 'Classic button-down fabric', texture: 'Textured' },
   { id: 'rayon', name: 'Rayon', description: 'Soft, drapes well', texture: 'Silky' },
@@ -60,15 +63,22 @@ const measurementFields = [
 // Form validation schema
 const formSchema = z.object({
   customerName: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
   phone: z.string().min(10, 'Phone number must be at least 10 digits'),
   designDescription: z.string().min(10, 'Description must be at least 10 characters'),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
+interface User {
+  id: string;
+  name?: string;
+  email?: string;
+}
+
 export default function TailoredOutfitPage() {
   const { toast } = useToast();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [selectedDesign, setSelectedDesign] = useState<string>('');
   const [selectedFabric, setSelectedFabric] = useState<string>('cotton-100');
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
@@ -87,24 +97,42 @@ export default function TailoredOutfitPage() {
     },
   });
 
+  // Fetch current user on mount
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const userData = await response.json();
+          setCurrentUser(userData);
+          
+          // Pre-fill form with user data
+          if (userData.name) {
+            form.setValue('customerName', userData.name);
+          }
+          if (userData.email) {
+            form.setValue('email', userData.email);
+          }
+        }
+      } catch (error) {
+        console.log('No user logged in, continuing as guest');
+      }
+    };
+
+    fetchCurrentUser();
+  }, [form]);
+
   // Handlers
   const handleDesignSelect = (designId: string) => {
     setSelectedDesign(designId);
   };
 
-  const handleFabricSelect = (fabricId: string) => {
-    setSelectedFabric(fabricId);
+  const handleColorsChange = (colors: string[]) => {
+    setSelectedColors(colors);
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setUploadedImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+  const handleImageUpload = (imageData: string) => {
+    setUploadedImage(imageData);
   };
 
   const handleMeasurementChange = (field: string, value: string) => {
@@ -114,53 +142,109 @@ export default function TailoredOutfitPage() {
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
 
-    if (!selectedDesign || selectedDesign === '') {
-      toast({
-        title: 'Design Required',
-        description: 'Please select a design from the gallery.',
-        variant: 'destructive',
-      });
-      setIsSubmitting(false);
-      return;
-    }
+    try {
+      // Validation
+      if (!selectedDesign || selectedDesign === '') {
+        toast({
+          title: 'Design Required',
+          description: 'Please select a design from the gallery.',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
-    if (selectedColors.length === 0) {
-      toast({
-        title: 'Colors Required',
-        description: 'Please select at least one color.',
-        variant: 'destructive',
-      });
-      setIsSubmitting(false);
-      return;
-    }
+      if (selectedColors.length === 0) {
+        toast({
+          title: 'Colors Required',
+          description: 'Please select at least one color.',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
-    const orderData = {
-      ...data,
-      selectedDesign,
-      selectedFabric,
-      selectedColors,
-      measurements,
-      uploadedImage,
-      designDescription,
-      timestamp: new Date().toISOString(),
-    };
-
-    console.log('Order Data:', orderData);
-
-    setTimeout(() => {
-      setIsSubmitting(false);
-      toast({
-        title: 'Order Submitted Successfully!',
-        description: 'We will contact you within 24 hours to confirm your custom design.',
-      });
+      // Prepare form data for API
+      const formData = new FormData();
       
-      form.reset();
+      // Customer info
+      formData.append('customerName', data.customerName);
+      formData.append('customerEmail', data.email || '');
+      formData.append('phoneNumber', data.phone);
+      
+      // Design details
+      const designDescriptionText = `
+Design: ${selectedDesign.replace(/-/g, ' ')}
+Fabric: ${fabricOptions.find(f => f.id === selectedFabric)?.name || selectedFabric}
+Colors: ${selectedColors.join(', ')}
+${data.designDescription ? `\nAdditional Details: ${data.designDescription}` : ''}
+      `.trim();
+      
+      formData.append('designDescription', designDescriptionText);
+      formData.append('colorDescription', selectedColors.join(', '));
+      formData.append('fabricPreference', fabricOptions.find(f => f.id === selectedFabric)?.name || selectedFabric);
+      
+      // User type
+      formData.append('userType', currentUser ? 'logged' : 'guest');
+      if (currentUser?.id) {
+        formData.append('userId', currentUser.id);
+      }
+      
+      // Measurements
+      formData.append('measurements', JSON.stringify({
+        ...measurements,
+        providedByCustomer: Object.keys(measurements).length === 0,
+      }));
+      
+      // Image upload - convert base64 to file if exists
+      if (uploadedImage) {
+        const blob = await fetch(uploadedImage).then(r => r.blob());
+        formData.append('image', blob, 'design-reference.jpg');
+      }
+
+      // Call API
+      console.log('Submitting custom design request...');
+      const response = await fetch('/api/custom-design', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to submit design request');
+      }
+
+      // Success!
+      toast({
+        title: 'Order Submitted Successfully! ✅',
+        description: `Request ID: ${result.requestId}. We will contact you within 24 hours to confirm your custom design.`,
+        duration: 6000,
+      });
+
+      // Reset form
+      form.reset({
+        customerName: currentUser?.name || '',
+        email: currentUser?.email || '',
+        phone: '',
+        designDescription: '',
+      });
       setSelectedDesign('');
       setSelectedColors([]);
       setUploadedImage('');
       setDesignDescription('');
       setMeasurements({});
-    }, 2000);
+
+    } catch (error) {
+      console.error('Submission error:', error);
+      toast({
+        title: 'Submission Failed',
+        description: error instanceof Error ? error.message : 'Please try again later.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -170,7 +254,6 @@ export default function TailoredOutfitPage() {
         className="absolute inset-0 z-0 bg-cover bg-center"
         style={{ backgroundImage: "url('/assets/img/skirts.jpg')" }}
       >
-        {/* Overlay for better readability */}
         <div className="absolute inset-0 bg-white/40 backdrop-blur-sm"></div>
       </div>
 
@@ -183,12 +266,17 @@ export default function TailoredOutfitPage() {
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
             Choose from our gallery, select premium fabrics, and customize every detail to match your vision.
           </p>
+          {currentUser && (
+            <p className="text-sm text-green-600 mt-2">
+              ✓ Logged in as {currentUser.name || currentUser.email}
+            </p>
+          )}
         </div>
 
         <div className="w-full max-w-[1600px] mx-auto space-y-8">
-          {/* 1. Design Gallery & Live Preview - SIDE BY SIDE */}
+          {/* 1. Design Gallery & Merged Runway Preview - SIDE BY SIDE */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: Design Gallery with Fabric & Description */}
+            {/* Left: Design Gallery with Fabric Dropdown */}
             <Card className="bg-white shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -196,7 +284,7 @@ export default function TailoredOutfitPage() {
                   Design Gallery
                 </CardTitle>
                 <p className="text-sm text-gray-600">
-                  Choose your garment and customize
+                  Choose your garment style and fabric
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -213,8 +301,8 @@ export default function TailoredOutfitPage() {
 
                 {/* Fabric Selection Dropdown */}
                 <div>
-                  <Label className="text-sm font-medium mb-2 block">Fabric Selection</Label>
-                  <Select value={selectedFabric} onValueChange={handleFabricSelect}>
+                  <Label className="text-sm font-medium mb-2 block">Choose Fabric</Label>
+                  <Select value={selectedFabric} onValueChange={setSelectedFabric}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select fabric" />
                     </SelectTrigger>
@@ -230,41 +318,39 @@ export default function TailoredOutfitPage() {
                     </SelectContent>
                   </Select>
                   {selectedFabric && (
-                    <p className="text-xs text-gray-600 mt-1">
-                      Selected: {fabricOptions.find(f => f.id === selectedFabric)?.name}
+                    <p className="text-xs text-gray-600 mt-2">
+                      <span className="font-medium">Selected:</span> {fabricOptions.find(f => f.id === selectedFabric)?.name} - {fabricOptions.find(f => f.id === selectedFabric)?.texture} texture
                     </p>
                   )}
                 </div>
 
                 {/* Design Description */}
                 <div>
-                  <Label className="text-sm font-medium mb-2 block">Design Description</Label>
+                  <Label htmlFor="description" className="text-sm font-medium mb-2 block">
+                    Additional Design Details (Optional)
+                  </Label>
                   <Textarea
+                    id="description"
                     value={designDescription}
                     onChange={(e) => setDesignDescription(e.target.value)}
-                    placeholder="Describe your ideal design in detail..."
-                    rows={3}
+                    placeholder="Add any specific requirements or preferences..."
+                    rows={4}
                     className="w-full"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Min 10 characters required
-                  </p>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Right: Live Preview & Color Selection */}
-            <div>
-              <MergedRunwayColorPreview
-                selectedDesign={selectedDesign}
-                selectedColors={selectedColors}
-                selectedFabric={selectedFabric}
-                uploadedImage={uploadedImage}
-                measurements={measurements}
-                onColorsChange={setSelectedColors}
-                onImageUpload={setUploadedImage}
-              />
-            </div>
+            {/* Right: Merged Runway Preview with Color Selection */}
+            <MergedRunwayColorPreview
+              selectedDesign={selectedDesign}
+              selectedColors={selectedColors}
+              selectedFabric={selectedFabric}
+              uploadedImage={uploadedImage}
+              measurements={measurements}
+              onColorsChange={handleColorsChange}
+              onImageUpload={handleImageUpload}
+            />
           </div>
 
           {/* 2. Measurements */}
@@ -272,45 +358,43 @@ export default function TailoredOutfitPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Ruler className="h-5 w-5" />
-                Measurements
+                Measurements (Optional)
               </CardTitle>
               <p className="text-sm text-gray-600">
-                Enter your body measurements for a perfect fit
+                Provide your measurements for a perfect fit, or we'll contact you later
               </p>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {measurementFields.map((field) => (
-                  <div key={field.id} className="space-y-2">
-                    <label className="text-sm font-medium">{field.label}</label>
-                    {field.unit === 'type' ? (
-                      <Select
+                  <div key={field.id}>
+                    <Label htmlFor={field.id} className="text-sm font-medium mb-1 block">
+                      {field.label} {field.unit === 'inches' && `(${field.unit})`}
+                    </Label>
+                    {field.unit === 'type' && field.options ? (
+                      <select
+                        id={field.id}
                         value={measurements[field.id] || ''}
-                        onValueChange={(value) => handleMeasurementChange(field.id, value)}
+                        onChange={(e) => handleMeasurementChange(field.id, e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {field.options?.map((option) => (
-                            <SelectItem key={option} value={option.toLowerCase()}>
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        <option value="">Select</option>
+                        {field.options.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
-                      <div className="flex gap-2">
-                        <Input
-                          type="number"
-                          value={measurements[field.id] || ''}
-                          onChange={(e) => handleMeasurementChange(field.id, e.target.value)}
-                          placeholder={field.unit}
-                          min={field.min}
-                          max={field.max}
-                          step="0.5"
-                        />
-                      </div>
+                      <Input
+                        id={field.id}
+                        type="number"
+                        min={field.min}
+                        max={field.max}
+                        value={measurements[field.id] || ''}
+                        onChange={(e) => handleMeasurementChange(field.id, e.target.value)}
+                        placeholder={field.unit === 'inches' ? '0' : ''}
+                      />
                     )}
                   </div>
                 ))}
@@ -318,47 +402,52 @@ export default function TailoredOutfitPage() {
             </CardContent>
           </Card>
 
-          {/* 3. Customer Information & Order Summary - SIDE BY SIDE */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {/* LEFT SIDE: Your Information Form */}
-            <Card className="bg-white shadow-md">
+          {/* 3. Customer Details & Submit */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Customer Form */}
+            <Card className="bg-white shadow-md lg:col-span-2">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Your Information
-                </CardTitle>
+                <CardTitle>Your Contact Information</CardTitle>
+                <p className="text-sm text-gray-600">
+                  We'll use this to contact you about your design
+                </p>
               </CardHeader>
               <CardContent>
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="customerName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Full Name *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter your name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="customerName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Full Name *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="John Doe" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="your.email@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="email"
+                                placeholder="john@example.com"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
                     <FormField
                       control={form.control}
@@ -367,7 +456,29 @@ export default function TailoredOutfitPage() {
                         <FormItem>
                           <FormLabel>Phone Number *</FormLabel>
                           <FormControl>
-                            <Input placeholder="+1 234 567 8900" {...field} />
+                            <Input
+                              type="tel"
+                              placeholder="+91 XXXXXXXXXX"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="designDescription"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Special Requirements *</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Describe any special requirements, preferences, or occasions for this outfit..."
+                              rows={4}
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -376,8 +487,9 @@ export default function TailoredOutfitPage() {
 
                     <Button
                       type="submit"
-                      className="w-full bg-black hover:bg-gray-900 text-white text-base font-semibold py-6 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
                       disabled={isSubmitting}
+                      className="w-full py-6 text-lg font-semibold"
+                      size="lg"
                     >
                       {isSubmitting ? (
                         <div className="flex items-center justify-center gap-3">
@@ -402,7 +514,7 @@ export default function TailoredOutfitPage() {
               </CardContent>
             </Card>
 
-            {/* RIGHT SIDE: Order Summary */}
+            {/* Order Summary */}
             <Card className="bg-white shadow-md h-fit lg:sticky lg:top-6">
               <CardContent className="p-6">
                 {selectedDesign && selectedDesign !== '' ? (
@@ -434,69 +546,57 @@ export default function TailoredOutfitPage() {
                       
                       <div className="flex items-center justify-between py-2 border-b border-gray-100">
                         <span className="text-sm text-gray-600">Colors</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-gray-900">{selectedColors.length}</span>
-                          <div className="flex gap-1">
-                            {selectedColors.slice(0, 4).map((color, idx) => (
-                              <div
-                                key={idx}
-                                className="w-5 h-5 rounded border-2 border-white shadow-sm"
-                                style={{ backgroundColor: color }}
-                              />
-                            ))}
-                            {selectedColors.length > 4 && (
-                              <div className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center">
-                                <span className="text-[10px] text-gray-600">+{selectedColors.length - 4}</span>
-                              </div>
-                            )}
-                          </div>
+                        <div className="flex gap-1">
+                          {selectedColors.map((color, index) => (
+                            <div
+                              key={index}
+                              className="w-6 h-6 rounded-full border-2 border-gray-300"
+                              style={{ backgroundColor: color }}
+                              title={color}
+                            />
+                          ))}
                         </div>
                       </div>
-                      
-                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                        <span className="text-sm text-gray-600">Measurements</span>
-                        <span className="text-sm font-semibold text-gray-900">
-                          {Object.keys(measurements).length} fields
-                        </span>
-                      </div>
-                      
-                      {uploadedImage && uploadedImage !== '' && (
+
+                      {uploadedImage && (
                         <div className="flex items-center justify-between py-2 border-b border-gray-100">
                           <span className="text-sm text-gray-600">Reference Image</span>
-                          <div className="flex items-center gap-1 text-green-600">
-                            <Upload className="h-3 w-3" />
-                            <span className="text-xs font-medium">Uploaded</span>
-                          </div>
+                          <CheckCircle className="h-5 w-5 text-green-600" />
                         </div>
                       )}
-                      
-                      {designDescription && designDescription.length >= 10 && (
-                        <div className="flex items-center justify-between py-2">
-                          <span className="text-sm text-gray-600">Description</span>
-                          <div className="flex items-center gap-1 text-blue-600">
-                            <Scissors className="h-3 w-3" />
-                            <span className="text-xs font-medium">Added</span>
-                          </div>
+
+                      {Object.keys(measurements).length > 0 && (
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                          <span className="text-sm text-gray-600">Measurements</span>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {Object.keys(measurements).length} provided
+                          </span>
                         </div>
                       )}
                     </div>
 
-                    {/* Info Message */}
-                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-800">
-                        💡 Our team will contact you within 24 hours to confirm your custom design details and pricing.
+                    <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-blue-900 font-medium mb-2">
+                        📞 Next Steps
                       </p>
+                      <ul className="text-xs text-blue-800 space-y-1">
+                        <li>✓ Submit your design request</li>
+                        <li>✓ We'll contact you within 24 hours</li>
+                        <li>✓ Discuss pricing and timeline</li>
+                        <li>✓ Receive your custom outfit!</li>
+                      </ul>
                     </div>
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <Scissors className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 text-sm">Select a design to see your order summary</p>
+                    <Palette className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 text-sm">
+                      Select a design to see your order summary
+                    </p>
                   </div>
                 )}
               </CardContent>
             </Card>
-
           </div>
         </div>
       </div>

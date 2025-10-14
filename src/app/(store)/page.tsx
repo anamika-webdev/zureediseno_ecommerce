@@ -33,7 +33,7 @@ export default async function HomePage() {
           title="Kids' Collection"
           description="Bright, comfortable, and durable clothing for the little ones. Dress with love."
           image="/assets/img/Kids_Collection.png"
-          link="/products/kids"
+          link="/products/Kids"
         />
 
            <Newsletter />

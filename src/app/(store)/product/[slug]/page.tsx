@@ -1,7 +1,7 @@
 // src/app/(store)/product/[slug]/page.tsx - Fit only for Men's Shirts
 'use client';
 
-import { useState, useEffect, use } from 'react';  // ✅ Added useEffect import
+import { useState, useEffect, use } from 'react';
 import { useCart } from '@/context/CartContext';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -187,7 +187,7 @@ export default function ProductDetailsPage({ params }: PageProps) {
       size: selectedSize,
       color: selectedColor,
       sleeveType: selectedSleeveType,
-      fit: isMensShirts ? selectedFit : undefined, // ✅ Only include fit for Men's Shirts
+      fit: isMensShirts ? selectedFit : undefined,
       variantId: currentVariant.id,
       sku: currentVariant.sku,
       quantity
@@ -390,7 +390,11 @@ export default function ProductDetailsPage({ params }: PageProps) {
                     return (
                       <button
                         key={size}
-                        onClick={() => isAvailable && setSelectedSize(size)}
+                        onClick={() => {
+                          if (isAvailable) {
+                            setSelectedSize(size);
+                          }
+                        }}
                         disabled={!isAvailable}
                         className={`py-4 border-2 rounded-lg font-bold text-lg transition-all ${
                           selectedSize === size
@@ -420,7 +424,11 @@ export default function ProductDetailsPage({ params }: PageProps) {
                     return (
                       <button
                         key={sleeve}
-                        onClick={() => isAvailable && setSelectedSleeveType(sleeve)}
+                        onClick={() => {
+                          if (isAvailable && sleeve) {
+                            setSelectedSleeveType(sleeve);
+                          }
+                        }}
                         disabled={!isAvailable}
                         className={`py-3 px-4 border-2 rounded-lg font-semibold text-sm transition-all ${
                           selectedSleeveType === sleeve
