@@ -1,4 +1,6 @@
-// src/components/dashboard/sidebar/sidebar.tsx - Fixed Settings Route
+// ============================================
+// FILE 5: src/components/dashboard/sidebar/sidebar.tsx (Updated)
+// ============================================
 "use client";
 
 import Link from 'next/link';
@@ -17,7 +19,8 @@ import {
   Settings,
   LogOut,
   Palette,
-  User
+  User,
+  PackageOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -48,6 +51,12 @@ const navigation = [
     icon: ShoppingCart,
   },
   {
+    name: 'Bulk Orders',
+    href: '/dashboard/admin/bulk-orders',
+    icon: PackageOpen,
+    badge: true,
+  },
+  {
     name: 'Customers',
     href: '/dashboard/admin/customers',
     icon: Users,
@@ -61,11 +70,11 @@ const navigation = [
     name: 'Custom Designs',
     href: '/dashboard/admin/custom-designs',
     icon: Palette,
-    badge: true, // Show badge for new requests
+    badge: true,
   },
   {
     name: 'Settings',
-    href: '/dashboard/admin/settings', // FIXED: Changed from /dashboard/settings to /dashboard/admin/settings
+    href: '/dashboard/admin/settings',
     icon: Settings,
   },
 ];
@@ -104,7 +113,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </div>
       
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-2 py-4">
+      <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
         {navigation.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -115,59 +124,43 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 'flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-gray-800 text-white'
-                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
               )}
             >
-              <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
+              <item.icon className="mr-3 h-5 w-5" />
               {item.name}
+              {item.badge && (
+                <span className="ml-auto inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                  New
+                </span>
+              )}
             </Link>
           );
         })}
       </nav>
-      
-      {/* User Profile & Logout */}
-      {user ? (
-        <div className="border-t border-gray-800 p-4">
-          <div className="flex items-center mb-3">
-            <div className="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center">
-              {user.imageUrl ? (
-                <img 
-                  src={user.imageUrl} 
-                  alt={user.name || user.email} 
-                  className="h-10 w-10 rounded-full object-cover"
-                />
-              ) : (
-                <User className="h-5 w-5 text-gray-300" />
-              )}
+
+      {/* User Info & Logout */}
+      <div className="border-t border-gray-800 p-4">
+        {user && (
+          <div className="mb-4 text-sm text-gray-300">
+            <div className="flex items-center mb-2">
+              <User className="mr-2 h-4 w-4" />
+              <span className="truncate">{user.email}</span>
             </div>
-            <div className="ml-3 flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
-                {user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email}
-              </p>
-              <p className="text-xs text-gray-400 truncate">{user.email}</p>
-              {user.role && (
-                <p className="text-xs text-gray-500 uppercase">{user.role}</p>
-              )}
+            <div className="text-xs text-gray-500">
+              Role: {user.role}
             </div>
           </div>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-700"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </Button>
-        </div>
-      ) : (
-        <div className="border-t border-gray-800 p-4">
-          <div className="text-sm text-gray-400">
-            Not authenticated
-          </div>
-        </div>
-      )}
+        )}
+        <Button
+          onClick={handleLogout}
+          variant="outline"
+          className="w-full justify-start text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
+      </div>
     </div>
   );
 }

@@ -1,13 +1,17 @@
-// src/app/(store)/bulk-order/page.tsx
+// ============================================
+// FILE 1: src/app/(store)/bulk-order/page.tsx
+// ============================================
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Layers, Phone, Mail, Clock, CheckCircle, Package, Truck, DollarSign } from "lucide-react";
+import { Layers, Phone, Mail, Clock, CheckCircle, Package, Truck, DollarSign, Info, ArrowRight } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function BulkOrder() {
   const [formData, setFormData] = useState({
@@ -21,6 +25,7 @@ export default function BulkOrder() {
     deliveryDate: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
   const { toast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -28,12 +33,55 @@ export default function BulkOrder() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleDeliveryDateFocus = () => {
+    setShowDeliveryInfo(true);
+    
+    // Calculate delivery date range (10-15 days from today)
+    const today = new Date();
+    const minDate = new Date(today);
+    minDate.setDate(minDate.getDate() + 10);
+    
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + 15);
+    
+    const formatDate = (date: Date) => {
+      return date.toLocaleDateString('en-IN', { 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+      });
+    };
+    
+    toast({
+      title: "📦 Delivery Timeline",
+      description: `Your bulk order will be delivered between ${formatDate(minDate)} and ${formatDate(maxDate)} from the day your order is accepted.`,
+      duration: 6000,
+    });
+  };
+
+  const validateForm = () => {
+    const qty = parseInt(formData.quantity);
+    if (isNaN(qty) || qty < 10) {
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      toast({
+        title: "Invalid Quantity",
+        description: "Minimum bulk order quantity is 10 pieces.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
-      // TODO: Replace with your actual API endpoint
       const response = await fetch('/api/bulk-order', {
         method: 'POST',
         headers: {
@@ -45,7 +93,8 @@ export default function BulkOrder() {
       if (response.ok) {
         toast({
           title: "Request Submitted Successfully!",
-          description: "Our team will contact you within 24 hours to discuss your bulk order.",
+          description: "Our team will contact you within 24 hours to discuss your bulk order. Delivery will take 10-15 days from order acceptance.",
+          duration: 7000,
         });
         
         // Reset form
@@ -59,6 +108,7 @@ export default function BulkOrder() {
           description: "",
           deliveryDate: ""
         });
+        setShowDeliveryInfo(false);
       } else {
         throw new Error('Failed to submit');
       }
@@ -71,6 +121,13 @@ export default function BulkOrder() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Calculate minimum date for delivery (10 days from now)
+  const getMinDeliveryDate = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 10);
+    return date.toISOString().split('T')[0];
   };
 
   return (
@@ -123,9 +180,9 @@ export default function BulkOrder() {
                   <Package className="h-6 w-6 text-zuree-red" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 dark:text-white">Custom Solutions</h3>
+                  <h3 className="font-medium text-gray-900 dark:text-white">Minimum Order: 10 Pieces</h3>
                   <p className="text-gray-600 dark:text-gray-300">
-                    Tailored products and packaging options to meet your specific requirements.
+                    Start your bulk order with a minimum of just 10 pieces. Perfect for small to medium businesses.
                   </p>
                 </div>
               </div>
@@ -135,9 +192,9 @@ export default function BulkOrder() {
                   <Truck className="h-6 w-6 text-zuree-red" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 dark:text-white">Reliable Delivery</h3>
+                  <h3 className="font-medium text-gray-900 dark:text-white">Fast Delivery</h3>
                   <p className="text-gray-600 dark:text-gray-300">
-                    On-time delivery with flexible shipping options for large orders.
+                    Delivery within 10-15 days from order acceptance. Reliable logistics partners ensure timely delivery.
                   </p>
                 </div>
               </div>
@@ -149,40 +206,61 @@ export default function BulkOrder() {
                 <div>
                   <h3 className="font-medium text-gray-900 dark:text-white">Quality Assurance</h3>
                   <p className="text-gray-600 dark:text-gray-300">
-                    Premium quality products with rigorous quality control for every order.
+                    All products undergo strict quality checks before dispatch.
                   </p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-4">
+                <div className="bg-zuree-beige dark:bg-gray-700 p-3 rounded-full">
+                  <Layers className="h-6 w-6 text-zuree-red" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900 dark:text-white">Customization Available</h3>
+                  <p className="text-gray-600 dark:text-gray-300 mb-2">
+                    Custom colors, sizes, branding, and packaging options for your bulk orders.
+                  </p>
+                  <Link href="/tailoredoutfit" className="text-zuree-red hover:text-zuree-red/90 font-medium inline-flex items-center gap-1 text-sm">
+                    Learn more about customization <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
               </div>
             </div>
 
             {/* Contact Information */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
-              <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-white">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
                 Need Immediate Assistance?
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <Phone className="h-5 w-5 text-zuree-red" />
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 mt-1">
+                    <Phone className="h-5 w-5 text-zuree-red" />
+                  </div>
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Call us at:</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Call us at:</p>
                     <a href="tel:+919711411526" className="text-gray-900 dark:text-white font-medium hover:text-zuree-red">
                       +91 97114 11526
                     </a>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <Mail className="h-5 w-5 text-zuree-red" />
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 mt-1">
+                    <Mail className="h-5 w-5 text-zuree-red" />
+                  </div>
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Email us at:</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Email us at:</p>
                     <a href="mailto:Contact@zuree.in" className="text-gray-900 dark:text-white font-medium hover:text-zuree-red">
                       Contact@zuree.in
                     </a>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <Clock className="h-5 w-5 text-zuree-red" />
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 mt-1">
+                    <Clock className="h-5 w-5 text-zuree-red" />
+                  </div>
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Business Hours:</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Business Hours:</p>
                     <p className="text-gray-900 dark:text-white font-medium">Mon-Fri: 9am - 6pm</p>
                   </div>
                 </div>
@@ -192,47 +270,50 @@ export default function BulkOrder() {
 
           {/* Right Side - Form */}
           <div>
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-sm">
-              <div className="flex items-center space-x-3 mb-6">
-                <Layers className="h-8 w-8 text-zuree-red" />
-                <h2 className="text-2xl font-medium text-gray-900 dark:text-white">
-                  Request a Quote
-                </h2>
-              </div>
-              
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Fill out the form below and our team will get back to you with a customized quote within 24 hours.
-              </p>
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
+              <h2 className="text-2xl font-medium mb-6 text-gray-900 dark:text-white">
+                Request a Quote
+              </h2>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Company Name *
-                  </label>
-                  <Input
-                    id="companyName"
-                    name="companyName"
-                    value={formData.companyName}
-                    onChange={handleChange}
-                    placeholder="Your company name"
-                    required
-                    className="w-full"
-                  />
-                </div>
+              {/* Important Notice */}
+              <Alert className="mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-sm text-blue-800 dark:text-blue-300">
+                  <strong>Bulk Order Requirements:</strong> Minimum quantity is 10 pieces. 
+                  Delivery takes 10-15 days from order acceptance.
+                </AlertDescription>
+              </Alert>
 
-                <div>
-                  <label htmlFor="contactPerson" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Contact Person *
-                  </label>
-                  <Input
-                    id="contactPerson"
-                    name="contactPerson"
-                    value={formData.contactPerson}
-                    onChange={handleChange}
-                    placeholder="Your name"
-                    required
-                    className="w-full"
-                  />
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Company Name *
+                    </label>
+                    <Input
+                      id="companyName"
+                      name="companyName"
+                      value={formData.companyName}
+                      onChange={handleChange}
+                      placeholder="Your company name"
+                      required
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="contactPerson" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Contact Person *
+                    </label>
+                    <Input
+                      id="contactPerson"
+                      name="contactPerson"
+                      value={formData.contactPerson}
+                      onChange={handleChange}
+                      placeholder="Your name"
+                      required
+                      className="w-full"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -253,7 +334,7 @@ export default function BulkOrder() {
                   </div>
                   <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Phone *
+                      Phone Number *
                     </label>
                     <Input
                       id="phone"
@@ -261,7 +342,7 @@ export default function BulkOrder() {
                       type="tel"
                       value={formData.phone}
                       onChange={handleChange}
-                      placeholder="+91 98765 43210"
+                      placeholder="+91 XXXXX XXXXX"
                       required
                       className="w-full"
                     />
@@ -294,11 +375,14 @@ export default function BulkOrder() {
                       type="number"
                       value={formData.quantity}
                       onChange={handleChange}
-                      placeholder="Min. 50 pieces"
+                      placeholder="Min. 10 pieces"
                       required
-                      min="50"
+                      min="10"
                       className="w-full"
                     />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Minimum order: 10 pieces
+                    </p>
                   </div>
                   <div>
                     <label htmlFor="deliveryDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -310,10 +394,24 @@ export default function BulkOrder() {
                       type="date"
                       value={formData.deliveryDate}
                       onChange={handleChange}
+                      onFocus={handleDeliveryDateFocus}
+                      min={getMinDeliveryDate()}
                       className="w-full"
                     />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Delivery: 10-15 days from acceptance
+                    </p>
                   </div>
                 </div>
+
+                {showDeliveryInfo && (
+                  <Alert className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                    <Info className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <AlertDescription className="text-sm text-green-800 dark:text-green-300">
+                      📦 Your order will be delivered between 10 to 15 days from the day your order is accepted by our team.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 <div>
                   <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -340,7 +438,7 @@ export default function BulkOrder() {
 
                 <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                   By submitting this form, you agree to our terms and conditions.
-                  We'll contact you within 24 hours.
+                  We'll contact you within 24 hours to confirm your order.
                 </p>
               </form>
             </div>
@@ -358,24 +456,27 @@ export default function BulkOrder() {
                 What is the minimum order quantity?
               </h3>
               <p className="text-gray-600 dark:text-gray-300 text-sm">
-                Our minimum bulk order quantity is 10 pieces. However, we can discuss custom requirements based on your needs.
+                Our minimum bulk order quantity is 10 pieces. This allows small and medium businesses to benefit from bulk pricing.
               </p>
             </div>
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">
-                How long does it take to process bulk orders?
+                How long does delivery take?
               </h3>
               <p className="text-gray-600 dark:text-gray-300 text-sm">
-                Typical processing time is 2-4 weeks depending on the quantity and customization requirements.
+                Standard delivery for bulk orders takes 10-15 days from the day your order is accepted by our team.
               </p>
             </div>
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">
                 Can I customize the products?
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">
+              <p className="text-gray-600 dark:text-gray-300 text-sm mb-2">
                 Yes! We offer customization options including colors, sizes, logos, and packaging for bulk orders.
               </p>
+              <Link href="/tailoredoutfit" className="text-zuree-red hover:text-zuree-red/90 font-medium inline-flex items-center gap-1 text-sm">
+                Request custom design <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">

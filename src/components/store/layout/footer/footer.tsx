@@ -85,12 +85,6 @@ const Footer = () => {
                 </a>
               </p>
               <p>
-                <a href="https://wa.me/+919711308198" className="flex items-center text-gray-600 hover:text-zuree-red transition-colors">
-                  <MessageCircle size={18} className="mr-2 text-[#25D366] group-hover:text-zuree-red" />
-                  Mobile: +91 97113 08198
-                </a>
-              </p>
-              <p>
                 <a href="mailto:Contact@zuree.in" className="flex items-center text-gray-600 hover:text-zuree-red transition-colors">
                   <Mail size={18} className="mr-2 text-[#D44638] group-hover:text-zuree-red" />
                   Contact@zuree.in

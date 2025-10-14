@@ -29,6 +29,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Scissors, Ruler, CheckCircle, Palette } from 'lucide-react';
 import ModernDesignGallery from '@/components/store/CustomDesign/ModernDesignGallery';
 import MergedRunwayColorPreview from '@/components/store/CustomDesign/MergedRunwayColorPreview';
+import { MLMeasurementCapture } from '@/components/store/CustomDesign/MLMeasurementCapture';
+import { Sparkles } from 'lucide-react';
 
 // Fabric options
 const fabricOptions = [
@@ -137,6 +139,47 @@ export default function TailoredOutfitPage() {
 
   const handleMeasurementChange = (field: string, value: string) => {
     setMeasurements(prev => ({ ...prev, [field]: value }));
+  };
+
+  // NEW: Handle ML detected measurements
+  const handleMLMeasurements = (mlMeasurements: any) => {
+    console.log('ML Measurements detected:', mlMeasurements);
+    
+    // Map ML measurements to your form fields
+    // ML returns: chest, waist, hips, shoulders, inseam, sleeves, height
+    // Convert cm to inches (1 cm = 0.393701 inches)
+    const cmToInches = (cm: string) => {
+      const value = parseFloat(cm.replace(' cm', ''));
+      return (value * 0.393701).toFixed(2);
+    };
+
+    const updatedMeasurements: Record<string, string> = {};
+
+    if (mlMeasurements.chest) {
+      updatedMeasurements.chest = cmToInches(mlMeasurements.chest);
+      updatedMeasurements.upperChest = (parseFloat(cmToInches(mlMeasurements.chest)) * 0.95).toFixed(2);
+    }
+    if (mlMeasurements.hips) {
+      updatedMeasurements.hip = cmToInches(mlMeasurements.hips);
+    }
+    if (mlMeasurements.shoulders) {
+      updatedMeasurements.shoulder = cmToInches(mlMeasurements.shoulders);
+    }
+    if (mlMeasurements.sleeves) {
+      updatedMeasurements.armHole = (parseFloat(cmToInches(mlMeasurements.sleeves)) * 0.6).toFixed(2);
+    }
+    if (mlMeasurements.height) {
+      updatedMeasurements.length = (parseFloat(cmToInches(mlMeasurements.height)) * 0.35).toFixed(2);
+    }
+
+     // Merge with existing measurements
+    setMeasurements(prev => ({ ...prev, ...updatedMeasurements }));
+    
+    toast({
+      title: '✨ Measurements Detected!',
+      description: 'AI has detected your body measurements. You can adjust them if needed.',
+      duration: 5000,
+    });
   };
 
   const onSubmit = async (data: FormData) => {

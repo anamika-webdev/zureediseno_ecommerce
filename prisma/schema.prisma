@@ -435,3 +435,28 @@ model EmailTemplate {
   @@index([isActive])
   @@map("email_templates")
 }
+
+//-------------------------BULK_ORDER_UPLOADS---------------------------------
+model BulkOrderRequest {
+  id              String    @id @default(cuid())
+  requestId       String    @unique
+  companyName     String
+  contactPerson   String
+  email           String
+  phone           String
+  productType     String
+  quantity        Int
+  description     String?   @db.Text
+  deliveryDate    DateTime?
+  status          String    @default("pending")
+  priority        String    @default("normal")
+  estimatedPrice  Float?
+  adminNotes      String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("bulk_order_requests")
+}
