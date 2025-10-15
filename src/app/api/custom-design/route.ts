@@ -1,155 +1,97 @@
-// src/app/api/custom-design/route.ts - Fixed with Proper Image Upload
+// src/app/api/custom-design/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
 import nodemailer from 'nodemailer';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import path from 'path';
+import fs from 'fs';
 
-// Create email transporter
-const createTransporter = () => {
-  if (process.env.MAIL_HOST && process.env.EMAIL_PORT) {
-    // Custom SMTP configuration (GoDaddy)
-    return nodemailer.createTransport({
-      host: process.env.MAIL_HOST,
-      port: parseInt(process.env.EMAIL_PORT),
-      secure: process.env.EMAIL_SECURE === 'true',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
-        ciphers: 'SSLv3'
-      },
-      connectionTimeout: 60000,
-      greetingTimeout: 30000,
-      socketTimeout: 60000
-    });
-  } else if (process.env.EMAIL_SERVICE === 'outlook') {
-    return nodemailer.createTransport({
-      service: 'hotmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-  } else {
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-  }
-};
-
-
-// Define user type interface
-interface CurrentUser {
-  id: string;
-  email?: string;
-  name?: string;
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
+// Email transporter
+function createTransporter() {
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: parseInt(process.env.EMAIL_PORT || '587'),
+    secure: process.env.EMAIL_SECURE === 'true',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+  });
 }
 
-// Helper function to handle image upload
-const handleImageUpload = async (imageFile: File): Promise<{ url: string; filename: string } | null> => {
+// Handle image upload
+async function handleImageUpload(file: File) {
   try {
-    if (!imageFile || imageFile.size === 0) {
-      return null;
-    }
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-    if (!allowedTypes.includes(imageFile.type)) {
-      throw new Error('Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.');
-    }
-
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (imageFile.size > maxSize) {
-      throw new Error('File too large. Maximum size is 5MB.');
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'custom-designs');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
     // Generate unique filename
-    const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2, 15);
-    const extension = imageFile.name.split('.').pop() || 'jpg';
-    const filename = `custom-design-${timestamp}-${randomId}.${extension}`;
+    const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const filepath = path.join(uploadsDir, filename);
 
-    // Create upload directory if it doesn't exist
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'custom-designs');
-    try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (error) {
-      // Directory might already exist, that's okay
-    }
-
-    // Convert file to buffer and save
-    const bytes = await imageFile.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const filepath = join(uploadDir, filename);
-    
-    await writeFile(filepath, buffer);
-    
-    // Return the public URL
-    const imageUrl = `/uploads/custom-designs/${filename}`;
-    
-    console.log('✅ Image uploaded successfully:', {
-      filename,
-      size: imageFile.size,
-      type: imageFile.type,
-      url: imageUrl
-    });
+    // Write file
+    fs.writeFileSync(filepath, buffer);
 
     return {
-      url: imageUrl,
-      filename: imageFile.name
+      url: `/uploads/custom-designs/${filename}`,
+      filename: filename,
     };
-
   } catch (error) {
-    console.error('❌ Image upload error:', error);
+    console.error('Image upload error:', error);
     throw error;
   }
-};
+}
 
-// Helper function to try to get current user
-const getCurrentUser = async (req: NextRequest): Promise<CurrentUser | null> => {
-  try {
-    // For now, return null as we're handling guests and logged users separately
-    // This can be updated when proper auth is implemented
-    return null;
-  } catch (error) {
-    console.log('No user authentication found, treating as guest');
-    return null;
-  }
-};
-
+// POST - Create new custom design request
 export async function POST(req: NextRequest) {
   try {
-    console.log('📋 Custom Design API called');
-    
-    const formData = await req.formData();
-    console.log('📝 Form data received');
+    console.log('📨 Custom design request received');
 
-    // Extract form fields
+    const formData = await req.formData();
+
+    // Extract form data
+    const customerName = formData.get('customerName') as string;
+    const customerEmail = formData.get('customerEmail') as string;
     const phoneNumber = formData.get('phoneNumber') as string;
     const designDescription = formData.get('designDescription') as string;
     const colorDescription = formData.get('colorDescription') as string;
     const fabricPreference = formData.get('fabricPreference') as string;
-    const customerName = formData.get('customerName') as string;
-    const customerEmail = formData.get('customerEmail') as string;
-    const userType = formData.get('userType') as string; // 'logged' or 'guest'
+    const fabricPattern = formData.get('fabricPattern') as string;
     const userId = formData.get('userId') as string;
-    
-    // Extract measurements
+    const userType = formData.get('userType') as string;
     const measurementsJson = formData.get('measurements') as string;
+
+    console.log('📋 Form data:', {
+      customerName,
+      customerEmail,
+      phoneNumber,
+      designDescription: designDescription?.substring(0, 50) + '...',
+      colorDescription,
+      fabricPreference,
+      fabricPattern,
+      userType,
+      userId,
+      hasMeasurements: !!measurementsJson
+    });
+
+    // Validate required fields
+    if (!phoneNumber || !designDescription) {
+      return NextResponse.json(
+        { success: false, error: 'Phone number and design description are required' },
+        { status: 400 }
+      );
+    }
+
+    // Parse measurements
     const measurements = measurementsJson ? JSON.parse(measurementsJson) : null;
     
-    // Handle image upload properly
+    // Handle image upload
     const imageFile = formData.get('image') as File | null;
     let imageUrl = null;
     let imageName = null;
@@ -164,31 +106,29 @@ export async function POST(req: NextRequest) {
         }
       } catch (uploadError) {
         console.error('❌ Image upload failed:', uploadError);
-        // Continue without image rather than failing the entire request
         console.log('⚠️ Continuing without image due to upload error');
       }
     }
 
-    // Try to get current user (for logged users)
-    const currentUser = await getCurrentUser(req);
+    // Get current user
+     const currentUser = await getCurrentUser(); 
 
-    // Generate a unique request ID for tracking
+    // Generate request ID
     const requestId = `CDR-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
     // Determine user information
     const finalUserId = (userId && userId !== 'undefined' && userId !== '') ? userId : 
                        (currentUser ? currentUser.id : null);
     const isLoggedUser = userType === 'logged' && finalUserId;
-    const isGuestUser = !isLoggedUser;
 
     console.log('👤 User type:', {
       userType,
       userId: finalUserId,
       isLoggedUser,
-      isGuestUser,
       customerName,
       customerEmail,
-      hasImage: !!imageUrl
+      hasImage: !!imageUrl,
+      fabricPattern
     });
 
     // Save to database
@@ -206,6 +146,7 @@ export async function POST(req: NextRequest) {
         userId: finalUserId,
         status: 'pending',
         priority: 'normal',
+        notes: fabricPattern ? `Fabric Pattern: ${fabricPattern}` : null,
       },
     });
 
@@ -214,24 +155,29 @@ export async function POST(req: NextRequest) {
       userType: isLoggedUser ? 'logged' : 'guest',
       userId: finalUserId,
       customerName,
-      imageUrl
+      imageUrl,
+      fabricPattern
     });
 
-    // Send emails (if configured)
+    // Send emails
     try {
       if (process.env.EMAIL_USER) {
         const transporter = createTransporter();
 
-        // Prepare email content
+        // Prepare measurement text
         const measurementText = measurements ? `
 MEASUREMENTS:
 ${measurements.providedByCustomer ? 'Customer will provide measurements separately' : `
-• Chest: ${measurements.chest || 'Not provided'}
-• Waist: ${measurements.waist || 'Not provided'}
-• Hips: ${measurements.hips || 'Not provided'}
-• Shoulders: ${measurements.shoulders || 'Not provided'}
-• Inseam: ${measurements.inseam || 'Not provided'}
-• Sleeves: ${measurements.sleeves || 'Not provided'}`}
+- Length: ${measurements.length || 'Not provided'}
+- Chest: ${measurements.chest || 'Not provided'}
+- Upper Chest: ${measurements.upperChest || 'Not provided'}
+- Hip: ${measurements.hip || 'Not provided'}
+- Shoulder: ${measurements.shoulder || 'Not provided'}
+- Sleeves: ${measurements.sleeves || 'Not provided'}
+- Arm Hole: ${measurements.armHole || 'Not provided'}
+- Round Neck: ${measurements.roundNeck || 'Not provided'}
+- Neck Drop Front: ${measurements.neckDropFront || 'Not provided'}
+- Neck Drop Back: ${measurements.neckDropBack || 'Not provided'}`}
 ` : 'No measurements provided';
 
         // Admin notification email
@@ -256,6 +202,9 @@ ${colorDescription || 'Not specified'}
 
 FABRIC PREFERENCE:
 ${fabricPreference || 'Not specified'}
+
+FABRIC PATTERN:
+${fabricPattern || 'Not specified'}
 
 ${measurementText}
 
@@ -286,9 +235,10 @@ Thank you for your custom design request! We're excited to help create your perf
 REQUEST DETAILS:
 Request ID: ${requestId}
 Phone: ${phoneNumber}
-Design Description: ${designDescription}
+Design Description: ${designDescription.substring(0, 100)}...
 Submission Type: ${isLoggedUser ? 'Logged-in User Account' : 'Guest Submission'}
 ${imageUrl ? 'Design Reference: Image uploaded successfully ✅' : 'Design Reference: No image provided'}
+${fabricPattern ? `Fabric Pattern: ${fabricPattern}` : ''}
 
 WHAT HAPPENS NEXT:
 ✅ Our design team will review your request within 24 hours
@@ -332,7 +282,7 @@ For inquiries, contact us at: contact@zureeglobal.com
           });
         }
 
-        // Send customer confirmation (if email provided)
+        // Send customer confirmation
         if (customerEmail) {
           await transporter.sendMail({
             from: process.env.EMAIL_USER,
@@ -341,7 +291,6 @@ For inquiries, contact us at: contact@zureeglobal.com
             text: customerEmailContent,
           });
 
-          // Mark follow-up as sent
           await prisma.customDesignRequest.update({
             where: { id: customDesignRequest.id },
             data: {
@@ -355,7 +304,6 @@ For inquiries, contact us at: contact@zureeglobal.com
       }
     } catch (emailError) {
       console.error('❌ Email sending failed:', emailError);
-      // Don't fail the entire request if email fails
     }
 
     return NextResponse.json({
@@ -384,22 +332,23 @@ For inquiries, contact us at: contact@zureeglobal.com
   }
 }
 
-// GET endpoint remains the same
+// GET - Fetch custom design requests (Admin)
 export async function GET(req: NextRequest) {
   try {
-    console.log('🔍 GET Custom design requests');
-
     const { searchParams } = new URL(req.url);
+    
+    // Pagination
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
+    const skip = (page - 1) * limit;
+    
+    // Filters
     const status = searchParams.get('status');
     const priority = searchParams.get('priority');
-    const search = searchParams.get('search');
     const userType = searchParams.get('userType');
+    const search = searchParams.get('search');
 
-    const skip = (page - 1) * limit;
-
-    // Build filter conditions
+    // Build where clause
     const where: any = {};
     
     if (status && status !== 'all') {
@@ -409,12 +358,13 @@ export async function GET(req: NextRequest) {
     if (priority && priority !== 'all') {
       where.priority = priority;
     }
-
-    // Filter by user type
-    if (userType === 'logged') {
-      where.userId = { not: null };
-    } else if (userType === 'guest') {
-      where.userId = null;
+    
+    if (userType && userType !== 'all') {
+      if (userType === 'logged') {
+        where.userId = { not: null };
+      } else if (userType === 'guest') {
+        where.userId = null;
+      }
     }
     
     if (search) {
@@ -426,10 +376,13 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // Fetch requests with pagination
+    // Fetch requests
     const [requests, total] = await Promise.all([
       prisma.customDesignRequest.findMany({
         where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
         include: {
           user: {
             select: {
@@ -448,26 +401,21 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        skip,
-        take: limit,
       }),
       prisma.customDesignRequest.count({ where }),
     ]);
 
-    // Add user type information to each request
+    // Enhance requests with display names
     const enhancedRequests = requests.map(request => ({
       ...request,
-      userType: request.userId ? 'logged' : 'guest',
+      userType: request.userId ? 'logged' as const : 'guest' as const,
       customerDisplayName: request.customerName || 
         (request.user ? `${request.user.firstName || ''} ${request.user.lastName || ''}`.trim() : null) ||
         'Unknown Customer',
       customerDisplayEmail: request.customerEmail || request.user?.email || 'No email provided'
     }));
 
-    // Calculate type statistics
+    // Calculate statistics
     const loggedUserRequests = requests.filter(r => r.userId).length;
     const guestRequests = requests.filter(r => !r.userId).length;
 

@@ -1,21 +1,22 @@
 // src/components/store/CustomDesign/MergedRunwayColorPreview.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles, Shirt, X, Palette, Plus, Upload } from 'lucide-react';
+import { Sparkles, X, Palette, Plus, Check, Shirt } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import Image from 'next/image';
 
 interface MergedRunwayColorPreviewProps {
   selectedDesign?: string;
   selectedColors: string[];
   selectedFabric?: string;
+  selectedFabricPattern?: string;
   uploadedImage?: string;
   measurements?: Record<string, string>;
   onColorsChange?: (colors: string[]) => void;
-  onImageUpload?: (image: string) => void;
+  onFabricPatternChange?: (patternId: string) => void;
 }
 
 const designTemplates = {
@@ -33,9 +34,7 @@ const designTemplates = {
 const fabricOptions: Record<string, string> = {
   'cotton-100': '100% Cotton',
   'linen': 'Linen',
-  'cotton-poly': 'Cotton Poly',
-  'polyester': 'Polyester',
-  'giza-cotton': 'Giza Cotton',
+  'premium-cotton': 'Premium Cotton',
   'poplin': 'Poplin',
   'oxford-cotton': 'Oxford Cotton',
   'rayon': 'Rayon',
@@ -45,6 +44,22 @@ const fabricOptions: Record<string, string> = {
   'chambray': 'Chambray',
   'flannel': 'Flannel',
   'satin': 'Satin',
+};
+
+// Fabric Pattern options (separate from fabric type)
+const fabricPatternOptions: Record<string, { name: string; image: string; description: string }> = {
+  'pattern-1': { name: 'Classic Weave', image: '/assets/img/Fabric_Pic/112.png', description: 'Traditional pattern' },
+  'pattern-2': { name: 'Textured Blend', image: '/assets/img/Fabric_Pic/113.png', description: 'Modern texture' },
+  'pattern-3': { name: 'Smooth Finish', image: '/assets/img/Fabric_Pic/Bansuri273.png', description: 'Elegant look' },
+  'pattern-4': { name: 'Diagonal Weave', image: '/assets/img/Fabric_Pic/Rocky262.png', description: 'Dynamic pattern' },
+  'pattern-5': { name: 'Basket Weave', image: '/assets/img/Fabric_Pic/Rocky271.png', description: 'Structured look' },
+  'pattern-6': { name: 'Herringbone', image: '/assets/img/Fabric_Pic/Rocky272.png', description: 'Classic style' },
+  'pattern-7': { name: 'Twill Pattern', image: '/assets/img/Fabric_Pic/Rocky274.png', description: 'Sophisticated' },
+  'pattern-8': { name: 'Plain Weave', image: '/assets/img/Fabric_Pic/Rocky275.png', description: 'Simple elegance' },
+  'pattern-9': { name: 'Satin Weave', image: '/assets/img/Fabric_Pic/Rocky276.png', description: 'Lustrous finish' },
+  'pattern-10': { name: 'Oxford Weave', image: '/assets/img/Fabric_Pic/Rocky277.png', description: 'Business classic' },
+  'pattern-11': { name: 'Chambray', image: '/assets/img/Fabric_Pic/Rocky279.png', description: 'Casual style' },
+  'pattern-12': { name: 'Jacquard', image: '/assets/img/Fabric_Pic/Rocky280.png', description: 'Decorative pattern' },
 };
 
 const colorPalettes = {
@@ -94,16 +109,18 @@ export default function MergedRunwayColorPreview({
   selectedDesign, 
   selectedColors = [], 
   selectedFabric, 
+  selectedFabricPattern,
   uploadedImage,
   measurements = {},
   onColorsChange,
-  onImageUpload
+  onFabricPatternChange
 }: MergedRunwayColorPreviewProps) {
   const [hoveredPalette, setHoveredPalette] = useState<string | null>(null);
   const [customColor, setCustomColor] = useState<string>('#000000');
 
   const designInfo = selectedDesign ? designTemplates[selectedDesign as keyof typeof designTemplates] : null;
-  const fabricName = selectedFabric ? fabricOptions[selectedFabric] : null;
+  const fabricInfo = selectedFabric ? fabricOptions[selectedFabric] : null;
+  const fabricPatternInfo = selectedFabricPattern ? fabricPatternOptions[selectedFabricPattern] : null;
   const maxColors = 5;
   const canSelectMore = selectedColors.length < maxColors;
 
@@ -123,26 +140,15 @@ export default function MergedRunwayColorPreview({
     }
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        onImageUpload?.(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   return (
     <Card className="overflow-hidden bg-white border-gray-200 backdrop-blur-sm bg-white/90 border border-white/50 shadow-xl h-full flex flex-col">
       <CardHeader className="pb-3 flex-shrink-0">
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-blue-500" />
-          <span className="text-gray-900">Live Design Preview & Color Selection</span>
+          <span className="text-gray-900">Live Design Preview & Selection</span>
         </CardTitle>
         <p className="text-sm text-gray-600">
-          See your design come to life as you select colors
+          See your design come to life as you customize
         </p>
       </CardHeader>
       
@@ -150,44 +156,82 @@ export default function MergedRunwayColorPreview({
         {/* Live Preview Display - FIXED HEIGHT */}
         <div className="relative bg-white rounded-lg flex items-center justify-center border-2 border-gray-300 overflow-hidden" style={{ height: '280px' }}>
           {selectedDesign && designInfo ? (
-            <div className="relative w-full h-full flex items-center justify-center bg-white p-4">
-              <div className="relative max-w-full max-h-full flex flex-col items-center justify-center">
-                {/* PNG Image - Constrained to container */}
-                <img
+            <div className="relative w-full h-full flex items-center justify-center">
+              {/* Base Design Image */}
+              <div className="relative w-full h-full">
+                <Image
                   src={designInfo.imagePath}
                   alt={designInfo.name}
-                  className="max-w-full max-h-[220px] w-auto h-auto object-contain"
+                  fill
+                  className="object-contain p-4"
                 />
-                
-                {/* Design Name Label */}
-                <div className="mt-2 bg-black bg-opacity-70 text-white px-4 py-2 rounded text-center">
-                  <p className="text-sm font-medium">
-                    {designInfo.name}
+              </div>
+
+              {/* Fabric Pattern Overlay */}
+              {selectedFabricPattern && fabricPatternOptions[selectedFabricPattern] && (
+                <div className="absolute inset-0 pointer-events-none">
+                  <Image
+                    src={fabricPatternOptions[selectedFabricPattern].image}
+                    alt="Fabric pattern"
+                    fill
+                    className="object-cover opacity-30 mix-blend-multiply"
+                    style={{ padding: '16px' }}
+                  />
+                </div>
+              )}
+
+              {/* Color Overlay */}
+              {selectedColors.length > 0 && (
+                <div 
+                  className="absolute inset-0 pointer-events-none mix-blend-color"
+                  style={{
+                    background: selectedColors.length === 1 
+                      ? selectedColors[0]
+                      : `linear-gradient(135deg, ${selectedColors.join(', ')})`,
+                    opacity: 0.4,
+                    padding: '16px'
+                  }}
+                />
+              )}
+
+              {/* Selected Colors Badge */}
+              {selectedColors.length > 0 && (
+                <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg">
+                  <div className="flex gap-1.5">
+                    {selectedColors.map((color, i) => (
+                      <div
+                        key={i}
+                        className="w-6 h-6 rounded-full border-2 border-white shadow-md"
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Fabric Pattern Badge */}
+              {selectedFabricPattern && fabricPatternOptions[selectedFabricPattern] && (
+                <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 shadow-lg">
+                  <p className="text-xs font-semibold text-gray-800">
+                    {fabricPatternOptions[selectedFabricPattern].name}
                   </p>
                 </div>
-              </div>
+              )}
+
+              {/* Fabric Type Badge */}
+              {selectedFabric && fabricOptions[selectedFabric] && (
+                <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 shadow-lg">
+                  <p className="text-xs font-semibold text-gray-800">
+                    {fabricOptions[selectedFabric]}
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="text-center text-gray-400 p-6">
-              <Shirt className="h-16 w-16 mx-auto mb-4 opacity-30" />
-              <p className="text-lg font-medium">Select a design to preview</p>
-              <p className="text-sm">Choose from the gallery and add colors</p>
-            </div>
-          )}
-
-          {selectedColors.length > 0 && (
-            <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-2 z-10">
-              <p className="text-xs font-medium text-gray-600 mb-1">Live Colors</p>
-              <div className="flex gap-1">
-                {selectedColors.map((color, idx) => (
-                  <div
-                    key={idx}
-                    className="w-5 h-5 rounded border-2 border-white shadow-sm"
-                    style={{ backgroundColor: color }}
-                    title={color}
-                  />
-                ))}
-              </div>
+            <div className="text-center text-gray-400">
+              <Shirt className="h-16 w-16 mx-auto mb-2 opacity-20" />
+              <p className="text-sm">Select a design to preview</p>
             </div>
           )}
         </div>
@@ -201,10 +245,17 @@ export default function MergedRunwayColorPreview({
                 <span className="text-gray-900">{designInfo?.name || 'Not selected'}</span>
               </div>
               
-              {fabricName && (
+              {fabricInfo && (
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-700 font-medium">Fabric:</span>
-                  <span className="text-gray-900">{fabricName}</span>
+                  <span className="text-gray-700 font-medium">Fabric Type:</span>
+                  <span className="text-gray-900">{fabricInfo}</span>
+                </div>
+              )}
+              
+              {fabricPatternInfo && (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-700 font-medium">Pattern:</span>
+                  <span className="text-gray-900">{fabricPatternInfo.name}</span>
                 </div>
               )}
               
@@ -222,6 +273,58 @@ export default function MergedRunwayColorPreview({
             </div>
           </div>
         )}
+
+        {/* Divider */}
+        <div className="border-t-2 border-gray-200 my-4"></div>
+
+        {/* FABRIC PATTERN SELECTION SECTION */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-amber-600" />
+            <h3 className="font-semibold text-gray-900 text-sm">Choose Fabric Pattern</h3>
+            <span className="text-xs text-gray-500">(Optional)</span>
+          </div>
+          
+          <div className="grid grid-cols-6 gap-2">
+            {Object.entries(fabricPatternOptions).map(([key, pattern]) => (
+              <button
+                key={key}
+                onClick={() => onFabricPatternChange?.(key)}
+                className={`relative group rounded-md overflow-hidden border-2 transition-all ${
+                  selectedFabricPattern === key
+                    ? 'border-blue-500 ring-2 ring-blue-200 shadow-md'
+                    : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
+                }`}
+                title={pattern.name}
+              >
+                <div className="aspect-square relative">
+                  <Image
+                    src={pattern.image}
+                    alt={pattern.name}
+                    fill
+                    className="object-cover"
+                  />
+                  {selectedFabricPattern === key && (
+                    <div className="absolute inset-0 bg-blue-500/30 flex items-center justify-center">
+                      <Check className="h-5 w-5 text-white drop-shadow-lg" />
+                    </div>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+          
+          {/* Selected Fabric Pattern Info */}
+          {selectedFabricPattern && fabricPatternOptions[selectedFabricPattern] && (
+            <div className="text-center">
+              <p className="text-xs text-gray-600">
+                <span className="font-semibold text-gray-800">{fabricPatternOptions[selectedFabricPattern].name}</span>
+                {' - '}
+                <span className="text-gray-500">{fabricPatternOptions[selectedFabricPattern].description}</span>
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Divider */}
         <div className="border-t-2 border-gray-200 my-4"></div>
@@ -300,7 +403,7 @@ export default function MergedRunwayColorPreview({
               ))}
             </div>
 
-            {/* Shade Selector - Stays visible when hovering over it */}
+            {/* Shade Selector */}
             {hoveredPalette && (
               <div 
                 className="bg-white border-2 border-blue-400 rounded-lg p-3 shadow-xl animate-in fade-in duration-200"
@@ -331,7 +434,7 @@ export default function MergedRunwayColorPreview({
             )}
           </div>
 
-          {/* Custom Color Picker - New Minimalist Design */}
+          {/* Custom Color Picker */}
           <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 border border-indigo-200">
             <div className="flex items-center gap-3">
               <input
@@ -347,64 +450,19 @@ export default function MergedRunwayColorPreview({
                   type="text"
                   value={customColor}
                   onChange={(e) => setCustomColor(e.target.value)}
-                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-xs font-mono focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-sm font-mono"
                   placeholder="#000000"
-                  maxLength={7}
                 />
                 <Button
                   size="sm"
                   onClick={handleCustomColorAdd}
-                  disabled={!canSelectMore || selectedColors.includes(customColor)}
-                  className="bg-indigo-600 hover:bg-indigo-700 h-8 px-3 text-xs"
+                  disabled={!canSelectMore}
+                  className="whitespace-nowrap"
                 >
-                  <Plus className="h-3 w-3 mr-1" />
+                  <Plus className="h-4 w-4 mr-1" />
                   Add
                 </Button>
               </div>
-            </div>
-          </div>
-
-          {/* Reference Image Upload */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-            <Label className="text-sm font-medium text-gray-700 mb-2 block">Reference Image (Optional)</Label>
-            <div className="flex items-center gap-4">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-                id="reference-image-upload"
-              />
-              <label
-                htmlFor="reference-image-upload"
-                className="flex-1 cursor-pointer border-2 border-gray-300 rounded-lg p-3 hover:border-indigo-400 transition-colors bg-white"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="bg-indigo-100 p-2 rounded-lg">
-                    <Upload className="h-5 w-5 text-indigo-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-700">Upload Design Reference</p>
-                    <p className="text-xs text-gray-500">Click to choose image</p>
-                  </div>
-                </div>
-              </label>
-              
-              {uploadedImage && (
-                <div className="relative group">
-                  <img 
-                    src={uploadedImage} 
-                    alt="Reference" 
-                    className="w-20 h-20 object-cover rounded-lg border-2 border-indigo-300 shadow"
-                  />
-                  <button
-                    onClick={() => onImageUpload?.('')}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>

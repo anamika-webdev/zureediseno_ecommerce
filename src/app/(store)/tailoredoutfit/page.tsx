@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Scissors, Ruler, CheckCircle, Palette } from 'lucide-react';
+import { Loader2, Scissors, Ruler, CheckCircle, Palette, Upload, X } from 'lucide-react';
 import ModernDesignGallery from '@/components/store/CustomDesign/ModernDesignGallery';
 import MergedRunwayColorPreview from '@/components/store/CustomDesign/MergedRunwayColorPreview';
 import { MLMeasurementCapture } from '@/components/store/CustomDesign/MLMeasurementCapture';
@@ -47,6 +47,22 @@ const fabricOptions = [
   { id: 'flannel', name: 'Flannel', description: 'Soft, brushed cotton', texture: 'Fuzzy' },
   { id: 'satin', name: 'Satin', description: 'Glossy, smooth finish', texture: 'Lustrous' },
 ];
+
+// Fabric Pattern options (separate from fabric type)
+const fabricPatternOptions: Record<string, { name: string }> = {
+  'pattern-1': { name: 'Classic Weave' },
+  'pattern-2': { name: 'Textured Blend' },
+  'pattern-3': { name: 'Smooth Finish' },
+  'pattern-4': { name: 'Diagonal Weave' },
+  'pattern-5': { name: 'Basket Weave' },
+  'pattern-6': { name: 'Herringbone' },
+  'pattern-7': { name: 'Twill Pattern' },
+  'pattern-8': { name: 'Plain Weave' },
+  'pattern-9': { name: 'Satin Weave' },
+  'pattern-10': { name: 'Oxford Weave' },
+  'pattern-11': { name: 'Chambray' },
+  'pattern-12': { name: 'Jacquard' },
+};
 
 // Measurement fields configuration
 const measurementFields = [
@@ -83,6 +99,7 @@ export default function TailoredOutfitPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [selectedDesign, setSelectedDesign] = useState<string>('');
   const [selectedFabric, setSelectedFabric] = useState<string>('cotton-100');
+  const [selectedFabricPattern, setSelectedFabricPattern] = useState<string>('');
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [uploadedImage, setUploadedImage] = useState<string>('');
   const [designDescription, setDesignDescription] = useState<string>('');
@@ -133,16 +150,33 @@ export default function TailoredOutfitPage() {
     setSelectedColors(colors);
   };
 
-  const handleImageUpload = (imageData: string) => {
-    setUploadedImage(imageData);
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'File too large',
+          description: 'Please upload an image smaller than 5MB',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleMeasurementChange = (field: string, value: string) => {
     setMeasurements(prev => ({ ...prev, [field]: value }));
   };
 
-  // NEW: Handle ML detected measurements
-  const handleMLMeasurements = (mlMeasurements: any) => {
+  // Handle ML detected measurements
+  const handleMLMeasurements = (mlMeasurements: Record<string, string>) => {
     console.log('ML Measurements detected:', mlMeasurements);
     
     // Map ML measurements to your form fields
@@ -218,7 +252,8 @@ export default function TailoredOutfitPage() {
       // Design details
       const designDescriptionText = `
 Design: ${selectedDesign.replace(/-/g, ' ')}
-Fabric: ${fabricOptions.find(f => f.id === selectedFabric)?.name || selectedFabric}
+Fabric Type: ${fabricOptions.find(f => f.id === selectedFabric)?.name || selectedFabric}
+${selectedFabricPattern ? `Fabric Pattern: ${fabricPatternOptions[selectedFabricPattern]?.name || selectedFabricPattern}` : ''}
 Colors: ${selectedColors.join(', ')}
 ${data.designDescription ? `\nAdditional Details: ${data.designDescription}` : ''}
       `.trim();
@@ -226,6 +261,11 @@ ${data.designDescription ? `\nAdditional Details: ${data.designDescription}` : '
       formData.append('designDescription', designDescriptionText);
       formData.append('colorDescription', selectedColors.join(', '));
       formData.append('fabricPreference', fabricOptions.find(f => f.id === selectedFabric)?.name || selectedFabric);
+      
+      // Add fabric pattern
+      if (selectedFabricPattern) {
+        formData.append('fabricPattern', fabricPatternOptions[selectedFabricPattern]?.name || selectedFabricPattern);
+      }
       
       // User type
       formData.append('userType', currentUser ? 'logged' : 'guest');
@@ -277,6 +317,7 @@ ${data.designDescription ? `\nAdditional Details: ${data.designDescription}` : '
       setUploadedImage('');
       setDesignDescription('');
       setMeasurements({});
+      setSelectedFabricPattern('');
 
     } catch (error) {
       console.error('Submission error:', error);
@@ -327,7 +368,7 @@ ${data.designDescription ? `\nAdditional Details: ${data.designDescription}` : '
                   Design Gallery
                 </CardTitle>
                 <p className="text-sm text-gray-600">
-                  Choose your garment style and fabric
+                  Choose your garment style and fabric type
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -342,12 +383,12 @@ ${data.designDescription ? `\nAdditional Details: ${data.designDescription}` : '
                   />
                 </div>
 
-                {/* Fabric Selection Dropdown */}
+                {/* Fabric Type Selection Dropdown */}
                 <div>
-                  <Label className="text-sm font-medium mb-2 block">Choose Fabric</Label>
+                  <Label className="text-sm font-medium mb-2 block">Choose Fabric Type</Label>
                   <Select value={selectedFabric} onValueChange={setSelectedFabric}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select fabric" />
+                      <SelectValue placeholder="Select fabric type" />
                     </SelectTrigger>
                     <SelectContent>
                       {fabricOptions.map((fabric) => (
@@ -381,6 +422,54 @@ ${data.designDescription ? `\nAdditional Details: ${data.designDescription}` : '
                     className="w-full"
                   />
                 </div>
+
+                {/* Upload Reference Image */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">
+                    Upload Reference Image (Optional)
+                  </Label>
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-dashed border-green-300 hover:border-green-400 transition-all">
+                    <label className="cursor-pointer block p-4">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-white rounded-lg border-2 border-green-400 flex items-center justify-center flex-shrink-0">
+                          <Upload className="h-6 w-6 text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {uploadedImage ? 'Change Reference Image' : 'Upload Design Reference'}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            Click to upload an image of your desired design
+                          </p>
+                        </div>
+                      </div>
+                    </label>
+                    
+                    {uploadedImage && (
+                      <div className="px-4 pb-4">
+                        <div className="relative h-40 rounded-lg overflow-hidden border-2 border-green-400 bg-white">
+                          <img
+                            src={uploadedImage}
+                            alt="Uploaded reference"
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            onClick={() => setUploadedImage('')}
+                            className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 shadow-lg"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -389,58 +478,155 @@ ${data.designDescription ? `\nAdditional Details: ${data.designDescription}` : '
               selectedDesign={selectedDesign}
               selectedColors={selectedColors}
               selectedFabric={selectedFabric}
+              selectedFabricPattern={selectedFabricPattern}
               uploadedImage={uploadedImage}
               measurements={measurements}
               onColorsChange={handleColorsChange}
-              onImageUpload={handleImageUpload}
+              onFabricPatternChange={setSelectedFabricPattern}
             />
           </div>
 
-          {/* 2. Measurements */}
+          {/* 2. Measurements with ML Integration - SIDE BY SIDE */}
           <Card className="bg-white shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Ruler className="h-5 w-5" />
-                Measurements (Optional)
+                Body Measurements (Optional)
               </CardTitle>
               <p className="text-sm text-gray-600">
-                Provide your measurements for a perfect fit, or we'll contact you later
+                Use AI to detect measurements automatically or enter them manually
               </p>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {measurementFields.map((field) => (
-                  <div key={field.id}>
-                    <Label htmlFor={field.id} className="text-sm font-medium mb-1 block">
-                      {field.label} {field.unit === 'inches' && `(${field.unit})`}
-                    </Label>
-                    {field.unit === 'type' && field.options ? (
-                      <select
-                        id={field.id}
-                        value={measurements[field.id] || ''}
-                        onChange={(e) => handleMeasurementChange(field.id, e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      >
-                        <option value="">Select</option>
-                        {field.options.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <Input
-                        id={field.id}
-                        type="number"
-                        min={field.min}
-                        max={field.max}
-                        value={measurements[field.id] || ''}
-                        onChange={(e) => handleMeasurementChange(field.id, e.target.value)}
-                        placeholder={field.unit === 'inches' ? '0' : ''}
-                      />
-                    )}
+            <CardContent className="space-y-6">
+              {/* AI Measurement Capture Section */}
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-xl border-2 border-purple-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="h-5 w-5 text-purple-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    AI-Powered Detection
+                  </h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Use your camera to automatically detect body measurements with AI
+                </p>
+                <MLMeasurementCapture onMeasurementsDetected={handleMLMeasurements} />
+              </div>
+
+              {/* Side by Side: AI Detected Measurements (Left) and Manual Measurements (Right) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* LEFT: AI Detected Measurements Display */}
+                {Object.keys(measurements).length > 0 ? (
+                  <div className="bg-green-50 border-2 border-green-200 rounded-xl p-5 shadow-sm">
+                    <h4 className="font-bold text-green-900 mb-4 flex items-center gap-2 text-lg">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
+                      AI Detected Measurements
+                    </h4>
+                    <div className="space-y-2">
+                      {Object.entries(measurements).map(([key, value]) => (
+                        <div key={key} className="flex justify-between items-center bg-white px-4 py-2.5 rounded-lg border border-green-100 shadow-sm">
+                          <span className="text-sm text-gray-700 capitalize font-semibold">
+                            {key}:
+                          </span>
+                          <span className="text-sm font-bold text-green-900 bg-green-100 px-3 py-1 rounded-full">
+                            {value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 p-3 bg-white border border-green-200 rounded-lg">
+                      <p className="text-xs text-green-700 italic flex items-start gap-2">
+                        <span className="text-base">✓</span>
+                        <span>These measurements have been auto-filled in the manual fields. You can adjust them if needed.</span>
+                      </p>
+                    </div>
                   </div>
-                ))}
+                ) : (
+                  <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center text-center">
+                    <Sparkles className="h-12 w-12 text-gray-400 mb-3" />
+                    <p className="text-sm text-gray-600 font-medium mb-1">
+                      No AI measurements detected yet
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Use the camera above to detect measurements
+                    </p>
+                  </div>
+                )}
+
+                {/* RIGHT: Manual Measurements */}
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-r from-gray-50 to-slate-50 p-4 rounded-xl border-2 border-gray-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Ruler className="h-5 w-5 text-gray-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Manual Measurements
+                      </h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Enter or adjust your measurements manually
+                    </p>
+                    
+                    {/* 2-Column Grid for Input Fields */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {measurementFields.map((field) => (
+                        <div key={field.id} className="space-y-1.5">
+                          <Label htmlFor={field.id} className="text-xs font-semibold text-gray-700">
+                            {field.label}
+                          </Label>
+                          {field.unit === 'type' && field.options ? (
+                            <select
+                              id={field.id}
+                              value={measurements[field.id] || ''}
+                              onChange={(e) => handleMeasurementChange(field.id, e.target.value)}
+                              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+                            >
+                              <option value="">Select</option>
+                              {field.options.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <Input
+                              id={field.id}
+                              type="number"
+                              step="0.01"
+                              min={field.min}
+                              max={field.max}
+                              value={measurements[field.id] || ''}
+                              onChange={(e) => handleMeasurementChange(field.id, e.target.value)}
+                              placeholder="0.00"
+                              className="h-8 text-sm focus:ring-2 focus:ring-purple-500"
+                            />
+                          )}
+                          {field.unit === 'inches' && (
+                            <span className="text-[10px] text-gray-500">inches</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Manual Entry Info */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-xs text-blue-800">
+                      <strong>💡 Tip:</strong> Measurements from AI detection are automatically filled here. You can review and adjust any values before submitting.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Info Bar */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+                <div className="text-amber-600 text-xl">ℹ️</div>
+                <div className="flex-1">
+                  <p className="text-sm text-amber-900 font-medium mb-1">
+                    Measurements are optional
+                  </p>
+                  <p className="text-xs text-amber-800">
+                    If you skip measurements or need adjustments, our team will contact you within 24 hours to confirm all details before starting your custom design.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -586,6 +772,15 @@ ${data.designDescription ? `\nAdditional Details: ${data.designDescription}` : '
                           {fabricOptions.find(f => f.id === selectedFabric)?.name}
                         </span>
                       </div>
+
+                      {selectedFabricPattern && (
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                          <span className="text-sm text-gray-600">Pattern</span>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {fabricPatternOptions[selectedFabricPattern]?.name}
+                          </span>
+                        </div>
+                      )}
                       
                       <div className="flex items-center justify-between py-2 border-b border-gray-100">
                         <span className="text-sm text-gray-600">Colors</span>

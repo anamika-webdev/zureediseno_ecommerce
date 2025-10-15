@@ -256,7 +256,7 @@ Delivery timelines may vary based on your location and availability of the produ
                         </p>
                         <div className="space-y-1 text-gray-700">
                           <p>📧 Email: Contact@zureeglobal.com</p>
-                          <p>📞 Phone: +91 97114 11526 / +91 97113 08198</p>
+                          <p>📞 Phone: +91 97114 11526</p>
                           <p>📍 USA: 2320 Ponce De Leon Blvd, Coral Gables, FL 33134</p>
                           <p>📍 India: Plot no. 23, Udyog Vihar Phase 1, Dundahera Village, Sector 20, Gurugram, Haryana 122022</p>
                         </div>
@@ -435,7 +435,7 @@ Delivery timelines may vary based on your location and availability of the produ
                         </p>
                         <div className="space-y-1 text-gray-700">
                           <p>📧 Email: Contact@zureeglobal.com</p>
-                          <p>📞 Phone: +91 97114 11526 / +91 97113 08198</p>
+                          <p>📞 Phone: +91 97114 11526</p>
                           <p>📍 USA: 2320 Ponce De Leon Blvd, Coral Gables, FL 33134</p>
                           <p>📍 India: Plot no. 23, Udyog Vihar Phase 1, Dundahera Village, Sector 20, Gurugram, Haryana 122022</p>
                         </div>
