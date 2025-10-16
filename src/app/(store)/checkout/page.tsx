@@ -110,9 +110,9 @@ export default function CheckoutPage() {
   }, 0) : 0;
   
   const shippingCost: number = 0; // Free shipping
-  const taxRate: number = 0; // No tax for now
-  const taxAmount: number = subtotal * taxRate;
-  const orderTotal: number = subtotal + shippingCost + taxAmount;
+  const taxRate: number = 0;
+const taxAmount: number = 0;
+const orderTotal: number = subtotal + shippingCost;
 
   const validateForm = (): boolean => {
     const requiredFields: { field: keyof ShippingInfo; label: string }[] = [
@@ -801,12 +801,12 @@ export default function CheckoutPage() {
                       {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}
                     </span>
                   </div>
-                  {taxAmount > 0 && (
+                  {/*{taxAmount > 0 && (
                     <div className="flex justify-between">
                       <span>Tax</span>
                       <span>₹{taxAmount.toFixed(2)}</span>
                     </div>
-                  )}
+                  )}*/}
                   <Separator />
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>

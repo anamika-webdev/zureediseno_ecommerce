@@ -1,3 +1,4 @@
+// src/app/(store)/contact/page.tsx - Updated with India location
 "use client";
 
 import { useState } from "react";
@@ -45,8 +46,6 @@ export default function Contact() {
 
   return (
     <div className="min-h-screen flex flex-col">
-     
-      
       <div className="bg-zuree-beige py-8 px-4">
         <div className="container mx-auto">
           <Breadcrumb>
@@ -80,8 +79,9 @@ export default function Contact() {
                 </div>
                 <div>
                   <h3 className="font-medium">Visit Us</h3>
-                  <p className="text-gray-600">USA: 2320 Ponce De Leon Blvd, Coral Gables, FL 33134</p>
-                  <p className="text-gray-600">India: Plot no. 23, Udyog Vihar Phase 1, Dundahera Village, Sector 20, Gurugram, Haryana 122022</p>
+                  <p className="text-gray-600">Plot no. 23, Udyog Vihar Phase 1,</p>
+                  <p className="text-gray-600">Dundahera Village, Sector 20,</p>
+                  <p className="text-gray-600">Gurugram, Haryana 122022, India</p>
                 </div>
               </div>
               
@@ -199,8 +199,8 @@ export default function Contact() {
           <h2 className="text-2xl font-medium mb-6 text-center">Our Location</h2>
           <div className="rounded-lg overflow-hidden shadow-md h-96">
             <iframe
-              title="Zuree Store Location"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d423283.43554977553!2d-118.69192087205032!3d34.020608375992306!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80c2c75ddc27da13%3A0xe22fdf6f254608f4!2sLos%20Angeles%2C%20CA%2C%20USA!5e0!3m2!1sen!2sca!4v1679960091850!5m2!1sen!2sca"
+              title="Zuree Store Location - Gurugram, India"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3508.5366446890547!2d77.04738987549706!3d28.42859897577883!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d229b8d5e3f95%3A0x7e5c8d0a7e3c8d0a!2sUdyog%20Vihar%20Phase%201%2C%20Sector%2020%2C%20Gurugram%2C%20Haryana%20122022!5e0!3m2!1sen!2sin!4v1710000000000!5m2!1sen!2sin"
               width="100%"
               height="100%"
               style={{ border: 0 }}

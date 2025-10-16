@@ -37,7 +37,7 @@ import {
   Shield,
   AlertCircle,
   Calendar,
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   Users
 } from 'lucide-react';
@@ -318,7 +318,7 @@ export default function AdminOrdersPage() {
                   {formatCurrency(orders.reduce((sum, o) => sum + o.total_amount, 0))}
                 </p>
               </div>
-              <DollarSign className="h-8 w-8 text-green-500" />
+              <IndianRupee className="h-8 w-8 text-green-500" />
             </div>
           </CardContent>
         </Card>

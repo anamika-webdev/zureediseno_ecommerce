@@ -1,12 +1,15 @@
+// src/lib/utils.ts - FIXED VERSION (No duplicates, No tax, INR currency)
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// src/lib/utils/price.ts
+// ============================================================================
+// PRICE & CURRENCY UTILITIES
+// ============================================================================
+
 export const formatPrice = (price: any): string => {
   if (price === null || price === undefined) {
     return '0.00';
@@ -23,7 +26,8 @@ export const formatPrice = (price: any): string => {
   return numPrice.toFixed(2);
 };
 
-export const formatCurrency = (price: any, currency: string = '$'): string => {
+// FORMAT CURRENCY - Changed default to ₹ (Indian Rupee)
+export const formatCurrency = (price: any, currency: string = '₹'): string => {
   return `${currency}${formatPrice(price)}`;
 };
 
@@ -47,8 +51,9 @@ export const isOnSale = (price: any, comparePrice: any): boolean => {
   return !isNaN(numPrice) && !isNaN(numComparePrice) && numComparePrice > numPrice;
 };
 
-// Additional utilities to add to your existing src/lib/utils.ts file
-// Add these after your existing code
+// ============================================================================
+// NUMBER UTILITIES
+// ============================================================================
 
 // Safe number conversion
 export const safeNumber = (value: any, defaultValue: number = 0): number => {
@@ -72,6 +77,10 @@ export const calculateDiscountPercentage = (originalPrice: any, salePrice: any):
   return Math.round(((original - sale) / original) * 100);
 };
 
+// ============================================================================
+// CART & PRICING UTILITIES
+// ============================================================================
+
 // Format price range
 export const formatPriceRange = (minPrice: any, maxPrice: any): string => {
   const min = safeNumber(minPrice);
@@ -93,24 +102,6 @@ export const calculateCartTotal = (items: Array<{ price: any; quantity: number }
   }, 0);
 };
 
-// Add the missing slugify function
-export function slugify(text: string): string {
-  return text
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')           // Replace spaces with -
-    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
-    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
-    .replace(/^-+/, '')             // Trim - from start of text
-    .replace(/-+$/, '');            // Trim - from end of text
-}
-// Calculate tax (GST in India is typically 18%)
-export const calculateTax = (amount: any, taxRate: number = 0.18): number => {
-  const baseAmount = safeNumber(amount);
-  return baseAmount * taxRate;
-};
-
 // Calculate shipping (free shipping above threshold)
 export const calculateShipping = (cartTotal: any, freeShippingThreshold: number = 999): number => {
   const total = safeNumber(cartTotal);
@@ -122,3 +113,20 @@ export const isValidPrice = (price: any): boolean => {
   const num = safeNumber(price);
   return num > 0 && num < 1000000; // Between 0 and 10 lakhs
 };
+
+// ============================================================================
+// STRING UTILITIES
+// ============================================================================
+
+// Slugify function for URLs
+export function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')           // Replace spaces with -
+    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+    .replace(/^-+/, '')             // Trim - from start of text
+    .replace(/-+$/, '');            // Trim - from end of text
+}

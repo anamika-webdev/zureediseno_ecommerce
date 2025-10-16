@@ -127,7 +127,6 @@ ${itemsList}
 PRICING BREAKDOWN:
 Subtotal: ₹${orderData.subtotal || orderData.totalAmount}
 Shipping: ₹${orderData.shipping || 0} (FREE)
-Tax: ₹${orderData.tax || 0}
 Total: ₹${orderData.totalAmount.toFixed(2)}
 
 PAYMENT DETAILS:
@@ -168,8 +167,7 @@ ${orderData.shippingAddress.country}
 
 PRICING BREAKDOWN:
 Subtotal: ₹${orderData.subtotal || orderData.totalAmount}
-Shipping: ₹${orderData.shipping || 0} (FREE SHIPPING!)
-Tax: ₹${orderData.tax || 0}
+Shipping: ₹${orderData.shipping || 0} (FREE)
 Total: ₹${orderData.totalAmount.toFixed(2)}
 
 ${getPaymentStatusMessage()}

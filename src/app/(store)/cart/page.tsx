@@ -62,9 +62,9 @@ export default function CartPage() {
   }
 
   const subtotal = total;
-  const tax = subtotal * 0.18; // 18% GST
-  const shipping = subtotal > 999 ? 0 : 99; // Free shipping over ₹999
-  const finalTotal = subtotal + tax + shipping;
+const tax = 0; // No tax
+const shipping = subtotal > 999 ? 0 : 99;
+const finalTotal = subtotal + shipping;
 
   // Check if user can proceed to checkout
   const canProceedToCheckout = isAuthenticated || isGuest;
@@ -170,10 +170,10 @@ export default function CartPage() {
                     </span>
                   </div>
                   
-                  <div className="flex justify-between">
+                  {/*<div className="flex justify-between">
                     <span>Tax (GST 18%)</span>
                     <span>₹{tax.toFixed(2)}</span>
-                  </div>
+                  </div>*/}
                   
                   <hr />
                   

@@ -25,7 +25,7 @@ import {
   Mail,
   Phone,
   Calendar,
-  DollarSign,
+  IndianRupee,
   ShoppingBag,
   Ban,
   CheckCircle,
@@ -519,7 +519,7 @@ export default function CustomersPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center space-x-2">
-                      <DollarSign className="h-5 w-5 text-green-600" />
+                      <IndianRupee className="h-5 w-5 text-green-600" />
                       <div>
                         <div className="text-sm font-medium">Total Spent</div>
                         <div className="text-lg font-bold">

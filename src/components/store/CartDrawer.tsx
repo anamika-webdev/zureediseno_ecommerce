@@ -183,14 +183,14 @@ export function CartDrawer() {
               <span>Shipping</span>
               <span className="text-green-600">Free</span>
             </div>
-            <div className="flex justify-between text-sm">
+           {/*} <div className="flex justify-between text-sm">
               <span>Tax (Est.)</span>
               <span>₹{(Number(total) * 0.18).toFixed(2)}</span>
-            </div>
+            </div>*/}
             <hr className="my-2" />
             <div className="flex justify-between items-center">
               <span className="text-lg font-semibold">Total</span>
-              <span className="text-xl font-bold">₹{(Number(total) * 1.18).toFixed(2)}</span>
+              <span className="text-xl font-bold">₹{Number(total).toFixed(2)}</span>
             </div>
           </div>
           

@@ -1,6 +1,4 @@
-// ============================================
-// FILE 4: src/app/dashboard/admin/bulk-orders/page.tsx
-// ============================================
+// src/app/dashboard/admin/bulk-orders/page.tsx - COMPLETE FIXED VERSION
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -8,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import {
   Select,
   SelectContent,
@@ -40,7 +38,9 @@ import {
   DollarSign,
   Truck,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  RefreshCw,
+  Clock
 } from 'lucide-react';
 
 // Types
@@ -124,10 +124,7 @@ export default function BulkOrdersPage() {
     sendStatusEmail: false,
   });
 
-  useEffect(() => {
-    fetchRequests();
-  }, [currentPage, statusFilter, priorityFilter]);
-
+  // Fetch requests function
   const fetchRequests = async () => {
     try {
       setLoading(true);
@@ -158,12 +155,6 @@ export default function BulkOrdersPage() {
         throw new Error(data.error || data.details || `HTTP ${response.status}`);
       }
       
-      // Auto-refresh every 30 seconds
-useAutoRefresh({
-  refreshInterval: 30000,
-  enabled: true,
-  onRefresh: fetchRequests,
-});
       setRequests(data.requests || []);
       setTotalPages(data.pagination?.pages || 1);
       setTotalCount(data.pagination?.total || 0);
@@ -184,6 +175,18 @@ useAutoRefresh({
       setLoading(false);
     }
   };
+
+  // ✅ Auto-refresh hook - PLACED HERE, AFTER fetchRequests definition
+  useAutoRefresh({
+    refreshInterval: 30000,
+    enabled: true,
+    onRefresh: fetchRequests,
+  });
+
+  // Initial load and filter changes
+  useEffect(() => {
+    fetchRequests();
+  }, [currentPage, statusFilter, priorityFilter]);
 
   const handleSearch = () => {
     setCurrentPage(1);
@@ -217,7 +220,7 @@ useAutoRefresh({
         body: JSON.stringify({
           status: updateForm.status,
           priority: updateForm.priority,
-          estimatedPrice: updateForm.estimatedPrice ? parseFloat(updateForm.estimatedPrice) : null,
+          estimatedPrice: updateForm.estimatedPrice ? parseFloat(updateForm.estimatedPrice) : undefined,
           adminNotes: updateForm.adminNotes,
           sendStatusEmail: updateForm.sendStatusEmail,
         }),
@@ -226,90 +229,88 @@ useAutoRefresh({
       if (response.ok) {
         toast({
           title: 'Success',
-          description: 'Bulk order request updated successfully',
+          description: 'Request updated successfully',
         });
         setIsUpdateDialogOpen(false);
         fetchRequests();
       } else {
-        throw new Error('Failed to update request');
+        const data = await response.json();
+        toast({
+          title: 'Error',
+          description: data.error || 'Failed to update request',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
-      console.error('Error updating bulk order:', error);
+      console.error('Error updating request:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update bulk order request',
+        description: 'An error occurred while updating the request',
         variant: 'destructive',
       });
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Bulk Order Requests</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Manage and track bulk order inquiries
-        </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Package className="w-8 h-8" />
+            Bulk Order Requests
+          </h1>
+          <p className="text-gray-500 mt-1">
+            Manage bulk order requests from companies • Auto-refreshes every 30s
+          </p>
+        </div>
+        <Button onClick={fetchRequests} variant="outline" size="sm">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh Now
+        </Button>
       </div>
 
-      {/* Statistics */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Requests</p>
-                <p className="text-2xl font-bold">{totalCount}</p>
-              </div>
-              <Package className="h-8 w-8 text-blue-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {requests.filter(r => r.status === 'pending').length}
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
-                <p className="text-2xl font-bold">
-                  {requests.filter(r => r.status === 'pending').length}
-                </p>
-              </div>
-              <Calendar className="h-8 w-8 text-yellow-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Processing</CardTitle>
+            <Truck className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {requests.filter(r => r.status === 'processing').length}
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Processing</p>
-                <p className="text-2xl font-bold">
-                  {requests.filter(r => r.status === 'processing' || r.status === 'contacted').length}
-                </p>
-              </div>
-              <Truck className="h-8 w-8 text-purple-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Completed</p>
-                <p className="text-2xl font-bold">
-                  {requests.filter(r => r.status === 'completed').length}
-                </p>
-              </div>
-              <Package className="h-8 w-8 text-green-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {requests.filter(r => r.status === 'completed').length}
             </div>
           </CardContent>
         </Card>
@@ -317,20 +318,22 @@ useAutoRefresh({
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-6">
+        <CardHeader>
+          <CardTitle>Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
+            <div>
               <Label>Search</Label>
-              <div className="flex gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search by company, contact, email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  className="pl-9"
                 />
-                <Button onClick={handleSearch}>
-                  <Search className="h-4 w-4" />
-                </Button>
               </div>
             </div>
             <div>
@@ -340,7 +343,7 @@ useAutoRefresh({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {statusOptions.map(option => (
+                  {statusOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -355,7 +358,7 @@ useAutoRefresh({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {priorityOptions.map(option => (
+                  {priorityOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -363,16 +366,19 @@ useAutoRefresh({
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-end">
+              <Button onClick={handleSearch} className="w-full">
+                <Search className="h-4 w-4 mr-2" />
+                Search
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Requests Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Bulk Order Requests</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
@@ -399,7 +405,7 @@ useAutoRefresh({
                 </thead>
                 <tbody>
                   {requests.map((request) => (
-                    <tr key={request.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <tr key={request.id} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-mono text-sm">{request.requestId}</td>
                       <td className="p-3">{request.companyName}</td>
                       <td className="p-3">
@@ -409,7 +415,7 @@ useAutoRefresh({
                         </div>
                       </td>
                       <td className="p-3">{request.productType}</td>
-                      <td className="p-3">{request.quantity} pcs</td>
+                      <td className="p-3">{request.quantity}</td>
                       <td className="p-3">
                         <Badge className={statusColors[request.status]}>
                           {request.status}
@@ -420,7 +426,9 @@ useAutoRefresh({
                           {request.priority}
                         </Badge>
                       </td>
-                      <td className="p-3 text-sm">{formatDate(request.createdAt)}</td>
+                      <td className="p-3">
+                        {new Date(request.createdAt).toLocaleDateString()}
+                      </td>
                       <td className="p-3">
                         <div className="flex gap-2">
                           <Button
@@ -444,75 +452,58 @@ useAutoRefresh({
               </table>
             </div>
           )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-gray-500">
+                Showing {requests.length} of {totalCount} requests
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Pagination */}
-      {!loading && requests.length > 0 && (
-        <div className="flex items-center justify-between mt-6">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Page {currentPage} of {totalPages}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Previous
-            </button>
-            
-            <div className="flex gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-                
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md ${
-                      currentPage === pageNum
-                        ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
-                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-            >
-              Next
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* View Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Bulk Order Request Details</DialogTitle>
           </DialogHeader>
           {selectedRequest && (
-            <div className="space-y-6">
-              {/* Request Info */}
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-gray-500">Request ID</Label>
@@ -520,114 +511,48 @@ useAutoRefresh({
                 </div>
                 <div>
                   <Label className="text-gray-500">Status</Label>
-                  <div className="mt-1">
-                    <Badge className={statusColors[selectedRequest.status]}>
-                      {selectedRequest.status}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Company Details */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  Company Information
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-gray-500">Company Name</Label>
-                    <p>{selectedRequest.companyName}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-500">Contact Person</Label>
-                    <p>{selectedRequest.contactPerson}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-500">Email</Label>
-                    <p className="flex items-center gap-2">
-                      <Mail className="h-4 w-4" />
-                      {selectedRequest.email}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-500">Phone</Label>
-                    <p className="flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      {selectedRequest.phone}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Order Details */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Order Information
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-gray-500">Product Type</Label>
-                    <p>{selectedRequest.productType}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-500">Quantity</Label>
-                    <p className="font-semibold">{selectedRequest.quantity} pieces</p>
-                  </div>
-                  {selectedRequest.deliveryDate && (
-                    <div>
-                      <Label className="text-gray-500">Expected Delivery</Label>
-                      <p>{formatDate(selectedRequest.deliveryDate)}</p>
-                    </div>
-                  )}
-                  {selectedRequest.estimatedPrice && (
-                    <div>
-                      <Label className="text-gray-500">Estimated Price</Label>
-                      <p className="font-semibold">₹{selectedRequest.estimatedPrice.toLocaleString()}</p>
-                    </div>
-                  )}
-                </div>
-                {selectedRequest.description && (
-                  <div>
-                    <Label className="text-gray-500">Additional Details</Label>
-                    <p className="mt-1 p-3 bg-gray-50 dark:bg-gray-800 rounded border">
-                      {selectedRequest.description}
-                    </p>
-                  </div>
-                )}
-                {selectedRequest.adminNotes && (
-                  <div>
-                    <Label className="text-gray-500">Admin Notes</Label>
-                    <p className="mt-1 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
-                      {selectedRequest.adminNotes}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Timestamps */}
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                <div>
-                  <Label className="text-gray-500">Created</Label>
-                  <p className="text-sm">{new Date(selectedRequest.createdAt).toLocaleString('en-IN')}</p>
+                  <Badge className={statusColors[selectedRequest.status]}>
+                    {selectedRequest.status}
+                  </Badge>
                 </div>
                 <div>
-                  <Label className="text-gray-500">Last Updated</Label>
-                  <p className="text-sm">{new Date(selectedRequest.updatedAt).toLocaleString('en-IN')}</p>
+                  <Label className="text-gray-500">Company Name</Label>
+                  <p>{selectedRequest.companyName}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Contact Person</Label>
+                  <p>{selectedRequest.contactPerson}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Email</Label>
+                  <p>{selectedRequest.email}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Phone</Label>
+                  <p>{selectedRequest.phone}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Product Type</Label>
+                  <p>{selectedRequest.productType}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Quantity</Label>
+                  <p>{selectedRequest.quantity} units</p>
                 </div>
               </div>
+              {selectedRequest.description && (
+                <div>
+                  <Label className="text-gray-500">Description</Label>
+                  <p className="mt-1 p-3 bg-gray-50 rounded border">
+                    {selectedRequest.description}
+                  </p>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Close
-            </Button>
-            <Button onClick={() => {
-              setIsDialogOpen(false);
-              if (selectedRequest) handleUpdateRequest(selectedRequest);
-            }}>
-              Update Request
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -642,7 +567,10 @@ useAutoRefresh({
           <div className="space-y-4">
             <div>
               <Label>Status</Label>
-              <Select value={updateForm.status} onValueChange={(value) => setUpdateForm({...updateForm, status: value})}>
+              <Select 
+                value={updateForm.status} 
+                onValueChange={(value) => setUpdateForm({...updateForm, status: value})}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -655,10 +583,12 @@ useAutoRefresh({
                 </SelectContent>
               </Select>
             </div>
-
             <div>
               <Label>Priority</Label>
-              <Select value={updateForm.priority} onValueChange={(value) => setUpdateForm({...updateForm, priority: value})}>
+              <Select 
+                value={updateForm.priority} 
+                onValueChange={(value) => setUpdateForm({...updateForm, priority: value})}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -671,38 +601,23 @@ useAutoRefresh({
                 </SelectContent>
               </Select>
             </div>
-
             <div>
               <Label>Estimated Price (₹)</Label>
               <Input
                 type="number"
+                placeholder="Enter estimated price"
                 value={updateForm.estimatedPrice}
                 onChange={(e) => setUpdateForm({...updateForm, estimatedPrice: e.target.value})}
-                placeholder="Enter estimated price"
               />
             </div>
-
             <div>
               <Label>Admin Notes</Label>
               <Textarea
+                placeholder="Add internal notes..."
                 value={updateForm.adminNotes}
                 onChange={(e) => setUpdateForm({...updateForm, adminNotes: e.target.value})}
-                placeholder="Add notes for internal reference"
                 rows={4}
               />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="sendEmail"
-                checked={updateForm.sendStatusEmail}
-                onChange={(e) => setUpdateForm({...updateForm, sendStatusEmail: e.target.checked})}
-                className="rounded border-gray-300"
-              />
-              <label htmlFor="sendEmail" className="text-sm">
-                Send status update email to customer
-              </label>
             </div>
           </div>
           <DialogFooter>
@@ -710,7 +625,7 @@ useAutoRefresh({
               Cancel
             </Button>
             <Button onClick={submitUpdate}>
-              Save Changes
+              Update Request
             </Button>
           </DialogFooter>
         </DialogContent>
