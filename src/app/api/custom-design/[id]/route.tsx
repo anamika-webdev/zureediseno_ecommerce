@@ -1,13 +1,13 @@
-// src/app/api/custom-design/[id]/route.ts - FIXED VERSION
+// src/app/api/custom-design/[id]/route.ts - FIXED WITH DUAL AUTH
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { getCurrentAdmin } from '@/lib/adminAuth';
 import nodemailer from 'nodemailer';
 
-// Create email transporter - Updated for custom SMTP
+// Create email transporter
 const createTransporter = () => {
   if (process.env.MAIL_HOST && process.env.EMAIL_PORT) {
-    // Custom SMTP configuration (GoDaddy)
     return nodemailer.createTransport({
       host: process.env.MAIL_HOST,
       port: parseInt(process.env.EMAIL_PORT),
@@ -42,20 +42,43 @@ const createTransporter = () => {
     });
   }
 };
+
 // PATCH - Update custom design request
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const currentUser = await getCurrentUser();
+    console.log('🔄 PATCH /api/custom-design/[id] - Update request received');
+
+    // Check BOTH admin and user sessions
+    let currentUser: any = await getCurrentAdmin();
+    let authType = 'admin-session';
     
-    if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'SELLER')) {
+    if (!currentUser) {
+      currentUser = await getCurrentUser();
+      authType = 'user-session';
+    }
+
+    console.log('👤 Auth check:', currentUser ? {
+      email: currentUser.email,
+      role: currentUser.role,
+      authType
+    } : 'No session found');
+    
+    if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'SELLER' && currentUser.role !== 'SUPER_ADMIN')) {
+      console.log('❌ Unauthorized:', currentUser ? `Invalid role: ${currentUser.role}` : 'No user');
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { 
+          success: false,
+          error: 'Unauthorized',
+          message: 'Admin or Seller access required'
+        },
         { status: 401 }
       );
     }
+
+    console.log(`✅ Authorized via ${authType}:`, currentUser.role);
 
     const { id } = params;
     const body = await req.json();
@@ -69,6 +92,8 @@ export async function PATCH(
       sendStatusEmail = false,
     } = body;
 
+    console.log('📝 Update data:', { status, priority, estimatedPrice, sendStatusEmail });
+
     // Get the current request
     const currentRequest = await prisma.customDesignRequest.findUnique({
       where: { id },
@@ -79,59 +104,77 @@ export async function PATCH(
 
     if (!currentRequest) {
       return NextResponse.json(
-        { error: 'Request not found' },
+        { 
+          success: false,
+          error: 'Request not found' 
+        },
         { status: 404 }
       );
+    }
+
+    // Build update data
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+
+    if (status) updateData.status = status;
+    if (priority) updateData.priority = priority;
+    if (estimatedPrice !== undefined) updateData.estimatedPrice = parseFloat(estimatedPrice);
+    if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
+    if (contactedAt) updateData.contactedAt = new Date(contactedAt);
+    
+    // Update contactedAt if status changed to 'contacted'
+    if (status === 'contacted' && currentRequest.status !== 'contacted') {
+      updateData.contactedAt = new Date();
     }
 
     // Update the request
     const updatedRequest = await prisma.customDesignRequest.update({
       where: { id },
-      data: {
-        ...(status && { status }),
-        ...(priority && { priority }),
-        ...(estimatedPrice !== undefined && { estimatedPrice }),
-        ...(adminNotes && { adminNotes }),
-        ...(contactedAt && { contactedAt: new Date(contactedAt) }),
-        assignedToId: currentUser.id, // Assign to current admin
-      },
+      data: updateData,
       include: {
         user: true,
-        assignedTo: true,
       },
     });
 
-    // Send status update email if requested and customer has email
-    if (sendStatusEmail && (currentRequest.customerEmail || currentRequest.user?.email)) {
+    console.log('✅ Request updated:', updatedRequest.id);
+
+    // Send status update email if requested
+    if (sendStatusEmail && updatedRequest.customerEmail) {
       try {
         const transporter = createTransporter();
-        const customerEmail = currentRequest.customerEmail || currentRequest.user?.email;
-        const customerName = currentRequest.customerName || 
-          (currentRequest.user ? `${currentRequest.user.firstName} ${currentRequest.user.lastName}`.trim() : 'Valued Customer');
+        const customerName = updatedRequest.customerName || 'Valued Customer';
+        const customerEmail = updatedRequest.customerEmail;
 
-        const statusMessages: { [key: string]: any } = {
+        const statusMessages: any = {
+          pending: {
+            subject: '⏳ Your Custom Design Request - Under Review',
+            title: 'Request Received',
+            message: 'We\'ve received your custom design request and our team is reviewing it.',
+            emoji: '⏳',
+          },
           contacted: {
-            subject: 'Your Custom Design Request - We\'ll Contact You Soon!',
-            title: 'Request Acknowledged',
-            message: 'Thank you for your custom design request! Our team has reviewed your requirements and will contact you within 24 hours to discuss the details.',
+            subject: '📞 We\'ve Contacted You - Custom Design Update',
+            title: 'We Reached Out',
+            message: 'Our team has attempted to contact you regarding your custom design request. If you haven\'t heard from us, please check your phone or email.',
             emoji: '📞',
           },
           in_progress: {
-            subject: 'Your Custom Design is Now In Progress!',
-            title: 'Design Process Started',
-            message: 'Great news! We\'ve started working on your custom design. Our skilled tailors are crafting your unique piece with attention to every detail.',
+            subject: '✂️ Your Custom Design is Being Created!',
+            title: 'Work In Progress',
+            message: 'Great news! Our expert tailors have started working on your custom design. We\'ll keep you updated on the progress.',
             emoji: '✂️',
           },
           completed: {
-            subject: 'Your Custom Design is Ready!',
+            subject: '✅ Your Custom Design is Ready!',
             title: 'Design Completed',
-            message: 'Excellent news! Your custom design has been completed and is ready for pickup or delivery. We\'ll contact you shortly to arrange the next steps.',
+            message: 'Excellent news! Your custom design has been completed and is ready for pickup or delivery.',
             emoji: '✅',
           },
           cancelled: {
-            subject: 'Custom Design Request Cancelled',
+            subject: '❌ Custom Design Request Cancelled',
             title: 'Request Cancelled',
-            message: 'Your custom design request has been cancelled as requested. If you have any questions, please don\'t hesitate to contact us.',
+            message: 'Your custom design request has been cancelled. If you have any questions, please contact us.',
             emoji: '❌',
           },
         };
@@ -147,8 +190,8 @@ Dear ${customerName},
 ${statusInfo.message}
 
 REQUEST DETAILS:
-Request ID: ${currentRequest.id}
-Design: ${currentRequest.designDescription.substring(0, 100)}...
+Request ID: ${updatedRequest.id}
+Design: ${updatedRequest.designDescription.substring(0, 100)}...
 Status: ${status.toUpperCase().replace('_', ' ')}
 ${estimatedPrice ? `Estimated Price: ₹${estimatedPrice}` : ''}
 
@@ -171,9 +214,8 @@ NEXT STEPS:
 ` : ''}
 
 NEED TO REACH US?
-📞 Phone: ${currentRequest.phoneNumber}
+📞 Phone: ${updatedRequest.phoneNumber}
 📧 Email: contact@zureeglobal.com
-🌐 Website: ${process.env.NEXT_PUBLIC_BASE_URL}
 
 Thank you for choosing Zuree Global for your custom design needs!
 
@@ -181,7 +223,7 @@ Best regards,
 The Zuree Global Design Team
 
 ---
-This is an automated update. Your request ID is: ${currentRequest.id}
+This is an automated update. Your request ID is: ${updatedRequest.id}
 `;
 
           await transporter.sendMail({
@@ -209,6 +251,7 @@ This is an automated update. Your request ID is: ${currentRequest.id}
     console.error('❌ Update request error:', error);
     return NextResponse.json(
       { 
+        success: false,
         error: 'Failed to update request',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
@@ -223,11 +266,19 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const currentUser = await getCurrentUser();
+    // Check BOTH admin and user sessions
+    let currentUser: any = await getCurrentAdmin();
     
-    if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'SELLER')) {
+    if (!currentUser) {
+      currentUser = await getCurrentUser();
+    }
+    
+    if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'SELLER' && currentUser.role !== 'SUPER_ADMIN')) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { 
+          success: false,
+          error: 'Unauthorized' 
+        },
         { status: 401 }
       );
     }
@@ -258,17 +309,26 @@ export async function GET(
 
     if (!request) {
       return NextResponse.json(
-        { error: 'Request not found' },
+        { 
+          success: false,
+          error: 'Request not found' 
+        },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(request);
+    return NextResponse.json({
+      success: true,
+      request
+    });
 
   } catch (error) {
     console.error('❌ Get request error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch request' },
+      { 
+        success: false,
+        error: 'Failed to fetch request' 
+      },
       { status: 500 }
     );
   }
@@ -280,11 +340,19 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const currentUser = await getCurrentUser();
+    // Check BOTH admin and user sessions
+    let currentUser: any = await getCurrentAdmin();
+    
+    if (!currentUser) {
+      currentUser = await getCurrentUser();
+    }
     
     if (!currentUser || currentUser.role !== 'ADMIN') {
       return NextResponse.json(
-        { error: 'Unauthorized - Admin access required' },
+        { 
+          success: false,
+          error: 'Unauthorized - Admin access required' 
+        },
         { status: 401 }
       );
     }
@@ -305,6 +373,7 @@ export async function DELETE(
     console.error('❌ Delete request error:', error);
     return NextResponse.json(
       { 
+        success: false,
         error: 'Failed to delete request',
         details: error instanceof Error ? error.message : 'Unknown error'
       },

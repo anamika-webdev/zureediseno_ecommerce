@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -145,6 +146,12 @@ export default function AdminOrdersPage() {
       setLoading(false);
     }
   };
+// Auto-refresh every 30 seconds
+  useAutoRefresh({
+    refreshInterval: 30000,
+    enabled: true,
+    onRefresh: fetchOrders,
+  });
 
   // Fetch order items
   const fetchOrderItems = async (orderId: string) => {

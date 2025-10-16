@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/context/AdminAuthContext'; // FIXED: Added missing import
 import { toast } from 'sonner';
-
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -222,6 +222,12 @@ export default function PaymentsPage() {
         console.error('Invalid payments response format:', data);
         paymentsArray = [];
       }
+ useAutoRefresh({
+    refreshInterval: 30000,
+    enabled: true,
+    onRefresh: fetchPayments,
+  });
+
 
       setPayments(paymentsArray);
       setTotalItems(pagination.total);

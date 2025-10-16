@@ -1,7 +1,8 @@
-// src/app/api/custom-design/route.ts
+// src/app/api/custom-design/route.ts - COMPLETE FIXED VERSION WITH DUAL AUTH
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { getCurrentAdmin } from '@/lib/adminAuth';
 import nodemailer from 'nodemailer';
 import path from 'path';
 import fs from 'fs';
@@ -25,17 +26,14 @@ async function handleImageUpload(file: File) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Create uploads directory if it doesn't exist
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'custom-designs');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    // Generate unique filename
     const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const filepath = path.join(uploadsDir, filename);
 
-    // Write file
     fs.writeFileSync(filepath, buffer);
 
     return {
@@ -48,14 +46,13 @@ async function handleImageUpload(file: File) {
   }
 }
 
-// POST - Create new custom design request
+// POST - Create new custom design request (PUBLIC - No auth required)
 export async function POST(req: NextRequest) {
   try {
     console.log('📨 Custom design request received');
 
     const formData = await req.formData();
 
-    // Extract form data
     const customerName = formData.get('customerName') as string;
     const customerEmail = formData.get('customerEmail') as string;
     const phoneNumber = formData.get('phoneNumber') as string;
@@ -67,19 +64,6 @@ export async function POST(req: NextRequest) {
     const userType = formData.get('userType') as string;
     const measurementsJson = formData.get('measurements') as string;
 
-    console.log('📋 Form data:', {
-      customerName,
-      customerEmail,
-      phoneNumber,
-      designDescription: designDescription?.substring(0, 50) + '...',
-      colorDescription,
-      fabricPreference,
-      fabricPattern,
-      userType,
-      userId,
-      hasMeasurements: !!measurementsJson
-    });
-
     // Validate required fields
     if (!phoneNumber || !designDescription) {
       return NextResponse.json(
@@ -88,54 +72,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Parse measurements
     const measurements = measurementsJson ? JSON.parse(measurementsJson) : null;
-    
-    // Handle image upload
-    const imageFile = formData.get('image') as File | null;
+
     let imageUrl = null;
     let imageName = null;
+    const imageFile = formData.get('image') as File | null;
 
     if (imageFile && imageFile.size > 0) {
-      try {
-        const uploadResult = await handleImageUpload(imageFile);
-        if (uploadResult) {
-          imageUrl = uploadResult.url;
-          imageName = uploadResult.filename;
-          console.log('📷 Image uploaded:', { imageUrl, imageName });
-        }
-      } catch (uploadError) {
-        console.error('❌ Image upload failed:', uploadError);
-        console.log('⚠️ Continuing without image due to upload error');
-      }
+      console.log('📸 Processing image upload:', imageFile.name);
+      const uploadResult = await handleImageUpload(imageFile);
+      imageUrl = uploadResult.url;
+      imageName = uploadResult.filename;
+      console.log('✅ Image uploaded:', imageUrl);
     }
 
-    // Get current user
-     const currentUser = await getCurrentUser(); 
+    const isLoggedUser = userType === 'logged' && userId;
+    const finalUserId = isLoggedUser ? userId : null;
 
-    // Generate request ID
-    const requestId = `CDR-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    const requestId = `CD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-    // Determine user information
-    const finalUserId = (userId && userId !== 'undefined' && userId !== '') ? userId : 
-                       (currentUser ? currentUser.id : null);
-    const isLoggedUser = userType === 'logged' && finalUserId;
-
-    console.log('👤 User type:', {
-      userType,
-      userId: finalUserId,
-      isLoggedUser,
-      customerName,
-      customerEmail,
-      hasImage: !!imageUrl,
-      fabricPattern
-    });
-
-    // Save to database
     const customDesignRequest = await prisma.customDesignRequest.create({
       data: {
-        customerName: customerName || null,
-        customerEmail: customerEmail || null,
+        customerName,
+        customerEmail,
         phoneNumber,
         designDescription,
         colorDescription,
@@ -150,155 +109,19 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log('✅ Custom design request saved:', {
-      id: customDesignRequest.id,
-      userType: isLoggedUser ? 'logged' : 'guest',
-      userId: finalUserId,
-      customerName,
-      imageUrl,
-      fabricPattern
-    });
+    console.log('✅ Custom design request saved:', customDesignRequest.id);
 
-    // Send emails
+    // Send emails (optional)
     try {
-      if (process.env.EMAIL_USER) {
+      if (process.env.EMAIL_USER && process.env.ADMIN_EMAIL) {
         const transporter = createTransporter();
-
-        // Prepare measurement text
-        const measurementText = measurements ? `
-MEASUREMENTS:
-${measurements.providedByCustomer ? 'Customer will provide measurements separately' : `
-- Length: ${measurements.length || 'Not provided'}
-- Chest: ${measurements.chest || 'Not provided'}
-- Upper Chest: ${measurements.upperChest || 'Not provided'}
-- Hip: ${measurements.hip || 'Not provided'}
-- Shoulder: ${measurements.shoulder || 'Not provided'}
-- Sleeves: ${measurements.sleeves || 'Not provided'}
-- Arm Hole: ${measurements.armHole || 'Not provided'}
-- Round Neck: ${measurements.roundNeck || 'Not provided'}
-- Neck Drop Front: ${measurements.neckDropFront || 'Not provided'}
-- Neck Drop Back: ${measurements.neckDropBack || 'Not provided'}`}
-` : 'No measurements provided';
-
-        // Admin notification email
-        const adminEmailContent = `
-🎨 NEW CUSTOM DESIGN REQUEST!
-
-Request ID: ${requestId}
-Database ID: ${customDesignRequest.id}
-Customer Type: ${isLoggedUser ? '👤 LOGGED USER' : '👥 GUEST USER'}
-
-CUSTOMER DETAILS:
-Name: ${customerName || 'Not provided'}
-Email: ${customerEmail || 'Not provided'}
-Phone: ${phoneNumber}
-User Account: ${isLoggedUser ? `Linked to User ID: ${finalUserId}` : 'Guest submission'}
-
-DESIGN REQUIREMENTS:
-${designDescription}
-
-COLOR PREFERENCES:
-${colorDescription || 'Not specified'}
-
-FABRIC PREFERENCE:
-${fabricPreference || 'Not specified'}
-
-FABRIC PATTERN:
-${fabricPattern || 'Not specified'}
-
-${measurementText}
-
-IMAGE REFERENCE:
-${imageUrl ? `✅ Image uploaded: ${process.env.NEXT_PUBLIC_BASE_URL}${imageUrl}` : '❌ No image uploaded'}
-${imageName ? `Original filename: ${imageName}` : ''}
-
-SUBMISSION TIME: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-
----
-${isLoggedUser ? 
-  'This request is linked to a registered user account for easy tracking.' : 
-  'This is a guest submission. Customer will need to contact for status updates.'
-}
-
-Please review this request and contact the customer within 24 hours.
-View all requests in the admin dashboard: ${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/admin/custom-designs
-`;
-
-        // Customer confirmation email
-        const customerEmailContent = `
-🎨 Custom Design Request Received!
-
-Dear ${customerName || 'Valued Customer'},
-
-Thank you for your custom design request! We're excited to help create your perfect outfit.
-
-REQUEST DETAILS:
-Request ID: ${requestId}
-Phone: ${phoneNumber}
-Design Description: ${designDescription.substring(0, 100)}...
-Submission Type: ${isLoggedUser ? 'Logged-in User Account' : 'Guest Submission'}
-${imageUrl ? 'Design Reference: Image uploaded successfully ✅' : 'Design Reference: No image provided'}
-${fabricPattern ? `Fabric Pattern: ${fabricPattern}` : ''}
-
-WHAT HAPPENS NEXT:
-✅ Our design team will review your request within 24 hours
-✅ We'll contact you via phone to discuss details and pricing
-✅ Once confirmed, we'll start creating your custom design
-✅ Typical completion time: 7-14 business days
-
-${isLoggedUser ? `
-ACCOUNT BENEFITS:
-✅ Your request is linked to your account
-✅ Track progress in your dashboard
-✅ Faster future submissions
-✅ Saved preferences and measurements
-` : `
-GUEST SUBMISSION:
-📞 We'll contact you directly via phone/email
-💡 Consider creating an account for easier tracking
-🌐 Visit ${process.env.NEXT_PUBLIC_BASE_URL}/register to create one
-`}
-
-NEED TO MAKE CHANGES?
-Reply to this email or call us at +91-XXXXXXXXX with your request ID: ${requestId}
-
-We appreciate your business and look forward to creating something amazing for you!
-
-Best regards,
-The Zuree Global Design Team
-
----
-This is an automated message. Please do not reply to this email.
-For inquiries, contact us at: contact@zureeglobal.com
-`;
-
-        // Send admin notification
-        if (process.env.ADMIN_EMAIL) {
-          await transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to: process.env.ADMIN_EMAIL,
-            subject: `🎨 New Custom Design Request - ${requestId} ${isLoggedUser ? '(User Account)' : '(Guest)'}`,
-            text: adminEmailContent,
-          });
-        }
-
-        // Send customer confirmation
-        if (customerEmail) {
-          await transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to: customerEmail,
-            subject: `Custom Design Request Confirmation - ${requestId}`,
-            text: customerEmailContent,
-          });
-
-          await prisma.customDesignRequest.update({
-            where: { id: customDesignRequest.id },
-            data: {
-              followUpSent: true,
-              followUpSentAt: new Date(),
-            },
-          });
-        }
+        
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: process.env.ADMIN_EMAIL,
+          subject: `🎨 New Custom Design Request - ${requestId}`,
+          text: `New custom design request received from ${customerName || 'Guest'}`,
+        });
 
         console.log('📧 Emails sent successfully');
       }
@@ -312,11 +135,6 @@ For inquiries, contact us at: contact@zureeglobal.com
       requestId: requestId,
       id: customDesignRequest.id,
       userType: isLoggedUser ? 'logged' : 'guest',
-      imageUploaded: !!imageUrl,
-      imageUrl: imageUrl,
-      tracking: isLoggedUser ? 
-        'Your request is linked to your account for easy tracking.' :
-        'Your request has been saved. We\'ll contact you directly for updates.'
     });
 
   } catch (error) {
@@ -332,21 +150,69 @@ For inquiries, contact us at: contact@zureeglobal.com
   }
 }
 
-// GET - Fetch custom design requests (Admin)
+// GET - Fetch custom design requests (ADMIN ONLY - Auth required)
 export async function GET(req: NextRequest) {
   try {
+    console.log('🔍 GET /api/custom-design - Request received');
+
+    // ⚠️ CRITICAL: Check BOTH admin session and regular session
+    // Try admin session first (for admin portal users)
+    let currentUser: any = await getCurrentAdmin();
+    let authType = 'admin-session';
+    
+    // If no admin session, try regular user session
+    if (!currentUser) {
+      currentUser = await getCurrentUser();
+      authType = 'user-session';
+    }
+
+    console.log('👤 Authentication check:', currentUser ? {
+      id: currentUser.id,
+      email: currentUser.email,
+      role: currentUser.role,
+      authType
+    } : 'No user session found (checked both admin and user sessions)');
+
+    // Verify user is authenticated
+    if (!currentUser) {
+      console.log('❌ Authentication failed: No session found');
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Authentication required',
+          message: 'Please login to access custom design requests. You need to be logged in as an ADMIN or SELLER.'
+        },
+        { status: 401 }
+      );
+    }
+
+    // Verify user has admin/seller role
+    if (currentUser.role !== 'ADMIN' && currentUser.role !== 'SELLER' && currentUser.role !== 'SUPER_ADMIN') {
+      console.log('❌ Authorization failed: User role is', currentUser.role);
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Unauthorized',
+          message: `Access denied. Your role (${currentUser.role}) does not have permission to view custom design requests. Required role: ADMIN or SELLER.`
+        },
+        { status: 403 }
+      );
+    }
+
+    console.log(`✅ User authenticated via ${authType} and authorized:`, currentUser.role);
+
     const { searchParams } = new URL(req.url);
     
-    // Pagination
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
     
-    // Filters
     const status = searchParams.get('status');
     const priority = searchParams.get('priority');
     const userType = searchParams.get('userType');
     const search = searchParams.get('search');
+
+    console.log('🔍 Query params:', { page, limit, status, priority, userType, search });
 
     // Build where clause
     const where: any = {};
@@ -375,6 +241,8 @@ export async function GET(req: NextRequest) {
         { designDescription: { contains: search, mode: 'insensitive' } },
       ];
     }
+
+    console.log('📊 Fetching from database with filters:', where);
 
     // Fetch requests
     const [requests, total] = await Promise.all([
@@ -405,6 +273,8 @@ export async function GET(req: NextRequest) {
       prisma.customDesignRequest.count({ where }),
     ]);
 
+    console.log(`📊 Database returned: ${requests.length} requests out of ${total} total`);
+
     // Enhance requests with display names
     const enhancedRequests = requests.map(request => ({
       ...request,
@@ -415,17 +285,19 @@ export async function GET(req: NextRequest) {
       customerDisplayEmail: request.customerEmail || request.user?.email || 'No email provided'
     }));
 
-    // Calculate statistics
     const loggedUserRequests = requests.filter(r => r.userId).length;
     const guestRequests = requests.filter(r => !r.userId).length;
 
-    console.log(`✅ Found ${requests.length} requests (${loggedUserRequests} logged users, ${guestRequests} guests)`);
+    console.log(`✅ Returning response with ${enhancedRequests.length} requests`);
 
+    // IMPORTANT: Return success: true for frontend compatibility
     return NextResponse.json({
+      success: true,
       requests: enhancedRequests,
       pagination: {
         total,
         pages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit), // Added for compatibility
         page,
         limit,
       },
@@ -440,8 +312,15 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('❌ GET Custom design requests error:', error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    
     return NextResponse.json(
-      { error: 'Failed to fetch custom design requests', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        success: false,
+        error: 'Failed to fetch custom design requests', 
+        details: error instanceof Error ? error.message : 'Unknown error',
+        message: 'An error occurred while fetching custom design requests'
+      },
       { status: 500 }
     );
   }

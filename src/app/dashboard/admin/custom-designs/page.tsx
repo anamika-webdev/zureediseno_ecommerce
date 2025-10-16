@@ -1,4 +1,4 @@
-// src/app/dashboard/admin/custom-designs/page.tsx - COMPLETE CORRECTED VERSION
+// src/app/dashboard/admin/custom-designs/page.tsx - FIXED WITH DETAILED LOGGING
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -39,7 +40,8 @@ import {
   UserX,
   Loader2,
   Search,
-  ExternalLink
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
 import { Pagination } from '@/components/admin/Pagination';
 
@@ -72,112 +74,9 @@ interface CustomDesignRequest {
     lastName: string | null;
     email: string;
   };
-  assignedTo?: {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    email: string;
-  };
+  assignedTo?: string;
 }
 
-// Helper component to display design details
-function DesignDetailsDisplay({ designDescription }: { designDescription: string }) {
-  const lines = designDescription.split('\n').filter(line => line.trim());
-  
-  const designMatch = lines.find(l => l.startsWith('Design:'));
-  const fabricTypeMatch = lines.find(l => l.startsWith('Fabric Type:'));
-  const fabricPatternMatch = lines.find(l => l.startsWith('Fabric Pattern:'));
-  const colorsMatch = lines.find(l => l.startsWith('Colors:'));
-  const additionalMatch = lines.find(l => l.startsWith('Additional Details:'));
-  
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {designMatch && (
-        <div>
-          <Label className="font-medium text-gray-700">Design Type:</Label>
-          <div className="mt-1 p-3 bg-blue-50 rounded border border-blue-200 text-sm font-semibold text-blue-900">
-            {designMatch.replace('Design:', '').trim()}
-          </div>
-        </div>
-      )}
-      
-      {fabricTypeMatch && (
-        <div>
-          <Label className="font-medium text-gray-700">Fabric Type:</Label>
-          <div className="mt-1 p-3 bg-green-50 rounded border border-green-200 text-sm font-semibold text-green-900">
-            {fabricTypeMatch.replace('Fabric Type:', '').trim()}
-          </div>
-        </div>
-      )}
-      
-      {fabricPatternMatch && (
-        <div>
-          <Label className="font-medium text-gray-700">Fabric Pattern:</Label>
-          <div className="mt-1 p-3 bg-amber-50 rounded border border-amber-200 text-sm font-semibold text-amber-900">
-            {fabricPatternMatch.replace('Fabric Pattern:', '').trim()}
-          </div>
-        </div>
-      )}
-      
-      {colorsMatch && (
-        <div className="md:col-span-2">
-          <Label className="font-medium text-gray-700">Selected Colors:</Label>
-          <div className="mt-1 p-3 bg-purple-50 rounded border border-purple-200">
-            <div className="flex flex-wrap gap-2">
-              {colorsMatch.replace('Colors:', '').trim().split(',').map((color, idx) => {
-                const trimmedColor = color.trim();
-                return (
-                  <div key={idx} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border shadow-sm">
-                    <div 
-                      className="w-5 h-5 rounded-full border-2 border-gray-300"
-                      style={{ backgroundColor: trimmedColor }}
-                    />
-                    <span className="text-xs font-mono text-gray-700">{trimmedColor}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {additionalMatch && (
-        <div className="md:col-span-2">
-          <Label className="font-medium text-gray-700">Additional Details:</Label>
-          <div className="mt-1 p-3 bg-gray-50 rounded border text-sm">
-            {additionalMatch.replace('Additional Details:', '').trim()}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Options
-const statusOptions = [
-  { value: 'all', label: 'All Status' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'contacted', label: 'Contacted' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
-
-const priorityOptions = [
-  { value: 'all', label: 'All Priority' },
-  { value: 'low', label: 'Low' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'high', label: 'High' },
-  { value: 'urgent', label: 'Urgent' },
-];
-
-const userTypeOptions = [
-  { value: 'all', label: 'All Users' },
-  { value: 'logged', label: 'Logged Users' },
-  { value: 'guest', label: 'Guest Users' },
-];
-
-// Color mappings
 const statusColors: { [key: string]: string } = {
   pending: 'bg-yellow-100 text-yellow-800',
   contacted: 'bg-blue-100 text-blue-800',
@@ -222,7 +121,7 @@ export default function CustomDesignsPage() {
   const [adminNotes, setAdminNotes] = useState('');
   const [sendStatusEmail, setSendStatusEmail] = useState(false);
 
-  // Fetch requests
+  // Fetch requests with enhanced debugging
   const fetchRequests = async () => {
     try {
       setLoading(true);
@@ -235,39 +134,96 @@ export default function CustomDesignsPage() {
         ...(userTypeFilter !== 'all' && { userType: userTypeFilter }),
       });
 
-      const response = await fetch(`/api/custom-design?${params}`);
-      const data = await response.json();
+      const url = `/api/custom-design?${params}`;
+      console.log('🔍 Fetching custom designs from:', url);
+      console.log('📋 Request params:', {
+        page: currentPage,
+        limit: itemsPerPage,
+        searchTerm,
+        statusFilter,
+        priorityFilter,
+        userTypeFilter
+      });
 
-      if (response.ok) {
+      const response = await fetch(url, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response ok:', response.ok);
+      console.log('📡 Response headers:', {
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length'),
+      });
+
+      const data = await response.json();
+      console.log('📦 Response data:', data);
+      console.log('📦 Data structure:', {
+        hasSuccess: 'success' in data,
+        hasRequests: 'requests' in data,
+        hasError: 'error' in data,
+        requestsType: Array.isArray(data.requests) ? 'array' : typeof data.requests,
+        requestsLength: data.requests?.length,
+        hasPagination: 'pagination' in data,
+      });
+
+      // Handle response - FIXED: Check both response.ok AND data.success
+      if (response.ok || data.success || (data.requests && Array.isArray(data.requests))) {
+        console.log('✅ Success! Setting requests:', data.requests?.length || 0);
         setRequests(data.requests || []);
-        setTotalPages(data.pagination?.pages || 1);
+        setTotalPages(data.pagination?.pages || data.pagination?.totalPages || 1);
         setTotalCount(data.pagination?.total || 0);
+        
+        if (data.requests?.length === 0) {
+          console.log('⚠️ No requests found in response');
+          toast({
+            title: 'No Records',
+            description: 'No custom design requests found. Try adjusting filters or create a new request.',
+          });
+        } else {
+          console.log(`✅ Loaded ${data.requests?.length} requests`);
+        }
       } else {
+        console.error('❌ Request failed:', data.error || 'Unknown error');
         toast({
           title: 'Error',
-          description: 'Failed to fetch custom design requests',
+          description: data.error || data.message || 'Failed to fetch custom design requests',
           variant: 'destructive',
         });
+        setRequests([]);
       }
     } catch (error) {
-      console.error('Error fetching requests:', error);
+      console.error('❌ Error fetching requests:', error);
       toast({
         title: 'Error',
-        description: 'An error occurred while fetching requests',
+        description: error instanceof Error ? error.message : 'An error occurred while fetching requests',
         variant: 'destructive',
       });
+      setRequests([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Auto-refresh hook - refreshes data every 30 seconds
+  useAutoRefresh({
+    refreshInterval: 30000,
+    enabled: true,
+    onRefresh: fetchRequests,
+  });
+
   useEffect(() => {
+    console.log('🔄 Effect triggered - fetching requests');
     fetchRequests();
   }, [currentPage, statusFilter, priorityFilter, userTypeFilter]);
 
   // Search with debounce
   useEffect(() => {
     const timer = setTimeout(() => {
+      console.log('🔍 Search term changed:', searchTerm);
       if (currentPage === 1) {
         fetchRequests();
       } else {
@@ -278,24 +234,20 @@ export default function CustomDesignsPage() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // View request details
   const handleViewRequest = (request: CustomDesignRequest) => {
     setSelectedRequest(request);
     setIsDialogOpen(true);
   };
 
-  // Open update dialog
   const handleOpenUpdateDialog = (request: CustomDesignRequest) => {
     setSelectedRequest(request);
     setUpdateStatus(request.status);
     setUpdatePriority(request.priority);
     setEstimatedPrice(request.estimatedPrice?.toString() || '');
     setAdminNotes(request.adminNotes || '');
-    setSendStatusEmail(false);
     setIsUpdateDialogOpen(true);
   };
 
-  // Update request
   const handleUpdateRequest = async () => {
     if (!selectedRequest) return;
 
@@ -306,14 +258,15 @@ export default function CustomDesignsPage() {
         body: JSON.stringify({
           status: updateStatus,
           priority: updatePriority,
-          estimatedPrice: estimatedPrice ? parseFloat(estimatedPrice) : undefined,
+          estimatedPrice: estimatedPrice ? parseFloat(estimatedPrice) : null,
           adminNotes,
           sendStatusEmail,
-          contactedAt: updateStatus === 'contacted' ? new Date().toISOString() : undefined,
         }),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+
+      if (response.ok || data.success) {
         toast({
           title: 'Success',
           description: 'Request updated successfully',
@@ -321,82 +274,55 @@ export default function CustomDesignsPage() {
         setIsUpdateDialogOpen(false);
         fetchRequests();
       } else {
-        const data = await response.json();
-        toast({
-          title: 'Error',
-          description: data.error || 'Failed to update request',
-          variant: 'destructive',
-        });
+        throw new Error(data.error || 'Failed to update');
       }
     } catch (error) {
-      console.error('Error updating request:', error);
       toast({
         title: 'Error',
-        description: 'An error occurred while updating the request',
+        description: error instanceof Error ? error.message : 'Failed to update request',
         variant: 'destructive',
       });
     }
   };
 
-  // Reset filters
-  const resetFilters = () => {
-    setSearchTerm('');
-    setStatusFilter('all');
-    setPriorityFilter('all');
-    setUserTypeFilter('all');
-    setCurrentPage(1);
-  };
-
-  if (loading && requests.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin" />
-        <span className="ml-2">Loading custom design requests...</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Palette className="w-8 h-8" />
-            Custom Design Requests
-          </h1>
+          <h1 className="text-3xl font-bold">Custom Design Requests</h1>
           <p className="text-gray-500 mt-1">
-            Manage and track custom design requests from customers ({totalCount} total requests)
+            Manage customer design requests • Auto-refreshes every 30s
           </p>
         </div>
+        <Button onClick={fetchRequests} variant="outline" size="sm">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh Now
+        </Button>
       </div>
 
-      {/* Filters Section */}
+
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Filter className="h-5 w-5" />
-            Filters & Search
+            Filters
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* Search */}
-            <div className="lg:col-span-2">
-              <Label htmlFor="search">Search</Label>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <Label>Search</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
-                  id="search"
-                  placeholder="Search by name, phone, email..."
+                  placeholder="Search by name, email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-9"
                 />
               </div>
             </div>
-
-            {/* Status Filter */}
             <div>
               <Label>Status</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -404,16 +330,15 @@ export default function CustomDesignsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {statusOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="contacted">Contacted</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Priority Filter */}
             <div>
               <Label>Priority</Label>
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -421,16 +346,14 @@ export default function CustomDesignsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {priorityOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="all">All Priorities</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            {/* User Type Filter */}
             <div>
               <Label>User Type</Label>
               <Select value={userTypeFilter} onValueChange={setUserTypeFilter}>
@@ -438,35 +361,51 @@ export default function CustomDesignsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {userTypeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="logged">Logged Users</SelectItem>
+                  <SelectItem value="guest">Guest Users</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
-
-          {/* Reset Button */}
-          <div className="mt-4 flex justify-end">
-            <Button variant="outline" onClick={resetFilters}>
-              Reset Filters
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
-      {/* Requests Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Design Requests</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {requests.length === 0 ? (
+        <CardContent className="pt-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              <span className="ml-2">Loading...</span>
+            </div>
+          ) : requests.length === 0 ? (
             <div className="text-center py-12">
               <Palette className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">No custom design requests found</p>
+              <p className="text-gray-500 text-lg font-medium">No custom design requests found</p>
+              <p className="text-gray-400 text-sm mt-2">
+                {statusFilter !== 'all' || priorityFilter !== 'all' || userTypeFilter !== 'all' || searchTerm
+                  ? 'Try adjusting your filters or search criteria'
+                  : 'Custom design requests will appear here once customers submit them'}
+              </p>
+              <div className="mt-4 space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('all');
+                    setPriorityFilter('all');
+                    setUserTypeFilter('all');
+                    setCurrentPage(1);
+                  }}
+                >
+                  Clear Filters
+                </Button>
+                <Button variant="outline" size="sm" onClick={fetchRequests}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
             </div>
           ) : (
             <>
@@ -512,23 +451,17 @@ export default function CustomDesignsPage() {
                                   Logged User
                                 </Badge>
                               )}
-                              {request.userType === 'guest' && (
-                                <Badge variant="outline" className="text-xs mt-1">
-                                  <UserX className="h-3 w-3 mr-1" />
-                                  Guest
-                                </Badge>
-                              )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-4">
-                          <div className="text-sm">
-                            <div className="flex items-center gap-1 text-gray-900">
+                        <td className="px-4 py-4 text-sm">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1 text-gray-600">
                               <Phone className="h-3 w-3" />
                               {request.phoneNumber}
                             </div>
                             {request.customerDisplayEmail && (
-                              <div className="flex items-center gap-1 text-gray-500 mt-1">
+                              <div className="flex items-center gap-1 text-gray-600">
                                 <Mail className="h-3 w-3" />
                                 {request.customerDisplayEmail}
                               </div>
@@ -536,29 +469,23 @@ export default function CustomDesignsPage() {
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="flex gap-1">
-                            {request.imageUrl && (
-                              <Badge variant="secondary" className="text-xs">
-                                <ImageIcon className="h-3 w-3 mr-1" />
-                                Image
-                              </Badge>
+                          <Badge variant="outline">
+                            {request.userType === 'logged' ? (
+                              <UserCheck className="h-3 w-3 mr-1" />
+                            ) : (
+                              <UserX className="h-3 w-3 mr-1" />
                             )}
-                            {request.measurementData && (
-                              <Badge variant="secondary" className="text-xs">
-                                <Ruler className="h-3 w-3 mr-1" />
-                                Measurements
-                              </Badge>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <Badge className={statusColors[request.status] || 'bg-gray-100'}>
-                            {request.status.replace('_', ' ').toUpperCase()}
+                            {request.userType}
                           </Badge>
                         </td>
                         <td className="px-4 py-4">
-                          <Badge className={priorityColors[request.priority] || 'bg-gray-100'}>
-                            {request.priority.toUpperCase()}
+                          <Badge className={statusColors[request.status]}>
+                            {request.status}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-4">
+                          <Badge className={priorityColors[request.priority]}>
+                            {request.priority}
                           </Badge>
                         </td>
                         <td className="px-4 py-4 text-sm text-gray-500">
@@ -590,7 +517,6 @@ export default function CustomDesignsPage() {
                 </table>
               </div>
 
-              {/* Pagination */}
               <div className="mt-6">
                 <Pagination
                   currentPage={currentPage}
@@ -623,175 +549,129 @@ export default function CustomDesignsPage() {
           {selectedRequest && (
             <div className="space-y-6">
               {/* Customer Details */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Customer Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="font-medium">Name:</Label>
-                    <p className="mt-1">{selectedRequest.customerDisplayName || selectedRequest.customerName || 'Not provided'}</p>
-                  </div>
-                  <div>
-                    <Label className="font-medium">Phone:</Label>
-                    <p className="mt-1 flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      {selectedRequest.phoneNumber}
-                    </p>
-                  </div>
-                  {selectedRequest.customerDisplayEmail && (
-                    <div>
-                      <Label className="font-medium">Email:</Label>
-                      <p className="mt-1 flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        {selectedRequest.customerDisplayEmail}
-                      </p>
-                    </div>
-                  )}
-                  {selectedRequest.user && (
-                    <div className="md:col-span-2">
-                      <Label className="font-medium">Account Details:</Label>
-                      <div className="mt-1 p-3 bg-green-50 rounded border border-green-200">
-                        <p className="text-green-700 text-sm">
-                          ✅ Linked to user account
-                          <br />
-                          User: {selectedRequest.user.firstName} {selectedRequest.user.lastName} ({selectedRequest.user.email})
-                        </p>
-                      </div>
-                    </div>
-                  )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-500">Customer Name</Label>
+                  <p className="font-medium">
+                    {selectedRequest.customerDisplayName || selectedRequest.customerName || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Email</Label>
+                  <p className="font-medium">
+                    {selectedRequest.customerDisplayEmail || selectedRequest.customerEmail || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Phone</Label>
+                  <p className="font-medium">{selectedRequest.phoneNumber}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">User Type</Label>
+                  <Badge variant="outline">
+                    {selectedRequest.userType === 'logged' ? <UserCheck className="h-3 w-3 mr-1" /> : <UserX className="h-3 w-3 mr-1" />}
+                    {selectedRequest.userType}
+                  </Badge>
                 </div>
               </div>
 
               {/* Design Details */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Palette className="h-5 w-5" />
-                  Design Requirements
-                </h3>
-                
-                <DesignDetailsDisplay designDescription={selectedRequest.designDescription} />
-                
-                <details className="mt-4">
-                  <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-900">
-                    View Full Description
-                  </summary>
-                  <div className="mt-2 p-3 bg-gray-50 rounded border text-sm whitespace-pre-line">
+                <div>
+                  <Label className="font-medium">Design Description:</Label>
+                  <div className="mt-1 p-3 bg-gray-50 rounded border text-sm">
                     {selectedRequest.designDescription}
                   </div>
-                </details>
+                </div>
+                {selectedRequest.colorDescription && (
+                  <div>
+                    <Label className="font-medium">Color Preferences:</Label>
+                    <div className="mt-1 p-3 bg-gray-50 rounded border text-sm">
+                      {selectedRequest.colorDescription}
+                    </div>
+                  </div>
+                )}
+                {selectedRequest.fabricPreference && (
+                  <div>
+                    <Label className="font-medium">Fabric Preference:</Label>
+                    <div className="mt-1 p-3 bg-gray-50 rounded border text-sm">
+                      {selectedRequest.fabricPreference}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Reference Image */}
               {selectedRequest.imageUrl && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <ImageIcon className="h-5 w-5" />
-                    Reference Image
-                  </h3>
-                  <div className="relative rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-50">
-                    <img
-                      src={selectedRequest.imageUrl}
-                      alt="Design reference"
-                      className="w-full h-auto max-h-96 object-contain"
+                <div>
+                  <Label className="font-medium">Reference Image:</Label>
+                  <div className="mt-2">
+                    <img 
+                      src={selectedRequest.imageUrl} 
+                      alt="Design reference" 
+                      className="max-w-md rounded border"
                     />
                   </div>
-                  {selectedRequest.imageName && (
-                    <p className="text-xs text-gray-500">
-                      Filename: {selectedRequest.imageName}
-                    </p>
-                  )}
-                  
-                    href={selectedRequest.imageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Open in New Tab
-                  </a>
                 </div>
               )}
 
               {/* Measurements */}
               {selectedRequest.measurementData && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Ruler className="h-5 w-5" />
-                    Body Measurements
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {Object.entries(selectedRequest.measurementData as Record<string, any>).map(([key, value]) => {
-                      if (key === 'providedByCustomer') return null;
-                      return (
-                        <div key={key} className="bg-blue-50 p-3 rounded border border-blue-200">
-                          <Label className="text-xs text-blue-700 capitalize font-medium">
-                            {key.replace(/([A-Z])/g, ' $1').trim()}:
-                          </Label>
-                          <p className="text-sm font-semibold text-blue-900 mt-1">{value || 'Not provided'}</p>
-                        </div>
-                      );
-                    })}
+                <div>
+                  <Label className="font-medium">Measurements:</Label>
+                  <div className="mt-2 p-3 bg-gray-50 rounded border">
+                    <pre className="text-sm">
+                      {JSON.stringify(selectedRequest.measurementData, null, 2)}
+                    </pre>
                   </div>
-                  {(selectedRequest.measurementData as any).providedByCustomer && (
-                    <p className="text-xs text-gray-500 italic">
-                      * Customer will provide measurements separately
-                    </p>
-                  )}
                 </div>
               )}
 
-          {/* Request Status & Notes */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Request Status</h3>
-                <div className="grid grid-cols-2 gap-4">
+              {/* Status Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-500">Status</Label>
+                  <Badge className={statusColors[selectedRequest.status]}>
+                    {selectedRequest.status}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Priority</Label>
+                  <Badge className={priorityColors[selectedRequest.priority]}>
+                    {selectedRequest.priority}
+                  </Badge>
+                </div>
+                {selectedRequest.estimatedPrice && (
                   <div>
-                    <Label className="font-medium">Status:</Label>
-                    <div className="mt-1">
-                      <Badge className={statusColors[selectedRequest.status]}>
-                        {selectedRequest.status.replace('_', ' ').toUpperCase()}
-                      </Badge>
-                    </div>
+                    <Label className="text-gray-500">Estimated Price</Label>
+                    <p className="font-medium">₹{selectedRequest.estimatedPrice.toLocaleString()}</p>
                   </div>
-                  <div>
-                    <Label className="font-medium">Priority:</Label>
-                    <div className="mt-1">
-                      <Badge className={priorityColors[selectedRequest.priority]}>
-                        {selectedRequest.priority.toUpperCase()}
-                      </Badge>
-                    </div>
-                  </div>
-                  {selectedRequest.estimatedPrice && (
-                    <div>
-                      <Label className="font-medium">Estimated Price:</Label>
-                      <p className="mt-1 text-lg font-semibold">₹{selectedRequest.estimatedPrice}</p>
-                    </div>
-                  )}
-                  <div>
-                    <Label className="font-medium">Submitted:</Label>
-                    <p className="mt-1 text-sm">
-                      {new Date(selectedRequest.createdAt).toLocaleString()}
-                    </p>
+                )}
+                <div>
+                  <Label className="text-gray-500">Created</Label>
+                  <p className="text-sm">{new Date(selectedRequest.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Admin Notes */}
+              {selectedRequest.adminNotes && (
+                <div>
+                  <Label className="font-medium">Admin Notes:</Label>
+                  <div className="mt-1 p-3 bg-yellow-50 rounded border text-sm">
+                    {selectedRequest.adminNotes}
                   </div>
                 </div>
-                {selectedRequest.adminNotes && (
-                  <div>
-                    <Label className="font-medium">Admin Notes:</Label>
-                    <div className="mt-1 p-3 bg-yellow-50 rounded border border-yellow-200 text-sm">
-                      {selectedRequest.adminNotes}
-                    </div>
+              )}
+
+              {/* Additional Notes */}
+              {selectedRequest.notes && (
+                <div>
+                  <Label className="font-medium">Additional Notes:</Label>
+                  <div className="mt-1 p-3 bg-gray-50 rounded border text-sm">
+                    {selectedRequest.notes}
                   </div>
-                )}
-                {selectedRequest.notes && (
-                  <div>
-                    <Label className="font-medium">Additional Notes:</Label>
-                    <div className="mt-1 p-3 bg-gray-50 rounded border text-sm">
-                      {selectedRequest.notes}
-                    </div>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -857,9 +737,9 @@ export default function CustomDesignsPage() {
               <Label>Estimated Price (₹)</Label>
               <Input
                 type="number"
+                placeholder="Enter estimated price"
                 value={estimatedPrice}
                 onChange={(e) => setEstimatedPrice(e.target.value)}
-                placeholder="Enter estimated price"
               />
             </div>
 
@@ -867,9 +747,9 @@ export default function CustomDesignsPage() {
             <div>
               <Label>Admin Notes</Label>
               <Textarea
+                placeholder="Add internal notes about this request..."
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
-                placeholder="Add internal notes..."
                 rows={4}
               />
             </div>
@@ -881,101 +761,9 @@ export default function CustomDesignsPage() {
                 checked={sendStatusEmail}
                 onCheckedChange={(checked) => setSendStatusEmail(checked as boolean)}
               />
-              <label
-                htmlFor="sendEmail"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
+              <Label htmlFor="sendEmail" className="cursor-pointer">
                 Send status update email to customer
-              </label>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsUpdateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateRequest}>
-              Update Request
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      {/* Update Request Dialog */}
-      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Update Request</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Status */}
-            <div>
-              <Label>Status</Label>
-              <Select value={updateStatus} onValueChange={setUpdateStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="contacted">Contacted</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Priority */}
-            <div>
-              <Label>Priority</Label>
-              <Select value={updatePriority} onValueChange={setUpdatePriority}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Estimated Price */}
-            <div>
-              <Label>Estimated Price (₹)</Label>
-              <Input
-                type="number"
-                value={estimatedPrice}
-                onChange={(e) => setEstimatedPrice(e.target.value)}
-                placeholder="Enter estimated price"
-              />
-            </div>
-
-            {/* Admin Notes */}
-            <div>
-              <Label>Admin Notes</Label>
-              <Textarea
-                value={adminNotes}
-                onChange={(e) => setAdminNotes(e.target.value)}
-                placeholder="Add internal notes..."
-                rows={4}
-              />
-            </div>
-
-            {/* Send Email Checkbox */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="sendEmail"
-                checked={sendStatusEmail}
-                onCheckedChange={(checked) => setSendStatusEmail(checked as boolean)}
-              />
-              <label
-                htmlFor="sendEmail"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Send status update email to customer
-              </label>
+              </Label>
             </div>
           </div>
 

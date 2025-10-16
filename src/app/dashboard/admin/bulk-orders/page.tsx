@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -157,6 +158,12 @@ export default function BulkOrdersPage() {
         throw new Error(data.error || data.details || `HTTP ${response.status}`);
       }
       
+      // Auto-refresh every 30 seconds
+useAutoRefresh({
+  refreshInterval: 30000,
+  enabled: true,
+  onRefresh: fetchRequests,
+});
       setRequests(data.requests || []);
       setTotalPages(data.pagination?.pages || 1);
       setTotalCount(data.pagination?.total || 0);
