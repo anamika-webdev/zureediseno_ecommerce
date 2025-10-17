@@ -87,17 +87,13 @@ export async function GET(request: NextRequest) {
       console.log('⚠️ No products found with filters:', { category, subcategory });
       
       // Check if products exist without subcategory filter
-      if (subcategory && category) {
+      if (subcategory) {
         const categoryOnly = await prisma.product.findMany({
           where: {
             category: { slug: category }
           },
           include: {
-            subcategory: {
-              select: {
-                slug: true
-              }
-            }
+            subcategory: true
           },
           take: 5
         });

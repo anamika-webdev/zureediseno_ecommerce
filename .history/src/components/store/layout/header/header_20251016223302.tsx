@@ -319,11 +319,11 @@ const Header = () => {
                           </Link>
                         </DropdownMenuItem>
                         
-                        {/* Show subcategories but redirect to category page */}
+                        {/* Show subcategories (limit to 5 to prevent overflow) */}
                         {category.subcategories.slice(0, 5).map((subcategory) => (
                           <DropdownMenuItem key={subcategory.id} asChild>
                             <Link 
-                              href={`/shop?category=${category.slug}`} 
+                              href={`/shop?category=${category.slug}&subcategory=${subcategory.slug}`} 
                               className="w-full pl-4 text-sm text-gray-600 dark:text-gray-300 hover:text-zuree-red"
                             >
                               {subcategory.name}
@@ -419,13 +419,13 @@ const Header = () => {
                             {category.name}
                           </Link>
                           
-                          {/* Mobile Subcategories - redirect to category page */}
+                          {/* Mobile Subcategories */}
                           {category.subcategories.length > 0 && (
                             <div className="pl-4 space-y-1">
                               {category.subcategories.slice(0, 3).map((subcategory) => (
                                 <Link 
                                   key={subcategory.id}
-                                  href={`/shop?category=${category.slug}`} 
+                                  href={`/shop?category=${category.slug}&subcategory=${subcategory.slug}`} 
                                   className="text-xs text-gray-600 dark:text-gray-300 hover:text-zuree-red transition-colors block py-1"
                                   onClick={closeMobileMenu}
                                 >

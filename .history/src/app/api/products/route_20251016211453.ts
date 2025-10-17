@@ -1,4 +1,4 @@
-// src/app/api/products/route.ts - Fixed with proper response format
+// src/app/api/products/route.ts - Fixed to use Prisma
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -32,8 +32,6 @@ export async function GET(request: NextRequest) {
       where.featured = true;
     }
 
-    console.log('Where clause:', JSON.stringify(where, null, 2));
-
     // Fetch products with all related data
     const products = await prisma.product.findMany({
       where,
@@ -54,16 +52,14 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            slug: true,
-            description: true
+            slug: true
           }
         },
         subcategory: {
           select: {
             id: true,
             name: true,
-            slug: true,
-            description: true
+            slug: true
           }
         }
       },
@@ -75,39 +71,6 @@ export async function GET(request: NextRequest) {
     });
 
     console.log('📦 Found products:', products.length);
-    
-    // Log first product details for debugging
-    if (products.length > 0) {
-      console.log('Sample product:', {
-        name: products[0].name,
-        category: products[0].category?.name,
-        subcategory: products[0].subcategory?.name || 'NO SUBCATEGORY'
-      });
-    } else {
-      console.log('⚠️ No products found with filters:', { category, subcategory });
-      
-      // Check if products exist without subcategory filter
-      if (subcategory && category) {
-        const categoryOnly = await prisma.product.findMany({
-          where: {
-            category: { slug: category }
-          },
-          include: {
-            subcategory: {
-              select: {
-                slug: true
-              }
-            }
-          },
-          take: 5
-        });
-        
-        console.log('Products in category (without subcategory filter):', categoryOnly.length);
-        if (categoryOnly.length > 0) {
-          console.log('Sample subcategories:', categoryOnly.map(p => p.subcategory?.slug || 'null'));
-        }
-      }
-    }
 
     // Transform the data to match frontend expectations
     const transformedProducts = products.map(product => ({
@@ -138,14 +101,12 @@ export async function GET(request: NextRequest) {
       category: product.category ? {
         id: product.category.id,
         name: product.category.name,
-        slug: product.category.slug,
-        description: product.category.description
+        slug: product.category.slug
       } : null,
       subcategory: product.subcategory ? {
         id: product.subcategory.id,
         name: product.subcategory.name,
-        slug: product.subcategory.slug,
-        description: product.subcategory.description
+        slug: product.subcategory.slug
       } : null,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt
@@ -153,13 +114,10 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Transformed products for frontend');
 
-    // IMPORTANT: Return format that matches what shop page expects
     return NextResponse.json({
+      success: true,
       products: transformedProducts,
-      category: products.length > 0 ? products[0].category : null,
-      subcategory: products.length > 0 ? products[0].subcategory : null,
-      total: transformedProducts.length,
-      success: true
+      total: transformedProducts.length
     });
 
   } catch (error) {
@@ -169,9 +127,7 @@ export async function GET(request: NextRequest) {
       { 
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error',
-        message: 'Failed to fetch products from database',
-        products: [],
-        total: 0
+        message: 'Failed to fetch products from database'
       },
       { status: 500 }
     );
