@@ -40,8 +40,8 @@ export default function TrackOrderPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-medium">Phone:</span>
-                  <a href="tel:+91 97114 11526" className="text-blue-600 hover:underline">
-                    +91 97114 11526
+                  <a href="tel:+919876543210" className="text-blue-600 hover:underline">
+                    +91 98765 43210
                   </a>
                 </div>
               </div>

@@ -221,7 +221,7 @@ function OrderSuccessContent() {
             </div>
             <div className="mt-4 text-xs text-gray-500">
               <p>Email: support@zureediseno.com</p>
-              <p>Phone: +91 97114 11526</p>
+              <p>Phone: +91 9876543210</p>
               <p>Hours: Monday - Friday, 9 AM - 6 PM IST</p>
             </div>
           </CardContent>

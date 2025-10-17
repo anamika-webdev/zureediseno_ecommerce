@@ -122,7 +122,7 @@ const Footer = () => {
                         <h2 className="text-xl font-bold mb-4 text-gray-900">Terms and Conditions</h2>
                         <p className="text-gray-700 leading-relaxed mb-4">
                           Welcome to Zuree Diseno. These Terms and Conditions govern your use of our website 
-                          Zureediseno.com and our services, including the purchase of clothing and use of our 
+                          Zureeglobal.com and our services, including the purchase of clothing and use of our 
                           custom design build option. By accessing or using our website, you agree to be bound 
                           by these terms, as well as all applicable Indian laws, including the Consumer Protection 
                           Act, 2019, and Consumer Protection (E-Commerce) Rules, 2020.
@@ -171,7 +171,7 @@ const Footer = () => {
                           <li>Payments must be made through approved payment methods (e.g., credit/debit cards, UPI, net banking).</li>
                           <li>All prices are inclusive of applicable taxes unless otherwise stated.</li>
                           <li>For custom designs, you must provide accurate measurements and specifications. We are not responsible for errors in customer-provided data.</li>
-                          <li>Once your order is confirmed, you will receive updates regarding your order status via email from our team at info@zureediseno.com.
+                          <li>Once your order is confirmed, you will receive updates regarding your order status via email from our team at info@zureeglobal.com.
                           Products will typically be delivered within 3–7 business days from the date of dispatch. 
 Delivery timelines may vary based on your location and availability of the product.</li>
                         </ul>
@@ -231,7 +231,7 @@ Delivery timelines may vary based on your location and availability of the produ
                         
                         <h3 className="text-lg font-semibold mb-3">Cancellation Policy</h3>
                         <ul className="list-disc list-inside space-y-1 text-gray-700 ml-4 mb-4">
-                          <li><strong>Before Shipment:</strong> You may cancel your order (standard or custom-designed) before it is dispatched by contacting us at contact@zureediseno.com. A full refund will be processed within 7 business days to your original payment method.</li>
+                          <li><strong>Before Shipment:</strong> You may cancel your order (standard or custom-designed) before it is dispatched by contacting us at contact@zureeglobal.com. A full refund will be processed within 7 business days to your original payment method.</li>
                           <li><strong>After Shipment:</strong> Once an order is dispatched, cancellation is not possible. However, you may request a return or refund as per the conditions below.</li>
                           <li><strong>Custom Design Orders:</strong>Cancellation for custom orders is only allowed before production begins. Once production starts, cancellations are not permitted due to the personalized nature of the product.</li>
                         </ul>
@@ -255,7 +255,7 @@ Delivery timelines may vary based on your location and availability of the produ
                           If you have any questions about these terms, please contact us:
                         </p>
                         <div className="space-y-1 text-gray-700">
-                          <p>📧 Email: Contact@zureediseno.com</p>
+                          <p>📧 Email: Contact@zureeglobal.com</p>
                           <p>📞 Phone: +91 97114 11526</p>
                           <p>📍 USA: 2320 Ponce De Leon Blvd, Coral Gables, FL 33134</p>
                           <p>📍 India: Plot no. 23, Udyog Vihar Phase 1, Dundahera Village, Sector 20, Gurugram, Haryana 122022</p>
@@ -395,7 +395,7 @@ Delivery timelines may vary based on your location and availability of the produ
                           <li>File a complaint with the Data Protection Board of India if you believe your rights are violated.</li>
                         </ul>
                         <p className="text-gray-700 leading-relaxed mt-3">
-                          To exercise these rights, contact us at <strong>Contact@zureediseno.com</strong>.
+                          To exercise these rights, contact us at <strong>Contact@Zureeglobal.com</strong>.
                         </p>
                       </section>
 
@@ -434,7 +434,7 @@ Delivery timelines may vary based on your location and availability of the produ
                           If you have any questions about this Privacy Policy, please contact us:
                         </p>
                         <div className="space-y-1 text-gray-700">
-                          <p>📧 Email: Contact@zureediseno.com</p>
+                          <p>📧 Email: Contact@zureeglobal.com</p>
                           <p>📞 Phone: +91 97114 11526</p>
                           <p>📍 USA: 2320 Ponce De Leon Blvd, Coral Gables, FL 33134</p>
                           <p>📍 India: Plot no. 23, Udyog Vihar Phase 1, Dundahera Village, Sector 20, Gurugram, Haryana 122022</p>

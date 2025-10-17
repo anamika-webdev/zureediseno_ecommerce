@@ -87,7 +87,7 @@ const TermsAcceptanceModal = () => {
             <div className="space-y-4">
               <p className="leading-relaxed">
                 Welcome to <strong>Zuree Diseno</strong>. These Terms and Conditions govern your use of our website 
-                <strong> Zureeglobal.com</strong> and our services, including the purchase of clothing and use of our 
+                <strong> zureediseno.com</strong> and our services, including the purchase of clothing and use of our 
                 custom design build option. By accessing or using our website, you agree to be bound 
                 by these terms, as well as all applicable Indian laws, including the Consumer Protection 
                 Act, 2019, and Consumer Protection (E-Commerce) Rules, 2020.
@@ -190,8 +190,8 @@ const TermsAcceptanceModal = () => {
               <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
                 <p className="text-sm">
                   <strong>Contact:</strong> For privacy concerns, contact us at{' '}
-                  <a href="mailto:Contact@zureeglobal.com" className="text-blue-600 underline">
-                    Contact@zureeglobal.com
+                  <a href="mailto:Contact@zureediseno.com" className="text-blue-600 underline">
+                    Contact@zureediseno.com
                   </a>
                 </p>
               </div>

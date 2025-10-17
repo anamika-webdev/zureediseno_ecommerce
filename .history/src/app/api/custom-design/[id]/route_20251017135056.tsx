@@ -215,7 +215,7 @@ NEXT STEPS:
 
 NEED TO REACH US?
 📞 Phone: ${updatedRequest.phoneNumber}
-📧 Email: contact@zureediseno.com
+📧 Email: contact@zureeglobal.com
 
 Thank you for choosing Zuree Global for your custom design needs!
 

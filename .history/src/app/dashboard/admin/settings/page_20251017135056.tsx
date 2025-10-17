@@ -83,7 +83,7 @@ export default function SettingsPage() {
     siteDescription: 'Premium E-commerce Platform',
     siteUrl: 'https://zureediseno.com',
     contactEmail: 'contact@zureediseno.com',
-    contactPhone: '+91 97114 11526',
+    contactPhone: '+91 9876543210',
     address: 'Gurugram, Haryana, India',
     currency: 'INR',
     timezone: 'Asia/Kolkata'

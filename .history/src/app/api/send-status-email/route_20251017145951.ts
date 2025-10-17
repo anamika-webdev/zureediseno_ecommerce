@@ -118,7 +118,7 @@ Or use tracking number: ${trackingNumber}
 ` : ''}
 
 If you have any questions or concerns, please don't hesitate to contact us:
-Email: ${process.env.ADMIN_EMAIL || 'contact@zureediseno.com'}
+Email: ${process.env.ADMIN_EMAIL || 'support@zureediseno.com'}
 Phone: +91 97114 11526
 Website: ${process.env.NEXT_PUBLIC_APP_URL}
 

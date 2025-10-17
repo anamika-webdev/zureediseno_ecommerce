@@ -185,7 +185,7 @@ Order Number: ${orderNumber}
 
 If you have any questions, contact us at:
 Email: ${process.env.ADMIN_EMAIL || 'support@zureediseno.com'}
-Phone: +91 97114 11526
+Phone: +91 9876543210
 
 Thank you for choosing Zuree Global!
 

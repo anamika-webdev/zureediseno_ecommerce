@@ -184,8 +184,8 @@ ${process.env.NEXT_PUBLIC_APP_URL}/order-tracking
 Order Number: ${orderNumber}
 
 If you have any questions, contact us at:
-Email: ${process.env.ADMIN_EMAIL || 'support@zureediseno.com'}
-Phone: +91 97114 11526
+Email: ${process.env.ADMIN_EMAIL || 'support@zureeglobal.com'}
+Phone: +91 9876543210
 
 Thank you for choosing Zuree Global!
 
