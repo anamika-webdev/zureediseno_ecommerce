@@ -4,8 +4,6 @@ import './globals.css';
 import { ClientAuthProviders } from '@/components/ClientAuthProviders';
 import { ThemeProvider } from '@/components/theme-provider';
 //import { Toaster } from 'react-hot-toast';
-import TermsAcceptanceModal from '@/components/TermsAcceptanceModal';
-
 import { Toaster } from 'sonner';
 
 const inter = Inter({ subsets: ['latin'] });

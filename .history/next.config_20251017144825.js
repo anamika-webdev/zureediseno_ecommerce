@@ -185,7 +185,7 @@ const nextConfig = {
         tls: false,
       };
     }
-     unoptimized: process.env.NODE_ENV === 'development',
+    
     // Add global polyfill for 'self'
     config.plugins.push(
       new (require('webpack')).DefinePlugin({

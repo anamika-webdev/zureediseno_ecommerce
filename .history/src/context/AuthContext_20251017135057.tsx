@@ -75,8 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!response.ok) {
       throw new Error(data.message || 'Login failed')
     }
-localStorage.removeItem('termsAccepted')
-setUser(data.user)
+
     const userData = {
       ...data.user,
       name: data.user.name || `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim()
